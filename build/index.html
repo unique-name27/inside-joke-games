@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Build your game — Inside Joke Games</title>
-<meta name="description" content="Build your own tiny personalized game, right here — see it play instantly, or make it permanent for five dollars.">
+<meta name="description" content="Build a game about your own group in about five minutes -- your names, your stories, your catchphrase. Play it instantly, free.">
 <meta name="theme-color" content="#141428">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Build your game — Inside Joke Games">
-<meta property="og:description" content="Your names, your stories, your catchphrase — a playable game link in minutes, free.">
+<meta property="og:description" content="Your names, your stories, your catchphrase -- a playable game link in minutes, free.">
 <meta property="og:url" content="https://unique-name27.github.io/inside-joke-games/build/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23141428'/%3E%3Ctext x='8' y='12' font-size='9' text-anchor='middle' fill='%23e8b84b' font-family='monospace' font-weight='bold'%3EHA%3C/text%3E%3C/svg%3E">
 <style>
@@ -496,10 +496,10 @@ function initWizard(){
     const el = document.createElement('div');
     el.innerHTML =
       '<h2>Your group</h2>' +
-      '<p class="step-sub">Just the essentials -- who’s hosting, and who else is at the table.</p>' +
-      '<div class="field"><label for="fHost">Host’s name <span class="opt">(you -- the one the player plays)</span></label>' +
+      '<p class="step-sub">Who the player plays as, and anyone else you want in the room.</p>' +
+      '<div class="field"><label for="fHost">Main character’s name <span class="opt">(the one the player plays as)</span></label>' +
       '<input type="text" id="fHost" maxlength="40" placeholder="e.g. Jordan"></div>' +
-      '<div class="field"><label for="fOther">Anyone else at the table who doesn’t fit a role below? <span class="opt">(optional)</span></label>' +
+      '<div class="field"><label for="fOther">Anyone else you want in the room who doesn’t fit a role below? <span class="opt">(optional)</span></label>' +
       '<input type="text" id="fOther" maxlength="40" placeholder="e.g. Casey"></div>';
     stepsContainer.appendChild(el);
     const hostInput = el.querySelector('#fHost');
@@ -556,7 +556,7 @@ function initWizard(){
     const el = document.createElement('div');
     el.innerHTML =
       '<h2>The stories</h2>' +
-      '<p class="step-sub">2-4 real, boring stories from your group. The joke is that they’re ordinary -- keep each line short.</p>';
+      '<p class="step-sub">2-4 ordinary stories your group actually retells -- the trip, the shift, the game, the group chat. The joke is that they’re unremarkable, so don’t polish them. Keep each line short.</p>';
     stepsContainer.appendChild(el);
     const list = document.createElement('div');
     list.id = 'storyList';
@@ -590,7 +590,7 @@ function initWizard(){
       '<div class="role-fields">' +
       '<div class="field"><label for="'+nameId+'">Name</label><input type="text" class="role-name" id="'+nameId+'" maxlength="40" placeholder="e.g. '+role.title.split(' ').pop()+'’s actual name"></div>' +
       '<div class="field"><label for="'+anecId+'">One quick memory or quirk <span class="opt">(optional -- flavor, not literal dialogue)</span></label>' +
-      '<textarea class="role-anec" id="'+anecId+'" rows="2" maxlength="160" placeholder="e.g. Reviews every restaurant before anyone has taken a bite."></textarea></div>' +
+      '<textarea class="role-anec" id="'+anecId+'" rows="2" maxlength="160" placeholder="e.g. Has an opinion about everything, whether or not anyone asked."></textarea></div>' +
       '</div>';
     card.appendChild(iconWrap);
     card.appendChild(body);
@@ -624,7 +624,7 @@ function initWizard(){
     const el = document.createElement('div');
     el.innerHTML =
       '<h2>The vibe</h2>' +
-      '<p class="step-sub">Pick the register that scores your dinner scenes. Tap play to preview.</p>';
+      '<p class="step-sub">Pick the music that plays under your scenes. Tap play to preview.</p>';
     stepsContainer.appendChild(el);
     for(const vibe of VIBE_DEFS){
       const card = document.createElement('div');
@@ -683,7 +683,7 @@ function initWizard(){
     if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim()){
       const missing = document.createElement('div');
       missing.className = 'warning-banner show';
-      missing.textContent = 'Host name, catchphrase, and title are all required -- go back and fill those in.';
+      missing.textContent = 'Main character name, catchphrase, and title are all required -- go back and fill those in.';
       stepsContainer.appendChild(missing);
       return;
     }
