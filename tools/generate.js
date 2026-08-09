@@ -45,7 +45,7 @@ const crypto = require('crypto');
 
 const REPO_ROOT = path.join(__dirname, '..');
 const {
-  cfgBuildDefaultConfig, cfgDeepMerge, cfgEncodeConfigFragment, CFG_VIBE_TRACK_MAP,
+  cfgBuildDefaultConfig, cfgDeepMerge, cfgEncodeConfigFragment, CFG_VIBE_TRACK_MAP, CFG_SCENE_KEYS,
 } = require(path.join(REPO_ROOT, 'game', 'cfgcodec.js'));
 const { verifyConfigSource } = require('./verify-config.js');
 
@@ -150,10 +150,21 @@ function buildOverrides(answers, slug){
   const storiesIn = requireField(answers, 'stories', 'Q2: 2-4 real, boring stories, as an array of strings');
   if(!Array.isArray(storiesIn) || storiesIn.length === 0) throw new GenerateError('answers.stories must be a non-empty array of strings');
 
+  // STORY SKELETONS: optional, defaults to 'dinner' -- see SPEC-skeletons.md
+  // / game/skeletons.js. CFG_SCENE_KEYS (game/cfgcodec.js) is the single
+  // source of truth for the four valid keys, shared with the fragment
+  // schema and the /build/ wizard, so this can never drift out of sync
+  // with what the engine actually knows how to resolve.
+  const scene = answers.scene === undefined || answers.scene === null || answers.scene === '' ? 'dinner' : answers.scene;
+  if(CFG_SCENE_KEYS.indexOf(scene) === -1){
+    throw new GenerateError('answers.scene must be one of: ' + CFG_SCENE_KEYS.join(', ') + ' (got "' + scene + '")');
+  }
+
   const cast = answers.cast || {};
   const anecdotes = answers.anecdotes || {};
   const overrides = {
     gameId: slug,
+    scene: scene,
     lengthPreset: answers.lengthPreset === 'full' ? 'full' : 'five_min',
     title: {
       lockupLines: wrapTitleLines(title, 14, 2),
@@ -264,7 +275,12 @@ function main(){
     slug = slugify(titleForSlug) + '-' + randomSuffix();
     overrides = buildOverrides(answers, slug);
     const spellings = overrides.__spellings; delete overrides.__spellings;
-    const base = cfgBuildDefaultConfig('../../../'); // page-relative root matching games/<slug>/{game,intro}/'s nesting depth (see games/test-group/config.js for the identical convention)
+    // page-relative root matching games/<slug>/{game,intro}/'s nesting depth
+    // (see games/test-group/config.js for the identical convention) --
+    // `overrides.scene` picks up CFG_SCENE_DEFAULTS' text overlay here, same
+    // as the wizard's own assembleConfig/cfgLoadFragmentOverride; overrides
+    // (below) still wins over it for anything answers.json specifies itself.
+    const base = cfgBuildDefaultConfig('../../../', overrides.scene);
     merged = cfgDeepMerge(base, overrides);
     merged = applySpellings(merged, spellings);
 

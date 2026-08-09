@@ -33,6 +33,15 @@ const PAL = {
 };
 const RECORD_MODE = new URLSearchParams(location.search).get('record') === '1';
 
+/* ---------------- story skeleton (scene) resolution -- see game/skeletons.js
+   ----------------
+   Identical mechanism/rationale to game/engine.js's own SKEL resolution --
+   game/skeletons.js is loaded (as ../game/skeletons.js, mirroring this
+   page's existing ../game/config.js load) just before this script. Only
+   Scene 3 (the flashback around the table) reads SKEL -- see drawScene3. */
+const SKEL = (typeof SKELETONS !== 'undefined') ? (SKELETONS[CONFIG.scene] || SKELETONS.dinner) : null;
+const SKEL_HELPERS = { PAL: PAL, drawPixelCircle: drawPixelCircle, drawBitmap: drawBitmap, drawSparkle: drawSparkle, drawChunkyText: drawChunkyText };
+
 /* ---------------- CONFIG-derived helpers (Phase B: template extraction) ----------------
    CONFIG comes from ../game/config.js (same file the game reads -- see the
    "config sharing" note in SPEC-game.md's Template & roles section),
@@ -969,18 +978,6 @@ function drawChefSilhouette(ctx, cx, feetY, t){
     }
   }
 }
-function drawTable(ctx){
-  ctx.fillStyle = PAL.wood; ctx.fillRect(336,246,288,118);
-  ctx.fillStyle = PAL.terracotta; ctx.fillRect(340,250,280,110);
-  drawPixelCircle(ctx,400,272,10,PAL.cream,2);
-  drawPixelCircle(ctx,560,272,10,PAL.cream,2);
-  drawPixelCircle(ctx,400,332,10,PAL.cream,2);
-  drawPixelCircle(ctx,560,332,10,PAL.cream,2);
-  [460,500].forEach(gx=>{
-    ctx.fillStyle = '#7a1f2a'; ctx.fillRect(gx-6,286,12,10);
-    ctx.fillStyle = PAL.wood; ctx.fillRect(gx-1,296,2,10); ctx.fillRect(gx-5,306,10,3);
-  });
-}
 function drawDiner(ctx, col, row, x, y, flip){
   drawTile(ctx, rawTile(imgDungeon,col,row), x-32, y-64, 4, flip);
 }
@@ -1083,7 +1080,7 @@ function drawScene3(ctx, localT, se){
   ctx.fillStyle = '#120c16'; ctx.fillRect(-12,-12,CW+24,CH+24);
   if(assetsReady){
     drawInterior(ctx);
-    drawTable(ctx);
+    SKEL.drawCenterProp(ctx, localT, SKEL_HELPERS);
     drawDiner(ctx,1,7,400,246,false);
     drawDiner(ctx,4,8,560,246,false);
     drawDiner(ctx,3,8,400,440,true);

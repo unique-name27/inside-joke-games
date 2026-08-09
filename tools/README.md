@@ -57,6 +57,7 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
 
 ```jsonc
 {
+  "scene": "dinner",                        // optional, defaults to "dinner" -- "dinner" | "roadtrip" | "office" | "wedding" (see "Story skeletons" in README.md)
   "catchphrase": "FOR FREE?",              // Q1, required
   "stories": ["...", "..."],                // Q2, required — array of 2-4 plain-English sentences, pre-split (one string per story); the generator uppercases + word-wraps each into up to 2 short lines itself
   "title": "The Test Group",                // Q3, required
@@ -90,6 +91,16 @@ one ambient register not already tied to a specific story beat):
 `sad`/`gameover` keep their own beat-specific stock tracks regardless of
 vibe — those are tied to a specific in-story moment, not the group's
 overall register.
+
+`scene` picks one of the four **story skeletons** — THE DINNER PARTY
+(default), THE ROAD TRIP, THE OFFICE PARTY, THE WEDDING WEEKEND — the
+engine's own presentation code for that setting (`game/skeletons.js`):
+different scenery, props, and mechanic-flavor strings around the exact
+same beats and collision geometry. This CLI passes it straight to
+`cfgBuildDefaultConfig(root, scene)`, which fills in that scene's own
+flavor text (intro lines, the lose line, the "worst" rank name) as the
+base every other answer still overrides — no bespoke per-scene wiring
+needed here. See README.md's "Story skeletons" section.
 
 ## What's automated vs. what still needs a human
 

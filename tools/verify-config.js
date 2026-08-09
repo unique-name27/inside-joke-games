@@ -27,6 +27,7 @@ const { buildSandbox } = require('./lib/sandbox');
 const REPO_ROOT = path.join(__dirname, '..');
 const GAME_ENGINE_PATH = path.join(REPO_ROOT, 'game', 'engine.js');
 const CFGCODEC_PATH = path.join(REPO_ROOT, 'game', 'cfgcodec.js');
+const SKELETONS_PATH = path.join(REPO_ROOT, 'game', 'skeletons.js');
 
 /* ---------------------------------------------------------------------
    BASELINE_FORBIDDEN -- "always-on safety words": KCK's own baseline
@@ -104,16 +105,41 @@ function __flags(){
     EPILOGUE_A_ENABLED: EPILOGUE_A_ENABLED, EPILOGUE_B_ENABLED: EPILOGUE_B_ENABLED,
   };
 }
+/* only reachable/meaningful when the sandbox's localStorage was pre-seeded
+   (before script load) with a truthy "<gameId>_beaten" key, which is what
+   makes hasBeatenBefore true and modeSelectPending true at boot -- see
+   tools/verify-skeletons.js's hard-mode playthrough, the one caller of
+   this. Picks SECOND SEATING/hard mode and confirms it, same as a real
+   player choosing row 1 on the mode-select card. */
+function __selectHardMode(){
+  if(typeof modeSelectPending !== 'undefined' && modeSelectPending){
+    modeSelectIndex = 1;
+    confirmModeSelect();
+  }
+}
 `;
 
 /* throws SyntaxError (with a real stack/message) on malformed JS -- callers
    should catch this separately from a "gameplay didn't reach endcard"
-   failure, since a syntax error means the file is fundamentally broken. */
-function loadEngineWithConfig(configSource){
+   failure, since a syntax error means the file is fundamentally broken.
+   game/skeletons.js loads between cfgcodec and the engine, mirroring the
+   real pages' own <script> order (see README.md/SPEC-skeletons.md) --
+   every engine.js now resolves SKEL off SKELETONS at boot, so this harness
+   needs it in scope exactly like a real page does. `opts.beforeRun(sandbox)`,
+   if given, runs AFTER the sandbox is built but BEFORE the combined script
+   executes -- the one hook tools/verify-skeletons.js needs to pre-seed
+   localStorage (sandbox.localStorage is a plain object reference, still
+   mutable from here even after vm.createContext) for its hard-mode
+   playthrough, without this file needing to know anything about hard mode
+   itself. */
+function loadEngineWithConfig(configSource, opts){
+  opts = opts || {};
   const engineSrc = fs.readFileSync(GAME_ENGINE_PATH, 'utf8');
   const cfgcodecSrc = fs.readFileSync(CFGCODEC_PATH, 'utf8');
-  const combined = configSource + '\n' + cfgcodecSrc + '\n' + engineSrc + '\n' + PROBE;
-  const sandbox = buildSandbox({ network: 'fail', currentScriptSrc: 'https://example.test/game/engine.js' });
+  const skeletonsSrc = fs.readFileSync(SKELETONS_PATH, 'utf8');
+  const combined = configSource + '\n' + cfgcodecSrc + '\n' + skeletonsSrc + '\n' + engineSrc + '\n' + PROBE;
+  const sandbox = buildSandbox({ network: 'fail', currentScriptSrc: 'https://example.test/game/engine.js', locationHash: opts.locationHash });
+  if(opts.beforeRun) opts.beforeRun(sandbox);
   const ctx = vm.createContext(sandbox);
   const script = new vm.Script(combined, { filename: 'verify-config-generated.js' });
   script.runInContext(ctx);
@@ -220,7 +246,15 @@ function verifyConfigFile(filePath, opts){
   return verifyConfigSource(src, opts);
 }
 
-module.exports = { verifyConfigSource, verifyConfigFile, toneGateSource, BASELINE_FORBIDDEN };
+module.exports = {
+  verifyConfigSource, verifyConfigFile, toneGateSource, BASELINE_FORBIDDEN,
+  // exposed for tools/verify-skeletons.js -- the scene matrix reuses these
+  // directly (rather than duplicating the vm/PROBE plumbing) for its own
+  // per-scene playthroughs and its hard-mode variant (which needs
+  // loadEngineWithConfig's beforeRun hook to pre-seed localStorage before
+  // the combined script evaluates).
+  loadEngineWithConfig, drivePlaythrough, driveBeat1, tickUntilPhase, driveBeat5,
+};
 
 if(require.main === module){
   const target = process.argv[2];

@@ -250,6 +250,47 @@ function cfgHashString(str){
 }
 
 /* ----------------------------------------------------------------------
+   PART B.0 -- CFG_SCENE_DEFAULTS: the STORY SKELETONS feature's only
+   footprint in this file (see game/skeletons.js for the presentation
+   half -- palettes/draw functions/mechanic-flavor strings -- which this
+   file deliberately has zero dependency on; this table is TEXT ONLY).
+   Keyed by every scene except 'dinner' -- 'dinner' IS
+   cfgBuildDefaultConfig's own unmodified base below, so overlaying
+   anything here for it would be a no-op by construction. Applied via
+   cfgDeepMerge onto the otherwise-standard base (see cfgBuildDefaultConfig
+   below), so a caller's own overrides (a user's own answers, a fragment's
+   own explicit introStory) still win over these -- this table only fills
+   in the "nobody said anything more specific" case.
+   ---------------------------------------------------------------------- */
+var CFG_SCENE_KEYS = ['dinner', 'roadtrip', 'office', 'wedding'];
+var CFG_SCENE_DEFAULTS = {
+  roadtrip: {
+    introStory: {
+      scene1Lines: ['NOT LONG AGO,', '{HOST} TOOK THE CREW ON A DRIVE.', 'THE STORIES THEY TOLD WERE VERY ORDINARY.'],
+      scene2Lines: ['THEY SAY {HOST} IS STILL AT THE WHEEL...', 'LISTENING.'],
+    },
+    loseLine: 'THE TRIP IS RUINED.',
+    rankNames: { worst: 'FRIEND WHO RUINS ROAD TRIPS' },
+  },
+  office: {
+    introStory: {
+      scene1Lines: ['NOT LONG AGO,', '{HOST} THREW A PARTY FOR THE OFFICE.', 'THE STORIES THEY TOLD WERE VERY ORDINARY.'],
+      scene2Lines: ['THEY SAY {HOST} STILL WAITS BY THE PRINTER...', 'LISTENING.'],
+    },
+    loseLine: 'THE PARTY IS RUINED.',
+    rankNames: { worst: 'COWORKER WHO RUINS PARTIES' },
+  },
+  wedding: {
+    introStory: {
+      scene1Lines: ['NOT LONG AGO,', '{HOST} GOT EVERYONE TOGETHER FOR A WEDDING.', 'THE STORIES THEY TOLD WERE VERY ORDINARY.'],
+      scene2Lines: ['THEY SAY {HOST} IS STILL ON THE DANCE FLOOR...', 'LISTENING.'],
+    },
+    loseLine: 'THE RECEPTION IS RUINED.',
+    rankNames: { worst: 'GUEST WHO RUINS WEDDINGS' },
+  },
+};
+
+/* ----------------------------------------------------------------------
    PART B.1 -- CFG_DEFAULT_CONFIG: a neutral, fully-populated base for
    deep-merging a fragment onto. Deliberately NOT Karks Cub Kingdom's own
    branding (that stays the *schema* reference in game/config.js) -- every
@@ -262,10 +303,23 @@ function cfgHashString(str){
    for it. Takes `engineRoot` (the caller's own ENGINE_ROOT) so the stock
    music paths resolve correctly regardless of which page/depth loaded the
    fragment -- returns a FRESH object each call (no shared mutable state).
+
+   `sceneKey` (STORY SKELETONS) is the SECOND, OPTIONAL argument -- default
+   `'dinner'`. For `'dinner'` (omitted, explicit, or any unrecognized/
+   invalid key -- same "fail closed to the safe default" convention as
+   everywhere else this project validates untrusted input) the returned
+   object is BYTE-IDENTICAL to this function's pre-skeletons behavior: no
+   `scene` key is added and CFG_SCENE_DEFAULTS is never consulted, so
+   every existing call site (cfgLoadFragmentOverride's own single-arg
+   calls included) and every old `#cfg=` link keeps regressing perfectly.
+   For a real non-dinner key, the returned object gains `scene: sceneKey`
+   plus CFG_SCENE_DEFAULTS' text overlay, deep-merged on top of the same
+   otherwise-standard base.
    ---------------------------------------------------------------------- */
-function cfgBuildDefaultConfig(engineRoot){
+function cfgBuildDefaultConfig(engineRoot, sceneKey){
   var root = engineRoot || '';
-  return {
+  var scene = (sceneKey && sceneKey !== 'dinner' && Object.prototype.hasOwnProperty.call(CFG_SCENE_DEFAULTS, sceneKey)) ? sceneKey : null;
+  var cfg = {
     gameId: 'shared',
     lengthPreset: 'five_min',
     title: {
@@ -360,6 +414,11 @@ function cfgBuildDefaultConfig(engineRoot){
     },
     loseLine: 'THE NIGHT IS RUINED.',
   };
+  if(scene){
+    cfg.scene = scene;
+    cfg = cfgDeepMerge(cfg, CFG_SCENE_DEFAULTS[scene]);
+  }
+  return cfg;
 }
 
 /* ----------------------------------------------------------------------
@@ -410,6 +469,14 @@ function cfgApplyMusicVibe(mergedConfig, vibeKey, engineRoot){
 
 var CFG_FRAGMENT_SCHEMA = {
   lengthPreset: cfgEnum(['full', 'five_min']),
+  // STORY SKELETONS: enum-only, same "pick a fixed built-in by key, never a
+  // path/URL/free string" shape as musicVibe just below -- see
+  // game/skeletons.js for what a scene key actually resolves to (draw
+  // functions/palettes/strings, entirely engine-shipped, never fragment-
+  // supplied). Absent or not one of these four -> sanitizes to absent, same
+  // as any other unrecognized enum value -- resolved to 'dinner' at the
+  // engine's own SKEL lookup (SKELETONS[CONFIG.scene] || SKELETONS.dinner).
+  scene: cfgEnum(CFG_SCENE_KEYS),
   musicVibe: cfgEnum(Object.keys(CFG_VIBE_TRACK_MAP)),
   title: cfgObj({
     lockupLines: cfgArr(2, cfgStr(14)),
@@ -609,7 +676,12 @@ function cfgLoadFragmentOverride(engineRoot){
     // as invalid and fall back to the file CONFIG, same as a corrupt one.
     if(typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
     var sanitized = cfgSanitizeConfig(parsed);
-    var base = cfgBuildDefaultConfig(engineRoot);
+    // STORY SKELETONS: build the base off the fragment's OWN scene pick (an
+    // absent/invalid one falls back to 'dinner' inside cfgBuildDefaultConfig
+    // itself, same as always) so a roadtrip/office/wedding link gets that
+    // scene's CFG_SCENE_DEFAULTS text for free -- the fragment's own
+    // explicit fields (sanitized, merged on next) still win over it either way.
+    var base = cfgBuildDefaultConfig(engineRoot, sanitized.scene);
     var merged = cfgDeepMerge(base, sanitized);
     cfgApplyMusicVibe(merged, sanitized.musicVibe, engineRoot);
     delete merged.musicVibe; // consumed above -- not a real CONFIG field, don't leave it sitting on the object
@@ -621,7 +693,7 @@ function cfgLoadFragmentOverride(engineRoot){
    tools/generate.js): CONFIG-shaped object -> the exact string to place
    after `#cfg=` (already sanitized through the SAME whitelist a real page
    would apply on load, so what you compress is what actually survives --
-   callers should still show the buyer a real ?/preview to be sure). */
+   callers should still show the user a real preview to be sure). */
 function cfgEncodeConfigFragment(configObj){
   var sanitized = cfgSanitizeConfig(configObj);
   return cfgCompress(JSON.stringify(sanitized));
@@ -641,5 +713,7 @@ if(typeof module !== 'undefined' && module.exports){
     cfgApplyMusicVibe: cfgApplyMusicVibe,
     CFG_VIBE_TRACK_MAP: CFG_VIBE_TRACK_MAP,
     CFG_MAX_FRAGMENT_CHARS: CFG_MAX_FRAGMENT_CHARS,
+    CFG_SCENE_KEYS: CFG_SCENE_KEYS,
+    CFG_SCENE_DEFAULTS: CFG_SCENE_DEFAULTS,
   };
 }

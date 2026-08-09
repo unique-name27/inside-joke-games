@@ -28,6 +28,9 @@ right half for the action button.
 - **`game/config.js`** — Karks Cub Kingdom's own config (config #1). The
   engine plays byte-identically to the original hand-authored build when
   loaded with it.
+- **`game/skeletons.js`** — the four **story skeletons** (settings): THE
+  DINNER PARTY, THE ROAD TRIP, THE OFFICE PARTY, THE WEDDING WEEKEND. See
+  "Story skeletons" below.
 - **`examples/test-group.config.js`** — a second, intentionally different
   config (different cast, three of six roles left uncast, a shorter length
   preset, no uploaded song) proving the template gracefully handles a much
@@ -36,7 +39,7 @@ right half for the action button.
   live worked example of a second game.
 - **`games/<slug>/`** — every order's deployed game lives here, one folder
   per order (see "How games are added").
-- **`build/`** — the self-serve builder website: a six-step wizard that
+- **`build/`** — the self-serve builder website: a seven-step wizard that
   assembles a config in-browser and hands back an instant playable
   `#cfg=` link (see "URL-fragment configs" below).
 - **`INTAKE.md`** — the customer-facing order form content.
@@ -72,7 +75,7 @@ celebration/epilogues/Beat 5), or `techsupport` (skip straight to Beat 5);
 an invalid or missing value falls back to `dinner`. These are debug
 shortcuts and don't respect role-casting the way normal play does — if a
 role's uncast, its `?start=` shortcut just plays with placeholder-free
-content missing, so treat these as dev tools, not buyer-facing links.
+content missing, so treat these as dev tools, not user-facing links.
 
 ## How games are added
 
@@ -103,11 +106,11 @@ references — the Kenney SFX samples and the dungeon tile sheet, shared by
 every game — resolve the same way: `ENGINE_ROOT`, computed once from
 `document.currentScript.src` at the top of each engine file, always points
 back at this repo's real `assets/`/`intro/assets/` folders regardless of
-which page loaded the script. A buyer's own uploaded song is the one
+which page loaded the script. A user's own uploaded song is the one
 per-order asset — see `FULFILLMENT.md`'s "Assets" note for where that
-lives. There's also a THIRD shared file, `game/cfgcodec.js`, loaded right
-alongside `engine.js` on both page types — see "URL-fragment configs"
-below for what it does.
+lives. There are also two more shared files loaded right alongside
+`engine.js` on both page types: `game/cfgcodec.js` (see "URL-fragment
+configs" below) and `game/skeletons.js` (see "Story skeletons" below).
 
 ## The generator (`tools/`)
 
@@ -128,11 +131,11 @@ alternative to its file `config.js` — appended to `/game/` or `/intro/`
 entirely for that visit, no `games/<slug>/` folder required at all. This
 is what makes an "instant link" possible: `tools/generate.js` prints one
 alongside every hosted URL, and the self-serve builder at **`/build/`**
-generates one entirely client-side — a six-step wizard (group, punchline,
-stories, role casting, music vibe, preview & share) that assembles a
-config in the browser, validates it through the same whitelist a real
-link is checked against, and hands back a playable `#cfg=` link on the
-spot. The storefront's "Start your order" leads there.
+generates one entirely client-side — a seven-step wizard (setting, group,
+punchline, stories, role casting, music vibe, preview & share) that
+assembles a config in the browser, validates it through the same
+whitelist a real link is checked against, and hands back a playable
+`#cfg=` link on the spot. The storefront's "Start your order" leads there.
 
 Mechanics, all in `game/cfgcodec.js` (loaded by both engines, and reused
 directly by `tools/generate.js` — see that file's own header comment for
@@ -174,6 +177,40 @@ skipped, and the story still reaches a complete, satisfying ending. That's
 the whole product: `games/test-group/` is the proof, with three of the six
 roles uncast.
 
+## Story skeletons
+
+Every game is also set in one of four **settings** — pick via `CONFIG.scene`
+(`'dinner'` (default) / `'roadtrip'` / `'office'` / `'wedding'`), one field
+alongside everything in the "CONFIG schema" section above. THE DINNER
+PARTY is the original; THE ROAD TRIP, THE OFFICE PARTY, and THE WEDDING
+WEEKEND are the same game re-dressed around a different room.
+
+**The one rule that makes this cheap: skeletons are paint and text, never
+gameplay.** All four settings share the exact same collision geometry —
+the same center-prop rect, the same four seat positions, the same left
+main door, the same elevated boss door, the same top-wall bathroom door,
+the same bottom-right "flavor door" rect + glow center. A skeleton
+(`game/skeletons.js`) only ever supplies a palette, a handful of draw
+functions for that geometry, and a few mechanic-flavor strings (the start
+card, the mode-select title/rows) — it never touches a beat, a timing, a
+collision rect, or the laugh-token/heart/HUD systems, which stay universal
+across every setting. That's also the security invariant: a shared
+`#cfg=` link or a generated `games/<slug>/config.js` can only ever *pick*
+a skeleton by its enum key (`CFG_FRAGMENT_SCHEMA.scene` in
+`game/cfgcodec.js`) — no draw code, asset path, or free string reaches the
+engine through this field.
+
+**Authoring a fifth skeleton:** add a new entry to the `SKELETONS` object
+in `game/skeletons.js` with the same shape as the existing four
+(`palette`, `drawCenterProp`, `drawFlavorDoor`, `drawWallDecor`,
+`projectile.draw`, `throwable.draw`, `strings`) — draw only within the
+fixed geometry above, keep the pixel-rect art in the same economy as the
+existing props (roughly 30 lines per prop), and run every string in it
+through the tone gate. Then: add the key to `CFG_SCENE_KEYS`/
+`CFG_FRAGMENT_SCHEMA.scene` and (optionally) a `CFG_SCENE_DEFAULTS` text
+overlay in `game/cfgcodec.js`, a card to `build/index.html`'s first step,
+and a scene matrix entry in `tools/verify-skeletons.js`.
+
 ## Assets & credits
 
 All sound effects and music are Kenney (kenney.nl) assets under CC0 — see
@@ -189,13 +226,16 @@ image files.
 
 The Karplus-Strong jaw-harp "twang" sound and the SpeechSynthesis-spoken
 punchline/critiques are the only things still fully synthesized/native —
-everything else is a real sample or a real (optionally buyer-uploaded)
+everything else is a real sample or a real (optionally user-uploaded)
 music file.
 
 ## Docs map
 
 - `SPEC-intro.md` / `SPEC-game.md` — full behavioral spec, including the
   `CONFIG` schema and role-degradation map.
+- `SPEC-skeletons.md` — the story skeletons (settings) spec: the
+  paint-and-text rule, the fixed-geometry invariant, and every string
+  authored for the four built-in skeletons.
 - `INTAKE.md` — the order form.
 - `FULFILLMENT.md` — turning an order into a deployed game (now largely
   automated — see "The fast path" at its top).

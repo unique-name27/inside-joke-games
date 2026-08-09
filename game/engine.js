@@ -53,6 +53,25 @@ const PAL = {
   napkin:'#efe6d0', napkinShade:'#cbbf9e', riesling:'#5a8a3c', rieslingDark:'#3a6024'
 };
 
+/* ---------------- story skeleton (scene) resolution -- see game/skeletons.js
+   ----------------
+   game/skeletons.js is loaded as a plain global (SKELETONS) just before this
+   script, same convention as CFG_FRAGMENT/cfgcodec.js above. CONFIG.scene
+   absent/invalid (including every existing config/fragment written before
+   this feature) falls back to 'dinner', so old links and games/<slug>/
+   deployments play byte-identically to today. Skeletons only ever supply
+   draw functions/palettes/strings, never geometry -- see that file's own
+   header comment for the full rule. `SKEL_HELPERS` is the small bag of
+   already-defined drawing primitives skeleton draw functions are handed
+   (function declarations are hoisted, so referencing them here, ahead of
+   their own textual definition further down this file, is safe -- they're
+   only ever CALLED later, never at this line). */
+const SKEL = (typeof SKELETONS !== 'undefined') ? (SKELETONS[CONFIG.scene] || SKELETONS.dinner) : null;
+// safe despite textually preceding their own `function` definitions further
+// down this file -- function declarations (unlike let/const) are hoisted
+// with their full value, not just a temporal-dead-zone binding.
+const SKEL_HELPERS = { PAL: PAL, drawPixelCircle: drawPixelCircle, drawBitmap: drawBitmap, drawSparkle: drawSparkle, drawChunkyText: drawChunkyText };
+
 /* ---------------- CONFIG-derived helpers (Phase B: template extraction) ----------------
    CONFIG comes from config.js (loaded before this script), possibly
    overridden above by a URL fragment. STORAGE_PREFIX keeps different
@@ -372,19 +391,19 @@ function drawHeart(ctx, x, y, cell, fill){
   drawBitmap(ctx, CHIP_ROWS, {'1':baseColor}, x, y, cell);
   drawBitmap(ctx, HA_GLYPH, {'1':glyphColor}, x+cell, y+cell*2, cell);
 }
-/* small green riesling bottle */
-const BOTTLE_ROWS = ['.11.','.11.','1111','1111','1111','1111','1111','1111'];
-const BOTTLE_COLORS = {'1':PAL.riesling};
+/* the thrown/held/pickup "bottle" sprite and the boss's thrown "napkin"
+   sprite are both entirely skeleton-owned art now (SKEL.throwable/
+   SKEL.projectile in game/skeletons.js -- green riesling bottle + crumpled
+   napkin, verbatim, for 'dinner') -- these two wrappers are the ONLY thing
+   every existing call site (drawHeldBottle, drawBottles, drawBottlePickupCue,
+   the HUD icon, drawNapkins) needs to keep working unchanged: physics,
+   shadows, arcs, and pickup/respawn logic are all still entirely the
+   engine's own, untouched. */
 function drawBottle(ctx, x, y, cell){
-  drawBitmap(ctx, BOTTLE_ROWS, BOTTLE_COLORS, x, y, cell);
-  ctx.fillStyle = PAL.rieslingDark;
-  ctx.fillRect(Math.round(x+cell), Math.round(y), 2*cell, cell);
-  ctx.fillStyle = '#dff0e8';
-  ctx.fillRect(Math.round(x+cell), Math.round(y+3*cell), cell, 3*cell); // label glint
+  SKEL.throwable.draw(ctx, x, y, cell, SKEL_HELPERS);
 }
 function drawNapkin(ctx, x, y, r){
-  drawPixelCircle(ctx, x, y, r, PAL.napkin, 2);
-  drawPixelCircle(ctx, x-1, y+1, Math.max(1,r-2), PAL.napkinShade, 2);
+  SKEL.projectile.draw(ctx, x, y, r, SKEL_HELPERS);
 }
 /* THE WIDOWMAKER -- a small black widow spider (Beat 3's thrown item):
    black cephalothorax + larger abdomen (two pixel-circles), a red hourglass
@@ -851,10 +870,14 @@ const PLAYER_SPAWN = {x:840, y:472};
 const BOTTLE_SPAWN = {x:660, y:396};
 
 function drawArena(ctx){
-  // floor everywhere first
+  // floor everywhere first -- reads SKEL.palette.floorA/floorB (a checker
+  // alternation; every skeleton except 'office' sets both to the same
+  // value, so this is visually a single flat tint for them, byte-identical
+  // to today's single-PAL.floor loop for 'dinner')
   for(let x=0;x<CW;x+=64){
     for(let y=0;y<CH;y+=64){
-      drawTile(ctx, tintedSprite(imgDungeon,1,3,PAL.floor), x, y, 4, false);
+      const floorTint = (((x/64)+(y/64))%2===0) ? SKEL.palette.floorA : SKEL.palette.floorB;
+      drawTile(ctx, tintedSprite(imgDungeon,1,3,floorTint), x, y, 4, false);
     }
   }
   // floor seams
@@ -864,12 +887,18 @@ function drawArena(ctx){
   ctx.fillStyle = '#4a3624';
   for(let x=32;x<CW;x+=64){ ctx.fillRect(x,0,1,CH); }
 
-  // top wall
+  // top wall -- reads SKEL.palette.wallTop (== PAL.wall's own value for
+  // 'dinner', so this is byte-identical there)
   for(let x=0;x<CW;x+=64){
-    drawTile(ctx, tintedSprite(imgDungeon,0,0,PAL.wall), x, 0, 4, false);
+    drawTile(ctx, tintedSprite(imgDungeon,0,0,SKEL.palette.wallTop), x, 0, 4, false);
   }
-  ctx.fillStyle = PAL.wall;
+  ctx.fillStyle = SKEL.palette.wallTop;
   ctx.fillRect(0,0,CW,WALL_TOP);
+  // scene-flavored top-wall decor (treeline stars, a city window strip, a
+  // string of lights, ...) -- dinner's is a no-op, so this is a pure
+  // addition for dinner. Drawn before the bathroom door cutout below so
+  // that cutout still paints cleanly over any decor pixels in its span.
+  SKEL.drawWallDecor(ctx, gameT, SKEL_HELPERS);
   // bathroom door cut into the top wall (Epilogue A)
   ctx.fillStyle = '#120c14';
   ctx.fillRect(BATHROOM_DOOR.x, BATHROOM_DOOR.y, BATHROOM_DOOR.w, BATHROOM_DOOR.h);
@@ -888,39 +917,14 @@ function drawArena(ctx){
   ctx.fillRect(LEFT_DOOR.x, LEFT_DOOR.y+LEFT_DOOR.h, LEFT_DOOR.w+6, 6);
 
   // right wall (the boss door pops into existence against this later)
-  ctx.fillStyle = PAL.wall;
+  ctx.fillStyle = SKEL.palette.wallTop;
   ctx.fillRect(CW-WALL_SIDE,0,WALL_SIDE,CH);
 
-  // kitchen doorway: low wall stub + dark gap, bottom-right, where the player
-  // spawns. The light pool is low-alpha stepped bands (like the intro's item-
-  // get spotlight) so it reads as a spill of light, not a solid glow blob --
-  // floor tiles/seams stay visible through it.
-  ctx.fillStyle = PAL.wall;
-  ctx.fillRect(KITCHEN_DOOR.x, KITCHEN_DOOR.y, KITCHEN_DOOR.w, KITCHEN_DOOR.h);
-  const bands = [[200,0.05],[150,0.08],[100,0.12],[60,0.16]];
-  for(const [r,a] of bands){
-    ctx.save(); ctx.globalAlpha = a;
-    drawPixelCircle(ctx, KITCHEN_GLOW.x, KITCHEN_GLOW.y, r, PAL.glowHi, 8);
-    ctx.restore();
-  }
-  ctx.fillStyle = '#120c14';
-  ctx.fillRect(KITCHEN_DOOR.gapX, KITCHEN_DOOR.y, KITCHEN_DOOR.gapW, KITCHEN_DOOR.h);
-  ctx.fillStyle = PAL.wood;
-  ctx.fillRect(KITCHEN_DOOR.gapX-4, KITCHEN_DOOR.y, 4, KITCHEN_DOOR.h);
-  ctx.fillRect(KITCHEN_DOOR.gapX+KITCHEN_DOOR.gapW, KITCHEN_DOOR.y, 4, KITCHEN_DOOR.h);
-}
-
-function drawTableAndProps(ctx){
-  ctx.fillStyle = PAL.wood; ctx.fillRect(TABLE.x, TABLE.y, TABLE.w, TABLE.h);
-  ctx.fillStyle = PAL.terracotta; ctx.fillRect(TABLE.x+4, TABLE.y+4, TABLE.w-8, TABLE.h-8);
-  drawPixelCircle(ctx, 400, 272, 10, PAL.cream, 2);
-  drawPixelCircle(ctx, 560, 272, 10, PAL.cream, 2);
-  drawPixelCircle(ctx, 400, 332, 10, PAL.cream, 2);
-  drawPixelCircle(ctx, 560, 332, 10, PAL.cream, 2);
-  [460,500].forEach(gx=>{
-    ctx.fillStyle = '#7a1f2a'; ctx.fillRect(gx-6,286,12,10);
-    ctx.fillStyle = PAL.wood; ctx.fillRect(gx-1,296,2,10); ctx.fillRect(gx-5,306,10,3);
-  });
+  // kitchen doorway (the bottom-right "flavor door"): geometry (KITCHEN_DOOR/
+  // KITCHEN_GLOW) stays the engine's own; the drawing is entirely the
+  // skeleton's (today's low wall stub + warm-glow bands + dark gap + wood
+  // frame, for 'dinner' -- verbatim, so this is byte-identical).
+  SKEL.drawFlavorDoor(ctx, gameT, SKEL_HELPERS);
 }
 
 /* the 4 seated diners -- same picks/positions as the intro's dinner vignette.
@@ -3321,7 +3325,7 @@ function drawBaseScene(ctx){
   // blank canvas -- see rawTile/tintedSprite), but there's still no reason to
   // draw a guaranteed-blank sprite for the one or two frames before load.
   if(assetsReady) drawArena(ctx);
-  drawTableAndProps(ctx);
+  SKEL.drawCenterProp(ctx, gameT, SKEL_HELPERS);
   if(assetsReady){
     for(const d of diners){
       if(d.walking || d.retired) continue;
@@ -3869,7 +3873,7 @@ function drawPhaseEndcard(ctx){
   }
   if(phaseData.hardCleared){
     y += 6;
-    drawReadingText(ctx, 'SECOND SEATING CLEARED', CW/2, y, 18, PAL.gold, 'center'); y += 34;
+    drawReadingText(ctx, SKEL.strings.hardClearedLine, CW/2, y, 18, PAL.gold, 'center'); y += 34;
   }
   y += 14;
   drawReadingText(ctx, phaseData.rank, CW/2, y, 24, PAL.gold, 'center');
@@ -3877,7 +3881,7 @@ function drawPhaseEndcard(ctx){
   if(!phaseData.wasBeatenBefore){
     // first-ever unlock -- shown prominently
     drawChunkyText(ctx, 'HARD MODE UNLOCKED', CW/2, y, 18, PAL.gold, PAL.outline, 'center'); y += 30;
-    drawReadingText(ctx, 'SECOND SEATING AWAITS AT THE START', CW/2, y, 14, PAL.cream, 'center'); y += 34;
+    drawReadingText(ctx, SKEL.strings.hardUnlockLine, CW/2, y, 14, PAL.cream, 'center'); y += 34;
   } else {
     // already unlocked -- small corner note instead of taking over the card
     drawReadingText(ctx, 'HARD MODE UNLOCKED', CW-10, 10, 11, PAL.cream, 'right');
@@ -3980,7 +3984,7 @@ function draw(){
    config that omits an uncast role's content bucket entirely (as the
    test-group example config does), so they're conditional here too. */
 const CARDS = {
-  start: { key:'start', title:'DINNER IS SERVED', body:['THE GUYS TELL THEIR STORIES.','WAIT FOR THE LAST WORD...','THEN HIT SPACE.',"DON'T LET THE LAUGHTER DIE."] },
+  start: { key:'start', title:SKEL.strings.startCardTitle, body:SKEL.strings.startCardBody },
   capture: { key:'capture', title:'CATCH THE LAUGHS!', body:['THE TABLE IS LOSING IT.','RUN AROUND AND SOAK UP EVERY HA.'] },
 };
 if(JUDGE_CAST) CARDS.boss = { key:'boss', title:CONFIG.judge.title, body:CONFIG.judge.cardBody };
@@ -4023,8 +4027,8 @@ function drawCardOverlay(ctx){
    tutorial cards (see frame()), but has its own input handling (arrow keys/
    WASD/d-pad move the highlight, Space/A confirms) instead of "any key dismisses". */
 const MODE_SELECT_ROWS = [
-  'FIRST SEATING  --  A NICE DINNER',
-  'SECOND SEATING  --  MUCH HARDER. YOU CAN LOSE.'
+  SKEL.strings.modeRowNormal,
+  SKEL.strings.modeRowHard
 ];
 const MODE_SELECT_W = 620, MODE_SELECT_H = 210;
 /* shared by draw and touch hit-testing so the two can never drift apart */
@@ -4043,7 +4047,7 @@ function drawModeSelectOverlay(ctx){
   const x = CW/2-w/2, y = CH/2-h/2;
   ctx.fillStyle = PAL.cream; ctx.fillRect(x-4,y-4,w+8,h+8);
   ctx.fillStyle = '#1a1410'; ctx.fillRect(x,y,w,h);
-  drawChunkyText(ctx, 'CHOOSE YOUR SEATING', CW/2, y+20, 20, PAL.gold, PAL.outline, 'center');
+  drawChunkyText(ctx, SKEL.strings.modeSelectTitle, CW/2, y+20, 20, PAL.gold, PAL.outline, 'center');
   for(let i=0;i<MODE_SELECT_ROWS.length;i++){
     const selected = modeSelectIndex===i;
     const r = modeSelectRowRect(i);

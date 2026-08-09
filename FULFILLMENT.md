@@ -29,13 +29,14 @@ rather than the CLI's generic-but-complete template lines).
 
 ## 0. Before you start
 
-You need: the buyer's intake response (from the Google Form / response
+You need: the user's intake response (from the Google Form / response
 sheet), and a repo checkout with `node` available for the harness. Nothing
 else — no build step, no npm install.
 
 ## 1. Read the intake response
 
-Pull the buyer's answers for all 10 questions (see `INTAKE.md`). Note
+Pull the user's answers for all 11 questions (see `INTAKE.md`). Note which
+setting they picked (Q1 — defaults to THE DINNER PARTY if unanswered) and
 which of the five optional roles (Critic/Boss/Savior/Butterfingers/Builder)
 they actually cast — anything left blank is skipped, not defaulted.
 
@@ -60,14 +61,14 @@ If something is borderline but fixable (an anecdote that's a little sharp,
 a catchphrase that needs softening), it's fine to soften it yourself during
 config-mapping (step 3) rather than declining outright — use judgment, and
 say so in your delivery note if you changed anything. If you're declining,
-reply to the buyer directly (outside this repo) rather than deploying
+reply to the user directly (outside this repo) rather than deploying
 anything; there's nothing further to do here.
 
 ## 3. Map answers to a new config
 
 Every order gets its own `games/<slug>/config.js`, where `<slug>` is a
 short, URL-safe, hard-to-guess identifier for the order (first names +
-a few random characters is enough — see "Privacy" below; not the buyer's
+a few random characters is enough — see "Privacy" below; not the user's
 literal name or email).
 
 Use `game/config.js` (KCK, config #1) as the schema reference and
@@ -77,16 +78,26 @@ point, then fill in every field from the intake answers:
 
 | Intake answer | Config field |
 |---|---|
-| Q1 catchphrase | `punchline` |
-| Q2 stories | `stories[]` (each `{lines:[...]}`, 1-2 lines each, ALL CAPS to match the game's chunky-text style) |
-| Q3 title | `title.lockupLines` (short — see "Title font" below), `title.introPageTitle`, `title.gamePageTitle` |
-| Q4 host | `host.name`, and `cast.diner0`/etc. sprite picks as you see fit |
-| Q5 role casting | `cast.judge` / `cast.authority` / `cast.savior` / `cast.butterfingers` / `cast.builder` — `null` for any left blank in Q5. **Every uncast role's own content bucket (`CONFIG.judge`, `CONFIG.authority`, etc.) can be omitted from the file entirely** — nothing reads it once the role is uncast (this is exactly what `examples/test-group.config.js` demonstrates: JUDGE uncast, and `CONFIG.judge`/`authority`/`savior` simply don't exist in that file). Only write content buckets for roles Q5 actually cast. |
-| Q6 anecdotes | each cast role's `anecdote` field, and inform the flavor of that role's written lines (see below) |
-| Q7 music | `music.customSongPath` (buyer's uploaded file, copied into `games/<slug>/assets/` — see "Assets" below) **or** `null` + pick one `music.loops` entry to lean on (see the vibe → loop-key mapping below) |
-| Q8 spellings | apply throughout — every name that appears in any line |
-| Q9 off-limits | append to `forbiddenWords` (in addition to the baseline `['COIN','BILL','COST','NOTHING']` — KCK's own instance of the rule; keep that baseline unless an order specifically needs it changed) |
-| Q10 email | not part of the config — just your delivery contact |
+| Q1 setting | `scene` — `'dinner'` (default) / `'roadtrip'` / `'office'` / `'wedding'`. See "Story skeletons" below — this is the one field on this whole page you never hand-write dialogue for. |
+| Q2 catchphrase | `punchline` |
+| Q3 stories | `stories[]` (each `{lines:[...]}`, 1-2 lines each, ALL CAPS to match the game's chunky-text style) |
+| Q4 title | `title.lockupLines` (short — see "Title font" below), `title.introPageTitle`, `title.gamePageTitle` |
+| Q5 host | `host.name`, and `cast.diner0`/etc. sprite picks as you see fit |
+| Q6 role casting | `cast.judge` / `cast.authority` / `cast.savior` / `cast.butterfingers` / `cast.builder` — `null` for any left blank in Q6. **Every uncast role's own content bucket (`CONFIG.judge`, `CONFIG.authority`, etc.) can be omitted from the file entirely** — nothing reads it once the role is uncast (this is exactly what `examples/test-group.config.js` demonstrates: JUDGE uncast, and `CONFIG.judge`/`authority`/`savior` simply don't exist in that file). Only write content buckets for roles Q6 actually cast. |
+| Q7 anecdotes | each cast role's `anecdote` field, and inform the flavor of that role's written lines (see below) |
+| Q8 music | `music.customSongPath` (user's uploaded file, copied into `games/<slug>/assets/` — see "Assets" below) **or** `null` + pick one `music.loops` entry to lean on (see the vibe → loop-key mapping below) |
+| Q9 spellings | apply throughout — every name that appears in any line |
+| Q10 off-limits | append to `forbiddenWords` (in addition to the baseline `['COIN','BILL','COST','NOTHING']` — KCK's own instance of the rule; keep that baseline unless an order specifically needs it changed) |
+| Q11 email | not part of the config — just your delivery contact |
+
+**Story skeletons (Q1).** `scene` picks which of the four settings' arena,
+props, and mechanic-flavor strings (`game/skeletons.js`) dress the game —
+the beats, collision geometry, and every OTHER content field in this table
+are identical regardless of which one is picked. Every skeleton's own
+strings (start card, mode-select) already ship pre-cleared for tone —
+**you never hand-edit `game/skeletons.js` per order**; if `tools/generate.js`
+built the config, it already validated `scene` against the four allowed
+keys and refused to write the file on an unrecognized value.
 
 **Writing the actual dialogue.** Every cast role needs its content bucket's
 lines written out in full (see `game/config.js` for the complete field list
@@ -96,14 +107,14 @@ per role: `judge.critiqueLines`/`duckLines`/`hitLines`/`cardBody`/
 `cardBody`, `savior.line1`/`line2`/`sincereLine`, `butterfingers.*`,
 `builder.*`). This is genuinely hand-written per order, not templated —
 that's the point of the product. Keep the tone matching KCK's own (deadpan,
-ALL CAPS, short lines) and lean on the Q6 anecdotes for flavor. The
+ALL CAPS, short lines) and lean on the Q7 anecdotes for flavor. The
 `{HOST}` and `{ITEM}` tokens (see `SPEC-game.md`'s "Template & roles"
 section) are available if a line needs to say the host's name or the gift
 item's name — don't hand-write those in more than the two token spots
 unless you specifically want a line to differ from the shared value.
 
 **Length preset.** Default every order to `lengthPreset: 'five_min'`
-unless the buyer's intake indicates they want the full experience (not
+unless the user's intake indicates they want the full experience (not
 currently asked on the form, so: default to five_min).
 
 **Title font.** `title.lockupLines` renders through the hand-built 5×7
@@ -114,7 +125,7 @@ Keep the title short (2 short words/lines, like KCK's own `['KARKS CUB',
 
 **Assets.** SFX samples and the dungeon tile sheet are shared engine assets
 — never copied per order (see `README.md` "How games are added"). Only a
-buyer's own uploaded song is order-specific: place it at
+user's own uploaded song is order-specific: place it at
 `games/<slug>/assets/theme.mp3` and point `music.customSongPath` at
 `'../assets/theme.mp3'`. `CONFIG.music.*` paths are resolved relative to
 the **page** that loads them (`games/<slug>/game/index.html` /
@@ -178,14 +189,14 @@ the harness above) — but the deployed GitHub Pages URL is the real
 product, so **do** load `https://<pages-domain>/games/<slug>/` for real
 once it's pushed, click through a full playthrough, and confirm audio/
 visuals look right before sending the link. Then deliver
-`https://<pages-domain>/games/<slug>/` to the buyer's Q10 email.
+`https://<pages-domain>/games/<slug>/` to the user's Q11 email.
 
 ## Privacy note
 
 Slugs are **obscure, not secured** — anyone with the link can play the
 game, and the repo (if public) may make slugs discoverable. This is
 adequate for a gag gift among friends, not real privacy. Don't put
-anything in a config that the buyer wouldn't be comfortable being visible
+anything in a config that the user wouldn't be comfortable being visible
 to a stranger who found the link.
 
 ---

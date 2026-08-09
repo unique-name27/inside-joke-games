@@ -147,15 +147,17 @@
   .role-fields.skipped{ opacity:0.4; pointer-events:none; }
   @media (max-width:560px){ .role-card{ flex-direction:column; } .role-icon{ width:48px; height:48px; } }
 
-  /* ---------- vibe cards ---------- */
-  .vibe-card{
+  /* ---------- vibe cards (also used by the scene/"setting" cards -- same
+     tap-to-select pattern, see .scene-card below) ---------- */
+  .vibe-card, .scene-card{
     display:flex; align-items:center; justify-content:space-between; gap:14px;
     cursor:pointer; width:100%; text-align:left; background:var(--surface);
   }
-  .vibe-card:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
-  .vibe-card.selected{ border-color:var(--gold); box-shadow:0 0 0 2px var(--gold) inset; }
-  .vibe-label{ font-weight:700; font-size:0.95rem; }
-  .vibe-sub{ font-size:0.8rem; color:var(--muted-2); margin-top:2px; text-transform:capitalize; }
+  .vibe-card:focus-visible, .scene-card:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+  .vibe-card.selected, .scene-card.selected{ border-color:var(--gold); box-shadow:0 0 0 2px var(--gold) inset; }
+  .vibe-label, .scene-label{ font-weight:700; font-size:0.95rem; }
+  .vibe-sub, .scene-sub{ font-size:0.8rem; color:var(--muted-2); margin-top:2px; }
+  .vibe-sub{ text-transform:capitalize; }
   .vibe-play{ flex-shrink:0; }
 
   /* ---------- preview / share ---------- */
@@ -216,6 +218,18 @@
 /* ---------------------------------------------------------------------
    PURE LOGIC
    --------------------------------------------------------------------- */
+// STORY SKELETONS -- the four settings (see SPEC-skeletons.md /
+// game/skeletons.js, the engine-shipped presentation code these keys
+// select). `key` is exactly what CFG_FRAGMENT_SCHEMA.scene whitelists
+// (CFG_SCENE_KEYS, from game/cfgcodec.js loaded above this script) --
+// this array is the wizard's own UI-facing copy (order/label/desc), not a
+// second source of truth for which keys are valid.
+const SCENE_DEFS = [
+  { key:'dinner', label:'THE DINNER PARTY', desc:'A table, some stories, one unforgettable question.' },
+  { key:'roadtrip', label:'THE ROAD TRIP', desc:'A campfire at the rest stop, stories from the road.' },
+  { key:'office', label:'THE OFFICE PARTY', desc:'The break room, after hours.' },
+  { key:'wedding', label:'THE WEDDING WEEKEND', desc:'A reception hall, a DJ booth, and the toasts.' },
+];
 const ROLE_DEFS = [
   { key:'critic', cfgKey:'judge', title:'THE CRITIC',
     desc:'The one who critiques everything -- the food, the seating, your throw. Shows up as the game’s boss fight.' },
@@ -246,7 +260,7 @@ const VIBE_DEFS = [
 // fmt()/skey() across game/engine.js and intro/engine.js. Keep in sync.
 const BASELINE_FORBIDDEN = ['COIN', 'BILL', 'COST', 'NOTHING'];
 
-const WIZARD_STEP_COUNT = 6;
+const WIZARD_STEP_COUNT = 7;
 const WIZARD_STORAGE_KEY = 'ijg_build_wizard_v1';
 
 function defaultWizardState(){
@@ -254,6 +268,7 @@ function defaultWizardState(){
   for(const r of ROLE_DEFS) cast[r.key] = { cast:false, name:'', anecdote:'' };
   return {
     step: 0,
+    scene: 'dinner',
     host: '', otherFriendName: '',
     catchphrase: '', title: '',
     stories: [ {l1:'',l2:''}, {l1:'',l2:''} ],
@@ -277,6 +292,7 @@ function normalizeWizardState(saved){
   for(const r of ROLE_DEFS){
     out.cast[r.key] = Object.assign({}, base.cast[r.key], (saved.cast && saved.cast[r.key]) || {});
   }
+  if(!SCENE_DEFS.some(s => s.key === out.scene)) out.scene = base.scene;
   if(typeof out.step !== 'number' || out.step < 0 || out.step >= WIZARD_STEP_COUNT) out.step = 0;
   return out;
 }
@@ -335,6 +351,12 @@ function buildOverridesFromState(state){
   const title = String(state.title || 'My Game').trim();
   const overrides = {
     lengthPreset: 'five_min',
+    // STORY SKELETONS: which of the four settings (see SCENE_DEFS above) --
+    // an enum pick, same "fixed built-in key, never a free string" shape as
+    // musicVibe just below. Falls back to 'dinner' if state.scene is
+    // somehow missing/invalid (shouldn't happen -- normalizeWizardState
+    // already guards this -- but assembleConfig should never crash on it).
+    scene: SCENE_DEFS.some(s => s.key === state.scene) ? state.scene : 'dinner',
     // an ENUM pick among a fixed set of built-in stock tracks -- see
     // game/cfgcodec.js's cfgApplyMusicVibe for why this is the one
     // narrow exception to "no music from a fragment, ever" (never an
@@ -389,7 +411,11 @@ function wrapTitleLines(raw, maxLineLen, maxLines){
 function assembleConfig(state, engineRoot){
   const overrides = buildOverridesFromState(state);
   const sanitized = cfgSanitizeConfig(overrides);
-  const base = cfgBuildDefaultConfig(engineRoot);
+  // STORY SKELETONS: build the base off the picked scene, same as a real
+  // `#cfg=` link (cfgLoadFragmentOverride) does -- so the preview shown
+  // here matches exactly what opening the shared link produces, not just
+  // for dialogue/cast/music but for the scene's own flavor text too.
+  const base = cfgBuildDefaultConfig(engineRoot, sanitized.scene);
   const merged = cfgDeepMerge(base, sanitized);
   // mirrors exactly what cfgLoadFragmentOverride does when a real link is
   // opened -- so the preview's music matches what sharing the link
@@ -425,7 +451,7 @@ function initWizard(){
   const stepsContainer = document.getElementById('stepsContainer');
   const progressRow = document.getElementById('progressRow');
   const stepLabelEl = document.getElementById('stepLabel');
-  const STEP_NAMES = ['Your group', 'The punchline', 'The stories', 'The cast', 'The vibe', 'Preview & share'];
+  const STEP_NAMES = ['The setting', 'Your group', 'The punchline', 'The stories', 'The cast', 'The vibe', 'Preview & share'];
 
   let currentAudio = null;
   function stopPreview(){ if(currentAudio){ try{ currentAudio.pause(); }catch(e){} currentAudio = null; } }
@@ -489,6 +515,39 @@ function initWizard(){
         ctx.fillStyle = ch==='1' ? '#e8b84b' : '#c96f4a';
         ctx.fillRect(c*S, r*S, S, S);
       }
+    }
+  }
+
+  /* THE SETTING -- step 1 of 7, picks CONFIG.scene (game/skeletons.js).
+     Same tap-to-select card pattern as renderStepVibe below (a div with
+     role="button", .selected/aria-pressed toggled on click, Enter/Space
+     bridged to the same click handler) -- default 'dinner', matching
+     game/config.js's own default scene. */
+  function renderStepSetting(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2>The setting</h2>' +
+      '<p class="step-sub">Where does your group’s game take place? Same roles, same engine -- just a different room.</p>';
+    stepsContainer.appendChild(el);
+    for(const scene of SCENE_DEFS){
+      const card = document.createElement('div');
+      card.className = 'card scene-card' + (state.scene === scene.key ? ' selected' : '');
+      card.setAttribute('role', 'button');
+      card.tabIndex = 0;
+      card.setAttribute('aria-pressed', state.scene === scene.key ? 'true' : 'false');
+      card.innerHTML =
+        '<div><div class="scene-label">'+scene.label+'</div>' +
+        '<div class="scene-sub">'+scene.desc+'</div></div>';
+      card.addEventListener('click', ()=>{
+        state.scene = scene.key; persist();
+        stepsContainer.querySelectorAll('.scene-card').forEach(c2=>{ c2.classList.remove('selected'); c2.setAttribute('aria-pressed','false'); });
+        card.classList.add('selected');
+        card.setAttribute('aria-pressed', 'true');
+      });
+      card.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); card.click(); }
+      });
+      stepsContainer.appendChild(card);
     }
   }
 
@@ -759,7 +818,7 @@ function initWizard(){
     }
   }
 
-  const STEP_RENDERERS = [renderStepHost, renderStepPunchline, renderStepStories, renderStepCast, renderStepVibe, renderStepPreview];
+  const STEP_RENDERERS = [renderStepSetting, renderStepHost, renderStepPunchline, renderStepStories, renderStepCast, renderStepVibe, renderStepPreview];
 
   function renderStep(){
     stopPreview();
