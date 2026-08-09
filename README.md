@@ -36,6 +36,9 @@ right half for the action button.
   live worked example of a second game.
 - **`games/<slug>/`** — every order's deployed game lives here, one folder
   per order (see "How games are added").
+- **`build/`** — the self-serve builder website: a six-step wizard that
+  assembles a config in-browser and hands back an instant playable
+  `#cfg=` link (see "URL-fragment configs" below).
 - **`INTAKE.md`** — the customer-facing order form content.
 - **`FULFILLMENT.md`** — the operator playbook for turning an order into a
   deployed `games/<slug>/`.
@@ -124,8 +127,12 @@ alternative to its file `config.js` — appended to `/game/` or `/intro/`
 `game/engine.js`/`intro/engine.js`), it *replaces* the page's CONFIG
 entirely for that visit, no `games/<slug>/` folder required at all. This
 is what makes an "instant link" possible: `tools/generate.js` prints one
-alongside every hosted URL, and a future self-serve builder page could
-generate one entirely client-side.
+alongside every hosted URL, and the self-serve builder at **`/build/`**
+generates one entirely client-side — a six-step wizard (group, punchline,
+stories, role casting, music vibe, preview & share) that assembles a
+config in the browser, validates it through the same whitelist a real
+link is checked against, and hands back a playable `#cfg=` link on the
+spot. The storefront's "Start your order" leads there.
 
 Mechanics, all in `game/cfgcodec.js` (loaded by both engines, and reused
 directly by `tools/generate.js` — see that file's own header comment for
