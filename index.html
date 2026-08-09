@@ -2,11 +2,336 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=intro/">
-<title>Karks Cub Kingdom</title>
-<link rel="canonical" href="intro/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inside Joke Games — a video game about your friend group</title>
+<meta name="description" content="A tiny personalized video game built around your friend group's real inside jokes. Five dollars. Playable link in about 48 hours.">
+<style>
+  :root{
+    --cream:#f3e9d2; --terracotta:#c96f4a; --wood:#8a5a30;
+    --gold:#e8b84b; --outline:#6b2b1f; --ink:#2a1c12;
+    --silhouette:#0a0a14; --wall:#241a22; --floor:#3a2a1c;
+    --napkin:#efe6d0;
+    --maxw: 780px;
+  }
+  *{box-sizing:border-box;}
+  html{background:var(--silhouette);}
+  body{
+    margin:0; background:var(--silhouette); color:var(--cream);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55; font-size:17px;
+    background-image:
+      radial-gradient(ellipse at 20% -10%, rgba(232,184,75,0.10), transparent 55%),
+      radial-gradient(ellipse at 90% 0%, rgba(201,111,74,0.10), transparent 45%);
+  }
+  img,canvas{max-width:100%; height:auto;}
+  a{color:var(--gold);}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 20px;}
+  .pixel-heading{
+    font-family:'Courier New',Courier,monospace; text-transform:uppercase;
+    letter-spacing:0.03em; font-weight:700; color:var(--cream);
+    text-shadow:2px 2px 0 var(--outline);
+    margin:0 0 10px;
+  }
+  section{padding:56px 0;}
+  hr.divider{
+    border:none; height:6px; margin:0;
+    background:repeating-linear-gradient(90deg, var(--wood) 0 14px, var(--outline) 14px 16px);
+    image-rendering:pixelated;
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    padding:64px 0 48px; text-align:center;
+    background:linear-gradient(180deg, rgba(20,20,40,0.4), transparent);
+  }
+  #titleCanvas{ display:block; margin:0 auto 18px; image-rendering:pixelated; width:min(92vw, 560px); }
+  .tagline{font-size:20px; color:var(--napkin); margin:0 auto 30px; max-width:520px;}
+  .tagline b{color:var(--gold);}
+  .cta-row{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; align-items:center;}
+  .btn{
+    display:inline-block; font-family:'Courier New',Courier,monospace; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.06em; text-decoration:none;
+    padding:16px 28px; border-radius:3px; border:3px solid var(--outline);
+    box-shadow:0 4px 0 var(--outline); cursor:pointer; font-size:15px;
+    transition:transform 0.08s ease;
+  }
+  .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--outline); }
+  .btn-primary{ background:var(--gold); color:var(--ink); }
+  .btn-secondary{ background:var(--terracotta); color:var(--cream); }
+  .btn[aria-disabled="true"]{
+    background:var(--floor); color:#8a7a6a; border-color:#4a3a2c; box-shadow:0 4px 0 #4a3a2c;
+    cursor:not-allowed; pointer-events:none;
+  }
+  .btn-note{ display:block; margin-top:8px; font-size:12px; color:#a89a86; letter-spacing:0.04em; }
+  .alt-link{ margin-top:18px; font-size:14px; color:#a89a86; }
+  .alt-link a{ color:var(--napkin); }
+
+  /* ---------- vignette cards ---------- */
+  .cards{ display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-top:36px; }
+  @media (max-width:640px){ .cards{ grid-template-columns:1fr; } }
+  .card{
+    background:var(--wall); border:3px solid var(--outline); border-radius:2px;
+    padding:20px 16px; text-align:left;
+  }
+  .card .pixel-heading{ font-size:14px; color:var(--gold); }
+  .card p{ margin:0; font-size:14px; color:var(--napkin); }
+
+  /* ---------- how it works ---------- */
+  .steps{ display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; margin-top:30px; }
+  @media (max-width:640px){ .steps{ grid-template-columns:1fr; } }
+  .step{ text-align:center; }
+  .step-num{
+    width:44px; height:44px; line-height:44px; margin:0 auto 12px;
+    background:var(--terracotta); border:3px solid var(--outline); border-radius:2px;
+    font-family:'Courier New',Courier,monospace; font-weight:700; font-size:20px; color:var(--ink);
+  }
+  .step h3{ font-size:15px; margin:0 0 6px; }
+  .step p{ margin:0; font-size:14px; color:var(--napkin); }
+
+  /* ---------- order ---------- */
+  .order-box{
+    background:var(--wall); border:3px solid var(--outline); border-radius:2px;
+    padding:32px 24px; text-align:center; margin-top:30px;
+  }
+  .order-box .cta-row{ margin-top:22px; }
+
+  /* ---------- faq ---------- */
+  details{
+    background:var(--wall); border:2px solid var(--outline); border-radius:2px;
+    padding:14px 16px; margin-bottom:10px;
+  }
+  summary{ cursor:pointer; font-weight:600; color:var(--cream); list-style:none; }
+  summary::-webkit-details-marker{ display:none; }
+  summary::before{ content:'▸ '; color:var(--gold); }
+  details[open] summary::before{ content:'▾ '; }
+  details p{ margin:12px 0 2px; color:var(--napkin); font-size:15px; }
+
+  /* ---------- footer ---------- */
+  footer{ padding:40px 0 60px; text-align:center; font-size:13px; color:#8a7a6a; }
+  footer a{ color:#b8a890; }
+  footer .honesty{ color:var(--napkin); margin-bottom:10px; }
+
+  h2.section-title{ font-size:22px; text-align:center; }
+  .section-sub{ text-align:center; color:#a89a86; font-size:14px; margin-top:-4px; }
+</style>
 </head>
 <body>
-<p>Redirecting to <a href="intro/">the intro</a>&hellip;</p>
+
+<div class="hero wrap">
+  <canvas id="titleCanvas" width="560" height="190" aria-label="Inside Joke Games"></canvas>
+  <p class="tagline">A tiny video game about your friend group. <b>Five dollars.</b></p>
+  <div class="cta-row">
+    <a class="btn btn-primary" id="playOriginalBtn"
+       href="https://unique-name27.github.io/karks-cub-kingdom/"
+       target="_blank" rel="noopener">▶ Play the original</a>
+  </div>
+  <p class="alt-link">That's Karks Cub Kingdom, the flagship — built for its own dinner party.
+    This site's own template engine is also playable live at <a href="intro/">/intro/</a>.</p>
+</div>
+
+<div class="wrap"><hr class="divider"></div>
+
+<section class="wrap">
+  <h2 class="pixel-heading section-title">What you get</h2>
+  <p class="section-sub">Every game is built the same way — your group, your stories, your catchphrase.</p>
+  <div class="cards">
+    <div class="card">
+      <p class="pixel-heading">Your punchline as a weapon</p>
+      <p>Your group's actual catchphrase — the thing somebody always says — becomes the literal move the player uses to win.</p>
+    </div>
+    <div class="card">
+      <p class="pixel-heading">Your friend as the boss</p>
+      <p>The one who critiques everything gets an actual boss fight. Dodge the napkins, throw them right back.</p>
+    </div>
+    <div class="card">
+      <p class="pixel-heading">Your stories as the levels</p>
+      <p>The boring, real stories your group tells get retold, word for word, as the dialogue.</p>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><hr class="divider"></div>
+
+<section class="wrap">
+  <h2 class="pixel-heading section-title">How it works</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Fill the form</h3>
+      <p>Your names, your stories, your inside joke.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Five dollars</h3>
+      <p>That's it. One time.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Your link, in ~48 hours</h3>
+      <p>Playable on phones, ready to share with the group.</p>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><hr class="divider"></div>
+
+<section class="wrap" id="order">
+  <h2 class="pixel-heading section-title">Order your game</h2>
+  <div class="order-box">
+    <p>Two steps, in either order — fill out the form and pay whenever's convenient.</p>
+    <div class="cta-row">
+      <a class="btn btn-secondary" id="startOrderBtn" href="#">Start your order</a>
+      <a class="btn btn-primary" id="payBtn" href="#">Pay $5</a>
+    </div>
+    <p id="orderNote" class="btn-note"></p>
+  </div>
+</section>
+
+<div class="wrap"><hr class="divider"></div>
+
+<section class="wrap">
+  <h2 class="pixel-heading section-title">FAQ</h2>
+  <div style="margin-top:24px;">
+    <details>
+      <summary>What do you need from us?</summary>
+      <p>A few real stories from your group, who's playing which role, and your group's
+      catchphrase. About 10 minutes to fill out.</p>
+    </details>
+    <details>
+      <summary>How long does it take?</summary>
+      <p>About 48 hours from order to link, usually faster.</p>
+    </details>
+    <details>
+      <summary>What if we don't have a "critic" / "boss" / etc.?</summary>
+      <p>Every role except the host is optional — skip anything that doesn't fit your group.
+      The game adjusts itself and still tells a complete, satisfying story either way.</p>
+    </details>
+    <details>
+      <summary>Does it work on phones?</summary>
+      <p>Yes — built mobile-first, landscape mode, touch controls included. Works on desktop too.</p>
+    </details>
+    <details>
+      <summary>What if it doesn't work?</summary>
+      <p>If we can't make your game work, you don't pay.</p>
+    </details>
+    <details>
+      <summary>Who sees my stories?</summary>
+      <p>Only used to build your game. Your link isn't listed or indexed anywhere public —
+      nobody finds it by browsing, only by you sharing it.</p>
+    </details>
+  </div>
+</section>
+
+<footer class="wrap">
+  <p class="honesty">Games built with care by a human + Claude.</p>
+  <p>All sound &amp; music by <a href="https://kenney.nl" target="_blank" rel="noopener">Kenney</a>, used under CC0.</p>
+  <p><a href="https://github.com/unique-name27/inside-joke-games" target="_blank" rel="noopener">The code, if you're curious</a></p>
+</footer>
+
+<script>
+'use strict';
+/* ======================================================================
+   SITE_CONFIG -- the storefront's only "backend": both order links are
+   null until the real intake form / Stripe Payment Link exist (see
+   FULFILLMENT.md and SPEC-game.md's Phase E checklist). Flipping this repo
+   live later is a one-line edit per field, no other code changes needed.
+   ====================================================================== */
+const SITE_CONFIG = {
+  intakeFormUrl: null,   // e.g. 'https://forms.gle/xxxxxxxx'
+  paymentUrl: null,      // e.g. a Stripe Payment Link
+};
+
+function wireOrderButton(el, url, label){
+  if(url){
+    el.href = url;
+    el.removeAttribute('aria-disabled');
+    el.target = '_blank';
+    el.rel = 'noopener';
+  } else {
+    el.href = '#';
+    el.setAttribute('aria-disabled', 'true');
+    el.addEventListener('click', function(e){ e.preventDefault(); });
+    el.textContent = label;
+  }
+}
+(function wireOrderSection(){
+  const startBtn = document.getElementById('startOrderBtn');
+  const payBtn = document.getElementById('payBtn');
+  wireOrderButton(startBtn, SITE_CONFIG.intakeFormUrl, 'Start your order');
+  wireOrderButton(payBtn, SITE_CONFIG.paymentUrl, 'Pay $5');
+  const note = document.getElementById('orderNote');
+  // shown whenever either link isn't live yet -- both need to be configured
+  // before the order flow is actually usable end to end
+  if(!SITE_CONFIG.intakeFormUrl || !SITE_CONFIG.paymentUrl){
+    note.textContent = 'ORDERS OPENING SOON';
+  }
+})();
+
+/* ======================================================================
+   Hero title -- the same hand-built 5x7 pixel glyph system game/engine.js
+   and intro/engine.js use (duplicated here on purpose: this is a third,
+   fully independent HTML document with no shared engine dependency, same
+   convention as the audio engine being duplicated between game/ and
+   intro/). Only the letters "INSIDE JOKE GAMES" needs are included.
+   ====================================================================== */
+const TITLE_GLYPHS = {
+  I: ['11111','00100','00100','00100','00100','00100','11111'],
+  N: ['10001','11001','10101','10101','10011','10001','10001'],
+  S: ['01111','10000','10000','01110','00001','00001','11110'],
+  D: ['11100','10010','10001','10001','10001','10010','11100'],
+  E: ['11111','10000','10000','11110','10000','10000','11111'],
+  J: ['00111','00010','00010','00010','00010','10010','01100'],
+  O: ['01110','10001','10001','10001','10001','10001','01110'],
+  K: ['10001','10010','10100','11000','10100','10010','10001'],
+  G: ['01111','10000','10000','10011','10001','10001','01110'],
+  A: ['01110','10001','10001','11111','10001','10001','10001'],
+  M: ['10001','11011','10101','10101','10001','10001','10001'],
+};
+const GLYPH_COLS = 5, GLYPH_ROWS = 7, GLYPH_GAP = 1, SPACE_COLS = 3;
+function lineCols(line){
+  let cols = 0;
+  for(const ch of line) cols += (ch===' ' ? SPACE_COLS : GLYPH_COLS) + GLYPH_GAP;
+  return cols>0 ? cols-GLYPH_GAP : 0;
+}
+function drawTitle(canvas, lines, cell){
+  const pad = 3, lineGap = 2;
+  const cols = lines.map(lineCols);
+  const maxCols = Math.max.apply(null, cols);
+  const w = (maxCols + pad*2) * cell;
+  const h = (lines.length*GLYPH_ROWS + (lines.length-1)*lineGap + pad*2) * cell;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  function forEach(fn){
+    let rowOffset = pad;
+    for(let li=0; li<lines.length; li++){
+      const line = lines[li];
+      const startCol = pad + Math.floor((maxCols-cols[li])/2);
+      let cx = startCol;
+      for(const ch of line){
+        if(ch===' '){ cx += SPACE_COLS + GLYPH_GAP; continue; }
+        const glyph = TITLE_GLYPHS[ch];
+        if(glyph){
+          for(let r=0;r<GLYPH_ROWS;r++){
+            for(let c=0;c<GLYPH_COLS;c++){
+              if(glyph[r][c]==='1') fn(cx+c, rowOffset+r);
+            }
+          }
+        }
+        cx += GLYPH_COLS + GLYPH_GAP;
+      }
+      rowOffset += GLYPH_ROWS + lineGap;
+    }
+  }
+  ctx.fillStyle = 'rgba(20,10,6,0.55)';
+  forEach((gx,gy)=> ctx.fillRect((gx+1)*cell, (gy+1)*cell, cell, cell));
+  ctx.fillStyle = '#6b2b1f';
+  const offs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+  forEach((gx,gy)=>{ for(const [dx,dy] of offs) ctx.fillRect((gx+dx)*cell, (gy+dy)*cell, cell, cell); });
+  ctx.fillStyle = '#e8b84b';
+  forEach((gx,gy)=> ctx.fillRect(gx*cell, gy*cell, cell, cell));
+}
+drawTitle(document.getElementById('titleCanvas'), ['INSIDE JOKE', 'GAMES'], 6);
+</script>
 </body>
 </html>
