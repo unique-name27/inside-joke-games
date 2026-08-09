@@ -118,6 +118,16 @@ const CONFIG = {
     hitLines: ['OW. LUCKY.', 'THAT WAS THE HOUSE RIESLING.', 'MY GLASSES. YOU HIT MY GLASSES.'],
     fakeDeathLine1: 'JUST KIDDING.',
     fakeDeathLine2: 'ALSO: THE SOUP WAS COLD.',
+
+    // THE WIDOWMAKER beat (Beat 3, between the revival spring-up and the
+    // woman's tribute line): the still-giant critic immediately resumes
+    // being a critic, diner0 (the Sears-shirt guy) retorts and throws THE
+    // WIDOWMAKER at him -- impact shrinks him back down and he walks back
+    // to his seat, one of the 4 friends again.
+    mockLine: ['I LIVE.', '...NICE SEARS SHIRT.'],
+    retortLine: 'IT IS FROM SEARS.',
+    itemLabel: 'THE WIDOWMAKER!',
+    redemptionLine: 'THE SOUP IS ACTUALLY FINE.',
   },
 
   savior: {
