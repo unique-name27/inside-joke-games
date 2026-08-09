@@ -523,6 +523,18 @@ function drawAutoBubble(ctx, text, cx, bottomY, px, growT){
    a signature sound, not a placeholder. Speech synthesis is untouched.
    ====================================================================== */
 const BEAT_DEFAULT = 60/112;
+/* PHASE M (mix discipline): music sits clearly UNDER the SFX layer now --
+   the comedy reads through speech bubbles and SFX, music is bed, not lead.
+   SFX gains (SFX_DEFS below) run 0.4-0.9; this sits below even the
+   quietest of those. The ONE shared constant both engines use as their new
+   "full" music level -- musicGain's resting value at initAudio() AND the
+   ceiling duckUp()/setMusicLevel() ramp back up to. duckDown/duckUp/
+   setMusicLevel all still take their `target`/`level` argument as a 0..1
+   FRACTION of "full" exactly as before this phase (every existing call
+   site is untouched) -- each function just multiplies by this constant
+   internally, so the whole dip-and-recover ducking CURVE is unchanged,
+   only rescaled onto the lower ceiling. */
+const MUSIC_BASE_GAIN = 0.35;
 let actx = null, masterGain = null, compressor = null, musicGain = null, fxGain = null, loopGain = null;
 let noiseBuffer = null;
 
@@ -575,7 +587,7 @@ function initAudio(){
   masterGain = actx.createGain(); masterGain.gain.value = 0.8 * volumeSetting;
   compressor.connect(masterGain);
   masterGain.connect(actx.destination);
-  musicGain = actx.createGain(); musicGain.gain.value = 1.0;
+  musicGain = actx.createGain(); musicGain.gain.value = MUSIC_BASE_GAIN;
   musicGain.connect(compressor);
   fxGain = actx.createGain(); fxGain.gain.value = 1.0;
   fxGain.connect(compressor);
@@ -840,20 +852,20 @@ function duckDown(t, target){
   const g = musicGain.gain;
   g.cancelScheduledValues(t);
   g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(target===undefined?0.02:target, t+0.08);
+  g.linearRampToValueAtTime((target===undefined?0.02:target) * MUSIC_BASE_GAIN, t+0.08);
 }
 function duckUp(t, level){
   level = level===undefined ? 1.0 : level;
   const g = musicGain.gain;
   g.cancelScheduledValues(t);
   g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(level, t+0.3);
+  g.linearRampToValueAtTime(level * MUSIC_BASE_GAIN, t+0.3);
 }
 function setMusicLevel(level, t, rampTime){
   const g = musicGain.gain;
   g.cancelScheduledValues(t);
   g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(level, t+(rampTime===undefined?1.0:rampTime));
+  g.linearRampToValueAtTime(level * MUSIC_BASE_GAIN, t+(rampTime===undefined?1.0:rampTime));
 }
 
 /* ======================================================================

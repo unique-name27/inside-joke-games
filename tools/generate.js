@@ -45,7 +45,7 @@ const crypto = require('crypto');
 
 const REPO_ROOT = path.join(__dirname, '..');
 const {
-  cfgBuildDefaultConfig, cfgDeepMerge, cfgEncodeConfigFragment, CFG_VIBE_TRACK_MAP, CFG_SCENE_KEYS,
+  cfgBuildDefaultConfig, cfgDeepMerge, cfgEncodeConfigFragment, cfgApplyMusicVibe, CFG_VIBE_KEYS, CFG_SCENE_KEYS,
 } = require(path.join(REPO_ROOT, 'game', 'cfgcodec.js'));
 const { verifyConfigSource } = require('./verify-config.js');
 
@@ -63,7 +63,7 @@ function parseArgs(argv){
 }
 
 /* ---------------------------------------------------------------------
-   Q1-Q10 answers -> CONFIG overrides
+   Q1-Q11 answers -> CONFIG overrides
    --------------------------------------------------------------------- */
 const ROLE_KEY = { critic: 'judge', boss: 'authority', savior: 'savior', butterfingers: 'butterfingers', builder: 'builder' };
 const DEFAULT_SPRITE = {
@@ -72,11 +72,13 @@ const DEFAULT_SPRITE = {
   butterfingers: { spriteCol: 3, spriteRow: 8 },
   builder: { spriteCol: 2, spriteRow: 8 },
 };
-// CFG_VIBE_TRACK_MAP (game/cfgcodec.js) is the single source of truth for
-// the vibe->stock-track mapping, shared with the fragment codec's own
-// cfgApplyMusicVibe and the /build/ wizard -- so a vibe pick means the
-// same track everywhere, not three lists that can quietly drift apart.
-const VIBE_TRACK = CFG_VIBE_TRACK_MAP;
+// PHASE M: the vibe -> full 6-slot track SET mapping (CFG_VIBE_TRACK_SETS)
+// and its resolver (cfgApplyMusicVibe, which also handles "no vibe picked"
+// via a deterministic per-gameId hash rotation) both live in
+// game/cfgcodec.js -- the single source of truth shared with the fragment
+// codec's own load path and the /build/ wizard, applied below in main()
+// once `merged` exists (cfgApplyMusicVibe mutates merged.music.loops
+// in place, same call shape as the other two callers).
 
 function requireField(answers, field, hint){
   const v = answers[field];
@@ -144,10 +146,10 @@ function randomSuffix(){
    needs to set) -- answers.json is trusted local/operator input, not an
    untrusted URL. */
 function buildOverrides(answers, slug){
-  const host = requireField(answers, 'host', 'Q4: who is the host?');
-  const catchphrase = requireField(answers, 'catchphrase', 'Q1: what\'s your group\'s catchphrase?');
-  const title = requireField(answers, 'title', 'Q3: what should we call your game?');
-  const storiesIn = requireField(answers, 'stories', 'Q2: 2-4 real, boring stories, as an array of strings');
+  const host = requireField(answers, 'host', 'Q5: who is the host?');
+  const catchphrase = requireField(answers, 'catchphrase', 'Q2: what\'s your group\'s catchphrase?');
+  const title = requireField(answers, 'title', 'Q4: what should we call your game?');
+  const storiesIn = requireField(answers, 'stories', 'Q3: 2-4 real, boring stories, as an array of strings');
   if(!Array.isArray(storiesIn) || storiesIn.length === 0) throw new GenerateError('answers.stories must be a non-empty array of strings');
 
   // STORY SKELETONS: optional, defaults to 'dinner' -- see SPEC-skeletons.md
@@ -207,23 +209,20 @@ function buildOverrides(answers, slug){
     }
   }
 
-  // Q8 spellings: [{from, to}, ...] -- applied as a literal find/replace
+  // Q9 spellings: [{from, to}, ...] -- applied as a literal find/replace
   // pass over every string in the assembled config, AFTER the merge (see
   // applySpellings below) -- covers names quoted inside dialogue lines
   // too, not just the cast entries themselves.
   overrides.__spellings = Array.isArray(answers.spellings) ? answers.spellings.filter(s => s && s.from && s.to) : [];
 
-  // Q7 music
+  // Q8 music -- customSongPath only; the vibe -> loops resolution (now a
+  // full 6-slot set, or a deterministic rotation with no vibe picked --
+  // see cfgApplyMusicVibe) happens in main() below, once `merged` exists,
+  // the same shape as the fragment codec's own load path.
   const music = answers.music || {};
-  overrides.music = {};
   if(music.songFile){
-    overrides.music.customSongPath = '../assets/theme.mp3'; // see tools/README.md -- this is the CORRECTED page-relative path (FULFILLMENT.md's existing note undercounts a directory level; fixed here and flagged in that doc)
+    overrides.music = { customSongPath: '../assets/theme.mp3' }; // see tools/README.md -- this is the CORRECTED page-relative path (FULFILLMENT.md's existing note undercounts a directory level; fixed here and flagged in that doc)
   }
-  const vibeTrack = VIBE_TRACK[music.vibe];
-  if(vibeTrack){
-    overrides.music.loops = { dinner: '../../../assets/audio/music/' + vibeTrack + '.ogg' };
-  }
-  if(Object.keys(overrides.music).length === 0) delete overrides.music;
 
   return overrides;
 }
@@ -284,8 +283,8 @@ function main(){
 
   let slug, overrides, merged, fragmentPayload;
   try{
-    requireField(answers, 'email', 'Q10: delivery email');
-    const titleForSlug = requireField(answers, 'title', 'Q3');
+    requireField(answers, 'email', 'Q11: delivery email');
+    const titleForSlug = requireField(answers, 'title', 'Q4');
     slug = slugify(titleForSlug) + '-' + randomSuffix();
     overrides = buildOverrides(answers, slug);
     const spellings = overrides.__spellings; delete overrides.__spellings;
@@ -298,6 +297,16 @@ function main(){
     merged = cfgDeepMerge(base, overrides);
     merged = applySpellings(merged, spellings);
 
+    // PHASE M: resolve the vibe -> full 6-slot music.loops set now that
+    // `merged` exists (cfgApplyMusicVibe mutates merged.music.loops in
+    // place) -- same call shape as cfgLoadFragmentOverride/the wizard's
+    // assembleConfig. No vibe picked (or an unrecognized one) falls back
+    // to cfgApplyMusicVibe's own deterministic per-seed rotation; the hash
+    // seed here is the real gameId (`slug`) this file is about to be
+    // written under, so it's stable for this order specifically.
+    const pickedVibe = (answers.music || {}).vibe;
+    cfgApplyMusicVibe(merged, pickedVibe, '../../../', slug);
+
     // The instant #cfg= link carries the OVERRIDE DELTA, not `merged`.
     // `music` is deliberately not fragment-settable (see CFG_FRAGMENT_SCHEMA
     // -- no link may point the engine's fetch() at an arbitrary URL), so
@@ -309,8 +318,7 @@ function main(){
     // below).
     fragmentPayload = applySpellings(cfgDeepMerge({}, overrides), spellings);
     delete fragmentPayload.music;
-    const pickedVibe = (answers.music || {}).vibe;
-    if(pickedVibe && Object.prototype.hasOwnProperty.call(CFG_VIBE_TRACK_MAP, pickedVibe)){
+    if(pickedVibe && CFG_VIBE_KEYS.indexOf(pickedVibe) !== -1){
       fragmentPayload.musicVibe = pickedVibe;
     }
   }catch(e){

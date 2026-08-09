@@ -35,14 +35,55 @@ sfx/ — one-shot sound effects
   woosh3.ogg                Foley Sounds      — dodge whoosh
 
 music/ — per-beat score loops (renamed from Kenney's Music Loops pack; each
-loops seamlessly)
-  wacky-waiting.ogg         "Wacky Waiting"        — dinner (Beat 1)
-  mission-plausible.ogg     "Mission Plausible"    — the critic boss fight
-  time-driving.ogg          "Time Driving"         — chase beats (Aram, tech support)
-  farm-frolics.ogg          "Farm Frolics"         — celebration / triumph stings
-  sad-descent.ogg           "Sad Descent"          — bathroom epilogue / quiet sincere beat
-  game-over.ogg             "Game Over"            — game over screen
-  night-at-the-beach.ogg    "Night at the Beach"   — intro cinematic fallback (warm, nostalgic)
+loops seamlessly). 22 of the pack's 24 tracks are used (19 from Loops/ +
+3 from Retro/ — Retro Comedy and Retro Polka went unused, both under 8
+seconds, too short/gimmicky to read as a bed loop rather than a stinger).
+
+  wacky-waiting.ogg         "Wacky Waiting"        — default dinner (Beat 1) / the "upbeat" vibe's headline
+  mission-plausible.ogg     "Mission Plausible"    — default boss (critic fight) / the "spy" vibe's headline
+  time-driving.ogg          "Time Driving"         — default chase (Aram, tech support) / the "chase" vibe's headline
+  farm-frolics.ogg          "Farm Frolics"         — default celebration / triumph stings / the "warm" vibe's headline
+  sad-descent.ogg           "Sad Descent"          — default sad (bathroom epilogue) / the "sincere" vibe's headline
+  game-over.ogg             "Game Over"            — default + every vibe's game-over screen
+  night-at-the-beach.ogg    "Night at the Beach"   — intro cinematic fallback (warm, nostalgic); also the "warm" set's celebration slot
+
+  PHASE M (music overhaul) — vibes became full 6-slot sets. The 15 tracks
+  below were added for this; game/cfgcodec.js's CFG_VIBE_TRACK_SETS is the
+  authoritative table (documented again there, in code, next to the logic
+  that reads it) — this is the same table, for the asset-credits record:
+
+  cheerful-annoyance.ogg    "Cheerful Annoyance"   — upbeat: boss
+  polka-train.ogg           "Polka Train"          — upbeat: chase
+  swinging-pants.ogg        "Swinging Pants"       — upbeat: celebration
+  mischief-stroll.ogg       "Mishief Stroll"       — spy: boss (source file name has the typo; ours doesn't)
+  drumming-sticks.ogg       "Drumming Sticks"      — spy: chase
+  space-cadet.ogg           "Space Cadet"          — spy: celebration
+  infinite-descent.ogg      "Infinite Descent"     — spy sad / sincere sad (gentle pool)
+  alpha-dance.ogg           "Alpha Dance"          — chase: boss
+  retro-beat.ogg            "Retro Beat"           — chase: chase
+  german-virtue.ogg         "German Virtue"        — chase: celebration
+  sad-town.ogg              "Sad Town"             — chase sad / sincere celebration (gentle pool)
+  italian-mom.ogg           "Italian Mom"          — warm: boss
+  retro-reggae.ogg          "Retro Reggae"         — warm: chase
+  retro-mystic.ogg          "Retro Mystic"         — sincere: boss
+  flowing-rocks.ogg         "Flowing Rocks"        — sincere: chase
+
+  Full per-vibe set table (dinner is always that vibe's original headline
+  track above, unchanged by this phase — the wizard's preview button keeps
+  previewing it; sad/gameover are always drawn from the gentle pool --
+  Sad Descent, Sad Town, Infinite Descent, Game Over — regardless of the
+  set's own register):
+
+    upbeat:  dinner=wacky-waiting     boss=cheerful-annoyance  chase=polka-train
+             celebration=swinging-pants               sad=sad-descent       gameover=game-over
+    spy:     dinner=mission-plausible boss=mischief-stroll     chase=drumming-sticks
+             celebration=space-cadet                  sad=infinite-descent  gameover=game-over
+    chase:   dinner=time-driving      boss=alpha-dance         chase=retro-beat
+             celebration=german-virtue                sad=sad-town          gameover=game-over
+    warm:    dinner=farm-frolics      boss=italian-mom         chase=retro-reggae
+             celebration=night-at-the-beach            sad=sad-descent       gameover=game-over
+    sincere: dinner=sad-descent       boss=retro-mystic        chase=flowing-rocks
+             celebration=sad-town                      sad=infinite-descent  gameover=game-over
 
 Not sample-replaced by design: the Karplus-Strong jaw-harp "twang" and the
 speech-synthesis narration remain fully synthesized/native — see
@@ -53,3 +94,9 @@ score when one is configured; Karks Cub Kingdom ships with its own song and
 keeps it (USE_CUSTOM_SONG = true), with these loops wired in underneath as
 the quiet cover during the download window and the eventual fallback score
 for future games in the product line that don't configure a custom song.
+
+Default music mix level (PHASE M): all music (the loops above and any
+uploaded custom song alike) now plays at MUSIC_BASE_GAIN — clearly under
+the one-shot SFX layer — see game/engine.js / intro/engine.js. Ducking
+during dialogue/beats is unchanged in relative terms, just rescaled onto
+this lower ceiling.

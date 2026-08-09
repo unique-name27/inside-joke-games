@@ -449,21 +449,87 @@ function cfgCastEntry(nullable){ return cfgObj(CFG_CAST_ENTRY_FIELDS, nullable);
 /* the ONE narrow, deliberate exception to "no music from a fragment,
    ever": an ENUM pick among a FIXED set of built-in stock tracks (never
    an arbitrary URL/path -- cfgApplyMusicVibe below only ever resolves one
-   of these 5 known keys against engineRoot + a hardcoded filename, the
-   same shared asset every game already ships). Lets a `#cfg=` link (and
-   the /build/ wizard's live preview, which goes through this exact same
-   function) pick which stock track scores the one ambient loop not
-   already tied to a specific story beat, without reopening the
+   of these 5 known keys, or a deterministic rotation among them, against
+   engineRoot + hardcoded filenames, the same shared assets every game
+   already ships). Lets a `#cfg=` link (and the /build/ wizard's live
+   preview, which goes through this exact same function) pick which
+   curated track SET scores the whole game, without reopening the
    "redirect fetch() at an attacker URL" risk `music` itself was excluded
-   over. */
-var CFG_VIBE_TRACK_MAP = {
-  upbeat: 'wacky-waiting', spy: 'mission-plausible', chase: 'time-driving',
-  warm: 'farm-frolics', sincere: 'sad-descent',
+   over.
+
+   PHASE M (music overhaul): a vibe no longer swaps only the ambient
+   `dinner` loop -- it maps all SIX beat slots to a curated set, drawn
+   from the 24 Kenney "Music Loops" tracks (19 in Loops/ + 5 in Retro/;
+   see assets/audio/CREDITS.txt for the full source list). Curated for
+   register coherence (track length/tempo + name/mood) -- `dinner` is
+   always that vibe's ORIGINAL headline track (unchanged from before this
+   phase, so the wizard's preview button keeps previewing the same track
+   it always has), and `sad`/`gameover` are always drawn from the gentle
+   pool (Sad Descent / Sad Town / Infinite Descent / Game Over) in every
+   set, regardless of the set's own register:
+
+     upbeat  (Upbeat / a little goofy)     -- goofy/silly comedy register
+       dinner: Wacky Waiting        boss: Cheerful Annoyance
+       chase:  Polka Train          celebration: Swinging Pants
+       sad:    Sad Descent          gameover: Game Over
+     spy     (Playful tension, like a spy movie) -- intrigue/mischief
+       dinner: Mission Plausible    boss: Mischief Stroll
+       chase:  Drumming Sticks      celebration: Space Cadet
+       sad:    Infinite Descent     gameover: Game Over
+     chase   (Fast and fun, chase energy)  -- driving/energetic
+       dinner: Time Driving         boss: Alpha Dance
+       chase:  Retro Beat           celebration: German Virtue
+       sad:    Sad Town             gameover: Game Over
+     warm    (Warm and celebratory)        -- cozy/homey
+       dinner: Farm Frolics         boss: Italian Mom
+       chase:  Retro Reggae         celebration: Night at the Beach
+       sad:    Sad Descent          gameover: Game Over
+     sincere (Quiet and sincere)           -- hushed/gentle throughout
+       dinner: Sad Descent          boss: Retro Mystic
+       chase:  Flowing Rocks        celebration: Sad Town
+       sad:    Infinite Descent     gameover: Game Over
+
+   Retro Comedy and Retro Polka (the two remaining Retro tracks) went
+   unused by this curation -- both under 8 seconds, too short/gimmicky to
+   read as a bed loop rather than a stinger. */
+var CFG_VIBE_TRACK_SETS = {
+  upbeat: { dinner:'wacky-waiting', boss:'cheerful-annoyance', chase:'polka-train', celebration:'swinging-pants', sad:'sad-descent', gameover:'game-over' },
+  spy: { dinner:'mission-plausible', boss:'mischief-stroll', chase:'drumming-sticks', celebration:'space-cadet', sad:'infinite-descent', gameover:'game-over' },
+  chase: { dinner:'time-driving', boss:'alpha-dance', chase:'retro-beat', celebration:'german-virtue', sad:'sad-town', gameover:'game-over' },
+  warm: { dinner:'farm-frolics', boss:'italian-mom', chase:'retro-reggae', celebration:'night-at-the-beach', sad:'sad-descent', gameover:'game-over' },
+  sincere: { dinner:'sad-descent', boss:'retro-mystic', chase:'flowing-rocks', celebration:'sad-town', sad:'infinite-descent', gameover:'game-over' },
 };
-function cfgApplyMusicVibe(mergedConfig, vibeKey, engineRoot){
-  if(!vibeKey || !Object.prototype.hasOwnProperty.call(CFG_VIBE_TRACK_MAP, vibeKey)) return mergedConfig;
+var CFG_VIBE_KEYS = Object.keys(CFG_VIBE_TRACK_SETS);
+
+/* mergedConfig.music.loops gets every slot set, always -- either the
+   matching vibe's own curated set, or (vibeKey absent/unrecognized, e.g.
+   an old link with no musicVibe field, or a user who picked "Surprise
+   us") a DETERMINISTIC pick among the 5 sets, keyed off `hashSeed` via
+   the existing cfgHashString -- never Math.random at runtime, so the
+   same seed always resolves to the same set (a given link/order always
+   sounds the same) while different ones spread across the curated
+   register options. Callers pass a seed that's stable for THEIR own
+   notion of "this one game" -- cfgLoadFragmentOverride and the wizard's
+   assembleConfig both use the fragment's own sanitized JSON (identical
+   at encode- and decode-time by construction, see cfgSanitizeConfig's
+   fixed key order); tools/generate.js uses the real gameId (slug) it's
+   about to write to the file. `parseInt(..., 36)` reverses
+   cfgHashString's own `.toString(36)` -- reuses that function exactly as
+   it stands, no new hashing code. */
+function cfgApplyMusicVibe(mergedConfig, vibeKey, engineRoot, hashSeed){
   if(!mergedConfig || !mergedConfig.music || !mergedConfig.music.loops) return mergedConfig;
-  mergedConfig.music.loops.dinner = (engineRoot || '') + 'assets/audio/music/' + CFG_VIBE_TRACK_MAP[vibeKey] + '.ogg';
+  var resolvedVibe = (vibeKey && Object.prototype.hasOwnProperty.call(CFG_VIBE_TRACK_SETS, vibeKey)) ? vibeKey : null;
+  var set;
+  if(resolvedVibe){
+    set = CFG_VIBE_TRACK_SETS[resolvedVibe];
+  } else {
+    var idx = parseInt(cfgHashString(String(hashSeed || '')), 36) % CFG_VIBE_KEYS.length;
+    set = CFG_VIBE_TRACK_SETS[CFG_VIBE_KEYS[idx]];
+  }
+  var root = engineRoot || '';
+  for(var slot in set){
+    mergedConfig.music.loops[slot] = root + 'assets/audio/music/' + set[slot] + '.ogg';
+  }
   return mergedConfig;
 }
 
@@ -477,7 +543,7 @@ var CFG_FRAGMENT_SCHEMA = {
   // as any other unrecognized enum value -- resolved to 'dinner' at the
   // engine's own SKEL lookup (SKELETONS[CONFIG.scene] || SKELETONS.dinner).
   scene: cfgEnum(CFG_SCENE_KEYS),
-  musicVibe: cfgEnum(Object.keys(CFG_VIBE_TRACK_MAP)),
+  musicVibe: cfgEnum(CFG_VIBE_KEYS),
   title: cfgObj({
     lockupLines: cfgArr(2, cfgStr(14)),
     introPageTitle: cfgStr(60),
@@ -683,7 +749,14 @@ function cfgLoadFragmentOverride(engineRoot){
     // explicit fields (sanitized, merged on next) still win over it either way.
     var base = cfgBuildDefaultConfig(engineRoot, sanitized.scene);
     var merged = cfgDeepMerge(base, sanitized);
-    cfgApplyMusicVibe(merged, sanitized.musicVibe, engineRoot);
+    // hash seed = the sanitized override's own JSON (NOT `raw`, the
+    // compressed fragment string) -- the /build/ wizard's assembleConfig
+    // hashes the exact same JSON.stringify(sanitized) before it has a
+    // compressed fragment to hash at all, so a link's live preview and the
+    // link itself resolve to the same "surprise us" set. cfgSanitizeConfig
+    // always builds keys in CFG_FRAGMENT_SCHEMA's own fixed order, so this
+    // string is byte-identical between encode time and this decode time.
+    cfgApplyMusicVibe(merged, sanitized.musicVibe, engineRoot, JSON.stringify(sanitized));
     delete merged.musicVibe; // consumed above -- not a real CONFIG field, don't leave it sitting on the object
     return { config: merged, hash: cfgHashString(raw), raw: raw };
   }catch(e){ return null; }
@@ -711,7 +784,8 @@ if(typeof module !== 'undefined' && module.exports){
     cfgLoadFragmentOverride: cfgLoadFragmentOverride,
     cfgEncodeConfigFragment: cfgEncodeConfigFragment,
     cfgApplyMusicVibe: cfgApplyMusicVibe,
-    CFG_VIBE_TRACK_MAP: CFG_VIBE_TRACK_MAP,
+    CFG_VIBE_TRACK_SETS: CFG_VIBE_TRACK_SETS,
+    CFG_VIBE_KEYS: CFG_VIBE_KEYS,
     CFG_MAX_FRAGMENT_CHARS: CFG_MAX_FRAGMENT_CHARS,
     CFG_SCENE_KEYS: CFG_SCENE_KEYS,
     CFG_SCENE_DEFAULTS: CFG_SCENE_DEFAULTS,

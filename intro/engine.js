@@ -536,6 +536,13 @@ function makeTypewriter(lines, cps, gap){
 const BPM = 112;
 const BEAT = 60/BPM; // seconds per quarter note ~0.536 -- still used to time the slam-sequence twangs
 
+/* PHASE M (mix discipline) -- see game/engine.js's identical constant for
+   the full rationale: music sits clearly under the SFX layer now (one
+   shared value both engines use); duckDown/duckUp/setMusicLevel below all
+   still take a 0..1 fraction of "full" as before this phase, just scaled
+   onto this lower ceiling internally, so every existing call site (and
+   the whole dip-and-recover ducking curve) is unchanged. */
+const MUSIC_BASE_GAIN = 0.35;
 let actx = null, masterGain = null, compressor = null, musicGain = null, fxGain = null, loopGain = null;
 let noiseBuffer = null;
 let recordDest = null; // MediaStreamAudioDestinationNode when recording
@@ -592,7 +599,7 @@ function initAudio(){
   compressor.connect(masterGain);
   masterGain.connect(actx.destination);
 
-  musicGain = actx.createGain(); musicGain.gain.value = 1.0;
+  musicGain = actx.createGain(); musicGain.gain.value = MUSIC_BASE_GAIN;
   musicGain.connect(compressor);
   fxGain = actx.createGain(); fxGain.gain.value = 1.0;
   fxGain.connect(compressor);
@@ -795,20 +802,20 @@ function duckDown(t){
   const g = musicGain.gain;
   g.cancelScheduledValues(t);
   g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(0.02, t+0.08);
+  g.linearRampToValueAtTime(0.02 * MUSIC_BASE_GAIN, t+0.08);
 }
 function duckUp(t, level){
   level = level===undefined ? 1.0 : level;
   const g = musicGain.gain;
   g.cancelScheduledValues(t);
   g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(level, t+0.3);
+  g.linearRampToValueAtTime(level * MUSIC_BASE_GAIN, t+0.3);
 }
 function setMusicLevel(level, t){
   const g = musicGain.gain;
   g.cancelScheduledValues(t);
   g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(level, t+1.0);
+  g.linearRampToValueAtTime(level * MUSIC_BASE_GAIN, t+1.0);
 }
 
 let audioT0 = null; // actx.currentTime at boot-gate activation (music/scene "t=0") -- still the master scene clock

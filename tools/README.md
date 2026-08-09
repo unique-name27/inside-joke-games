@@ -87,13 +87,20 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
 }
 ```
 
-The `music.vibe` → stock-track mapping (used for the `dinner` loop, the
-one ambient register not already tied to a specific story beat):
-`upbeat`→Wacky Waiting, `spy`→Mission Plausible, `chase`→Time Driving,
-`warm`→Farm Frolics, `sincere`→Sad Descent. `boss`/`chase`/`celebration`/
-`sad`/`gameover` keep their own beat-specific stock tracks regardless of
-vibe — those are tied to a specific in-story moment, not the group's
-overall register.
+`music.vibe` picks one of five **curated 6-track sets** (all of `dinner`/
+`boss`/`chase`/`celebration`/`sad`/`gameover`, not just the ambient
+`dinner` loop) — `upbeat`, `spy`, `chase`, `warm`, `sincere`. Each set's
+`dinner` track is the same headline the vibe has always previewed
+(Wacky Waiting / Mission Plausible / Time Driving / Farm Frolics / Sad
+Descent, respectively); the other five slots are curated for register
+coherence, with `sad`/`gameover` always drawn from a gentle pool
+regardless of the set. `CFG_VIBE_TRACK_SETS` in `game/cfgcodec.js` is the
+authoritative table (full track list documented in a comment there and in
+`assets/audio/CREDITS.txt`). Omitted or unrecognized `music.vibe` no
+longer means "today's fixed defaults" — `cfgApplyMusicVibe` picks one of
+the five sets deterministically, hashing the order's own `gameId` (never
+random at runtime), so a given order always sounds the same across
+re-reads but different orders spread across the curated options.
 
 `scene` picks one of the four **story skeletons** — THE DINNER PARTY
 (default), THE ROAD TRIP, THE OFFICE PARTY, THE WEDDING WEEKEND — the

@@ -274,13 +274,21 @@ const DEFAULT_SPRITE = {
   diner0:{spriteCol:1,spriteRow:7}, judge:{spriteCol:4,spriteRow:8},
   butterfingers:{spriteCol:3,spriteRow:8}, builder:{spriteCol:2,spriteRow:8},
 };
+// PHASE M: a vibe pick is now a full 6-slot track SET (CFG_VIBE_TRACK_SETS,
+// game/cfgcodec.js, loaded above this script), not just one ambient loop --
+// the wizard's own preview button still only previews the set's headline
+// (`dinner`) track (unchanged track per vibe from before this phase), read
+// straight off CFG_VIBE_TRACK_SETS below rather than a second hardcoded
+// copy, so the two can never drift apart. 'surprise' has no set of its own
+// (it resolves to a deterministic pick among the other five, per-game --
+// see cfgApplyMusicVibe) and so gets no preview button, same as before.
 const VIBE_DEFS = [
-  { key:'upbeat', label:'Upbeat / a little goofy', track:'wacky-waiting' },
-  { key:'spy', label:'Playful tension, like a spy movie', track:'mission-plausible' },
-  { key:'chase', label:'Fast and fun, chase energy', track:'time-driving' },
-  { key:'warm', label:'Warm and celebratory', track:'farm-frolics' },
-  { key:'sincere', label:'Quiet and sincere', track:'sad-descent' },
-  { key:'surprise', label:'Surprise us', track:null },
+  { key:'upbeat', label:'Upbeat / a little goofy' },
+  { key:'spy', label:'Playful tension, like a spy movie' },
+  { key:'chase', label:'Fast and fun, chase energy' },
+  { key:'warm', label:'Warm and celebratory' },
+  { key:'sincere', label:'Quiet and sincere' },
+  { key:'surprise', label:'Surprise us' },
 ];
 
 /* the Preview step's "Your answers" review card -- one row per earlier
@@ -491,9 +499,12 @@ function assembleConfig(state, engineRoot){
   const base = cfgBuildDefaultConfig(engineRoot, sanitized.scene);
   const merged = cfgDeepMerge(base, sanitized);
   // mirrors exactly what cfgLoadFragmentOverride does when a real link is
-  // opened -- so the preview's music matches what sharing the link
-  // actually produces, not just its dialogue/cast.
-  cfgApplyMusicVibe(merged, sanitized.musicVibe, engineRoot);
+  // opened -- same hash seed too (JSON.stringify(sanitized), not yet a
+  // compressed fragment at this point) -- so the preview's music matches
+  // what sharing the link actually produces, not just its dialogue/cast,
+  // including which curated set "Surprise us" (or no vibe picked at all)
+  // resolves to.
+  cfgApplyMusicVibe(merged, sanitized.musicVibe, engineRoot, JSON.stringify(sanitized));
   delete merged.musicVibe;
   return { overrides: overrides, sanitized: sanitized, merged: merged };
 }
@@ -771,6 +782,10 @@ function initWizard(){
       '<p class="step-sub">Pick the music that plays under your scenes. Tap play to preview.</p>';
     stepsContainer.appendChild(el);
     for(const vibe of VIBE_DEFS){
+      // the headline (dinner) track is the one thing that's stayed constant
+      // per vibe since before this set expanded to all 6 slots -- read it
+      // straight from the shared table rather than a second copy here.
+      const headlineTrack = CFG_VIBE_TRACK_SETS[vibe.key] ? CFG_VIBE_TRACK_SETS[vibe.key].dinner : null;
       const card = document.createElement('div');
       card.className = 'card vibe-card' + (state.vibe === vibe.key ? ' selected' : '');
       card.setAttribute('role', 'button');
@@ -778,8 +793,8 @@ function initWizard(){
       card.setAttribute('aria-pressed', state.vibe === vibe.key ? 'true' : 'false');
       card.innerHTML =
         '<div><div class="vibe-label">'+vibe.label+'</div>' +
-        '<div class="vibe-sub">'+(vibe.track ? vibe.track.replace(/-/g,' ') : 'no music override -- default score') +'</div></div>' +
-        (vibe.track ? '<button type="button" class="btn btn-secondary btn-sm vibe-play">&#9654; Preview</button>' : '');
+        '<div class="vibe-sub">'+(headlineTrack ? headlineTrack.replace(/-/g,' ') : "we’ll pick a set for you -- always the same for your game") +'</div></div>' +
+        (headlineTrack ? '<button type="button" class="btn btn-secondary btn-sm vibe-play">&#9654; Preview</button>' : '');
       card.addEventListener('click', (e)=>{
         if(e.target.closest('.vibe-play')) return;
         state.vibe = vibe.key; persist();
@@ -800,7 +815,7 @@ function initWizard(){
         playBtn.addEventListener('click', (e)=>{
           e.stopPropagation();
           stopPreview();
-          const audio = new Audio('../assets/audio/music/' + vibe.track + '.ogg');
+          const audio = new Audio('../assets/audio/music/' + headlineTrack + '.ogg');
           audio.volume = 0.5;
           currentAudio = audio;
           audio.play().catch(()=>{});
