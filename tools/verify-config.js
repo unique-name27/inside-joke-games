@@ -28,6 +28,7 @@ const REPO_ROOT = path.join(__dirname, '..');
 const GAME_ENGINE_PATH = path.join(REPO_ROOT, 'game', 'engine.js');
 const CFGCODEC_PATH = path.join(REPO_ROOT, 'game', 'cfgcodec.js');
 const SKELETONS_PATH = path.join(REPO_ROOT, 'game', 'skeletons.js');
+const ROSTER_PATH = path.join(REPO_ROOT, 'game', 'roster.js');
 
 /* ---------------------------------------------------------------------
    BASELINE_FORBIDDEN -- "always-on safety words": KCK's own baseline
@@ -117,6 +118,20 @@ function __selectHardMode(){
     confirmModeSelect();
   }
 }
+/* PHASE C (characters are their people) -- tools/verify-skeletons.js's own
+   no-pick KCK-parity check reads this: every place a cast/host sprite
+   resolves to an actual {sheet,col,row}, so it can assert an unpicked
+   config (every pre-Phase-C config, including game/config.js itself)
+   still resolves to today's exact literal tile for every seat. */
+function __rosterProbe(){
+  return {
+    diners: DINER_DEFS.map(function(d){ return { sheet:d.sheet, col:d.col, row:d.row }; }),
+    host: HOST_SPRITE,
+    critic: CRITIC_SPRITE_SRC,
+    savior: SAVIOR_SPRITE,
+    authorityPick: (typeof AUTHORITY_SPRITE_PICK !== 'undefined') ? AUTHORITY_SPRITE_PICK : null,
+  };
+}
 `;
 
 /* throws SyntaxError (with a real stack/message) on malformed JS -- callers
@@ -137,7 +152,11 @@ function loadEngineWithConfig(configSource, opts){
   const engineSrc = fs.readFileSync(GAME_ENGINE_PATH, 'utf8');
   const cfgcodecSrc = fs.readFileSync(CFGCODEC_PATH, 'utf8');
   const skeletonsSrc = fs.readFileSync(SKELETONS_PATH, 'utf8');
-  const combined = configSource + '\n' + cfgcodecSrc + '\n' + skeletonsSrc + '\n' + engineSrc + '\n' + PROBE;
+  const rosterSrc = fs.readFileSync(ROSTER_PATH, 'utf8');
+  // roster.js MUST precede cfgcodec.js in this concatenation -- cfgcodec.js's
+  // CFG_CAST_ENTRY_FIELDS reads the ROSTER_KEYS global at top-level eval
+  // time (see its own comment), same real-page order as every index.html.
+  const combined = configSource + '\n' + rosterSrc + '\n' + cfgcodecSrc + '\n' + skeletonsSrc + '\n' + engineSrc + '\n' + PROBE;
   const sandbox = buildSandbox({ network: 'fail', currentScriptSrc: 'https://example.test/game/engine.js', locationHash: opts.locationHash });
   if(opts.beforeRun) opts.beforeRun(sandbox);
   const ctx = vm.createContext(sandbox);

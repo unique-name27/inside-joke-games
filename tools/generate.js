@@ -45,7 +45,7 @@ const crypto = require('crypto');
 
 const REPO_ROOT = path.join(__dirname, '..');
 const {
-  cfgBuildDefaultConfig, cfgDeepMerge, cfgEncodeConfigFragment, cfgApplyMusicVibe, CFG_VIBE_KEYS, CFG_SCENE_KEYS,
+  cfgBuildDefaultConfig, cfgDeepMerge, cfgEncodeConfigFragment, cfgApplyMusicVibe, CFG_VIBE_KEYS, CFG_SCENE_KEYS, CFG_ROSTER_KEYS,
 } = require(path.join(REPO_ROOT, 'game', 'cfgcodec.js'));
 const { verifyConfigSource } = require('./verify-config.js');
 
@@ -179,6 +179,17 @@ function buildOverrides(answers, slug){
     cast: { diner0: Object.assign({ name: 'THE FOURTH FRIEND', anecdote: 'Always up for anything.' }, DEFAULT_SPRITE.diner0) },
   };
 
+  // PHASE C (characters are their people) -- OPTIONAL: answers.hostSprite is
+  // a game/roster.js key ("which tile is the host?"); unset/unrecognized
+  // silently no-ops (host keeps its bespoke chef tile, same as always --
+  // see game/roster.js's rosterResolveSprite for the exact precedence).
+  // Not part of tools/README.md's required schema -- this CLI's answers.json
+  // predates the roster and every existing answers file keeps working
+  // byte-identically without ever setting this.
+  if(answers.hostSprite && CFG_ROSTER_KEYS.indexOf(answers.hostSprite) !== -1){
+    overrides.host.sprite = answers.hostSprite;
+  }
+
   const offLimits = Array.isArray(answers.offLimits) ? answers.offLimits.map(String) : [];
   overrides.forbiddenWords = ['COIN', 'BILL', 'COST', 'NOTHING'].concat(offLimits.map(w => w.toUpperCase()));
 
@@ -189,6 +200,14 @@ function buildOverrides(answers, slug){
       const entry = { name: String(name).toUpperCase().slice(0, 40) };
       if(anecdotes[introKey]) entry.anecdote = String(anecdotes[introKey]).slice(0, 160);
       if(DEFAULT_SPRITE[cfgKey]) Object.assign(entry, DEFAULT_SPRITE[cfgKey]);
+      // PHASE C -- OPTIONAL: answers.spriteCast[introKey] is a game/roster.js
+      // key; wins over the DEFAULT_SPRITE col/row above (rosterResolveSprite's
+      // precedence -- see game/roster.js), same "unset/unrecognized no-ops"
+      // convention as hostSprite just above.
+      const spriteCast = answers.spriteCast || {};
+      if(spriteCast[introKey] && CFG_ROSTER_KEYS.indexOf(spriteCast[introKey]) !== -1){
+        entry.sprite = spriteCast[introKey];
+      }
       overrides.cast[cfgKey] = entry;
       // BOSS SLOTS: the boss HP bar / entrance card reads the actual
       // person's name, not cfgBuildDefaultConfig's generic "THE CRITIC"/

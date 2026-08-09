@@ -127,13 +127,16 @@ function nextAfterCelebration(){ return EPILOGUE_A_ENABLED ? 'epilogueA' : (EPIL
 function nextAfterEpilogueA(){ return EPILOGUE_B_ENABLED ? 'epilogueB' : 'freeze'; }
 /* cast-slot sprite picks, with KCK's own defaults as the fallback so an
    uncast role's SEAT still shows a generic diner rather than a hole at the
-   table -- only that role's dedicated beat is what's actually skipped. */
+   table -- only that role's dedicated beat is what's actually skipped.
+   PHASE C: now returns {sheet, col, row} (sheet indirection) -- delegates
+   entirely to game/roster.js's rosterResolveSprite (loaded before this
+   script; see that file's own header comment for the exact precedence:
+   entry.sprite roster-key wins outright, else legacy spriteCol/spriteRow,
+   else these fallbacks). Every existing call site's fallbackCol/Row is
+   today's literal KCK tile on the 'dungeon' sheet, so an uncast/unpicked
+   slot resolves BYTE-IDENTICAL to before this phase existed. */
 function castSprite(slot, fallbackCol, fallbackRow){
-  const c = CAST[slot];
-  return {
-    col: (c && c.spriteCol!==undefined) ? c.spriteCol : fallbackCol,
-    row: (c && c.spriteRow!==undefined) ? c.spriteRow : fallbackRow,
-  };
+  return rosterResolveSprite(CAST[slot], fallbackCol, fallbackRow);
 }
 
 const canvas = document.getElementById('c');
@@ -183,12 +186,35 @@ fitCanvas();
    different PATH (../intro/, etc.), so they never trigger this. */
 window.addEventListener('hashchange', ()=>{ location.reload(); });
 
-/* ---------------- assets (reused from ../intro/assets/) ---------------- */
+/* ---------------- assets (reused from ../intro/assets/) ----------------
+   PHASE C (characters are their people): imgDungeon stays the one always-
+   loaded sheet every pre-Phase-C draw call already hardcoded (KCK's own
+   regression baseline); ROSTER_SHEET_IMAGES additionally loads every OTHER
+   sheet game/roster.js references (Tiny Farm/Ski/Battle) so a roster pick
+   can point at any of them. sheetImage(key) is the one lookup every draw
+   call site below uses -- unknown/undefined key safely falls back to
+   imgDungeon rather than throwing (defensive; every real ROSTER entry's
+   `sheet` is one of these keys by construction). assetsReady only flips
+   once EVERY sheet has settled (loaded or errored) -- same "gate every
+   tile draw behind assetsReady" convention this file already used for the
+   single dungeon sheet, just widened to cover them all. */
 const imgDungeon = new Image();
 imgDungeon.src = ENGINE_ROOT + 'intro/assets/tiny_dungeon.png';
+const ROSTER_SHEET_IMAGES = { dungeon: imgDungeon };
 let assetsReady = false;
-imgDungeon.onload = ()=>{ assetsReady = true; };
-imgDungeon.onerror = ()=>{ assetsReady = true; };
+let assetsSettledCount = 0;
+const ROSTER_SHEET_KEYS = (typeof ROSTER_SHEETS !== 'undefined') ? Object.keys(ROSTER_SHEETS) : ['dungeon'];
+const ASSETS_TOTAL = ROSTER_SHEET_KEYS.length;
+function markAssetSettled(){ assetsSettledCount++; if(assetsSettledCount>=ASSETS_TOTAL) assetsReady = true; }
+for(const __sheetKey of ROSTER_SHEET_KEYS){
+  if(__sheetKey === 'dungeon'){ imgDungeon.onload = markAssetSettled; imgDungeon.onerror = markAssetSettled; continue; }
+  const img = new Image();
+  img.src = ENGINE_ROOT + ROSTER_SHEETS[__sheetKey].path;
+  img.onload = markAssetSettled;
+  img.onerror = markAssetSettled;
+  ROSTER_SHEET_IMAGES[__sheetKey] = img;
+}
+function sheetImage(sheetKey){ return ROSTER_SHEET_IMAGES[sheetKey] || imgDungeon; }
 
 function tileSrcX(col){ return col*TILE; }
 function tileSrcY(row){ return row*TILE; }
@@ -962,24 +988,33 @@ const DINER_DEFS = [
   Object.assign(castSprite('butterfingers', 3,8), {x:400,y:432, flip:true}),
   Object.assign(castSprite('builder', 2,8), {x:560,y:432, flip:true}),
 ];
-function drawDinerSprite(ctx, col, row, x, y, flip, scale){
+/* PHASE C: `sheet` is now a required first sprite param (col/row alone are
+   no longer enough to find the tile -- see castSprite/rosterResolveSprite
+   above). sheetImage() resolves it to the right Image, defaulting to
+   imgDungeon for any caller not yet passing one (defensive only). */
+function drawDinerSprite(ctx, sheet, col, row, x, y, flip, scale){
   scale = scale===undefined ? 4 : scale;
-  drawTile(ctx, rawTile(imgDungeon,col,row), x-TILE*scale/2, y-TILE*scale, scale, flip);
+  drawTile(ctx, rawTile(sheetImage(sheet),col,row), x-TILE*scale/2, y-TILE*scale, scale, flip);
 }
 function drawSeatedDiners(ctx, diners){
   for(let i=0;i<diners.length;i++){
     const d = diners[i];
     if(d.walking || d.retired) continue;
-    drawDinerSprite(ctx, d.col, d.row, d.x, d.y, d.flip);
+    drawDinerSprite(ctx, d.sheet, d.col, d.row, d.x, d.y, d.flip);
   }
 }
 
-/* ---------------- chef (player) ---------------- */
+/* ---------------- chef (player/host) ---------------- */
+// PHASE C: the host gets the same optional sprite pick a cast role does --
+// resolved ONCE at load (CONFIG.host never changes at runtime), same
+// fallback (dungeon 2,7) as the hardcoded tile this replaces, so an
+// unpicked host renders BYTE-IDENTICAL to before this phase existed.
+const HOST_SPRITE = rosterResolveSprite(CONFIG.host, 2, 7);
 function drawChef(ctx, x, y, facing, bobT){
   const bob = Math.sin(bobT*10) * (bobT>0?1:0);
   const flipY = facing==='up';
   const flipX = facing==='left';
-  drawTile(ctx, rawTile(imgDungeon,2,7), x-32, y-64+bob, 4, flipY, flipX);
+  drawTile(ctx, rawTile(sheetImage(HOST_SPRITE.sheet),HOST_SPRITE.col,HOST_SPRITE.row), x-32, y-64+bob, 4, flipY, flipX);
   drawToque(ctx, x-16, y-74+bob, 4);
 }
 /* held out at his side, in addition to the HUD corner icon -- obvious at a
@@ -1010,6 +1045,19 @@ function drawBossSagged(ctx, alpha){
   drawBossDoorFrame(ctx, 1);
   ctx.restore();
 }
+// PHASE C: resolved ONCE at load, same as HOST_SPRITE above (CONFIG/CAST
+// never change at runtime) -- the critic's tinted "loom" form now tints
+// WHATEVER the judge is actually seated as (any sheet, not just dungeon),
+// instead of a hardcoded (imgDungeon,4,8) that silently ignored even the
+// pre-Phase-C legacy spriteCol/spriteRow. Unpicked judge (KCK's own
+// game/config.js: no sprite/spriteCol/spriteRow on cast.judge) resolves
+// to the exact same {dungeon,4,8} as before -- byte-identical regression.
+// Judge/critic isn't one of the two roles Phase C calls out for an
+// override-the-bespoke-look toggle (see drawWoman/drawAram below) --
+// the tint+aura "transformation" effect is presentation for ANY judge,
+// picked or not, so it always applies; only ITS SOURCE tile now follows
+// the pick, keeping the boss form visually consistent with the seat.
+const CRITIC_SPRITE_SRC = rosterResolveSprite(CAST.judge, 4, 8);
 let criticSpriteCache = null, criticSpritePhase2Cache = null;
 function buildCriticSprite(tintRGBA){
   // darker clothing palette via a source-atop tint on an ISOLATED offscreen
@@ -1020,7 +1068,7 @@ function buildCriticSprite(tintRGBA){
   off.width = 16; off.height = 16;
   const o = off.getContext('2d');
   o.imageSmoothingEnabled = false;
-  o.drawImage(rawTile(imgDungeon,4,8), 0, 0, 16, 16);
+  o.drawImage(rawTile(sheetImage(CRITIC_SPRITE_SRC.sheet),CRITIC_SPRITE_SRC.col,CRITIC_SPRITE_SRC.row), 0, 0, 16, 16);
   o.globalCompositeOperation = 'source-atop';
   o.fillStyle = tintRGBA;
   o.fillRect(0, 0, 16, 16);
@@ -1028,7 +1076,7 @@ function buildCriticSprite(tintRGBA){
 }
 function getCriticSprite(phase2){
   // lazily built -- safe to cache unconditionally because every call site
-  // already gates drawCritic behind assetsReady, so imgDungeon is loaded.
+  // already gates drawCritic behind assetsReady, so every sheet is loaded.
   if(phase2){
     if(!criticSpritePhase2Cache) criticSpritePhase2Cache = buildCriticSprite('rgba(50,10,16,0.5)');
     return criticSpritePhase2Cache;
@@ -1073,16 +1121,32 @@ function drawCritic(ctx, x, y, poseT, slumped, growT, targetScale, phase2){
   drawGlassesGlint(ctx, 0, drawY, size, phase2, poseT);
   ctx.restore();
 }
+// PHASE C: the savior currently renders a PLAIN reuse of butterfingers'
+// default tile (dungeon 3,8), regardless of any CAST.savior sprite data --
+// this is one of the two roles the spec calls "bespoke ... rendering" that
+// a roster pick must OVERRIDE outright (the other is authority, below).
+// Resolved once at load, same "fallback IS today's literal" byte-identical
+// guarantee as HOST_SPRITE/CRITIC_SPRITE_SRC -- an unpicked savior (every
+// pre-Phase-C config) still resolves to exactly {dungeon,3,8}.
+const SAVIOR_SPRITE = rosterResolveSprite(CAST.savior, 3, 8);
 function drawWoman(ctx, x, y, walkT, flip){
   const bob = Math.sin(walkT*8)*1.5;
-  drawTile(ctx, rawTile(imgDungeon,3,8), x-32, y-64+bob, 4, false, !!flip);
+  drawTile(ctx, rawTile(sheetImage(SAVIOR_SPRITE.sheet),SAVIOR_SPRITE.col,SAVIOR_SPRITE.row), x-32, y-64+bob, 4, false, !!flip);
 }
 
 /* ---------------- Aram, the chef's boss (Beat 4) ----------------
    Same isolated-offscreen tint trick as the critic (buildCriticSprite),
    reusing the chef's own base sprite tile so there's no risk of picking an
    unintended tile from the sheet -- just a darker, angrier recolor at ~2x
-   diner scale. A second warm/no-brows tint covers the "turned good" beat. */
+   diner scale. A second warm/no-brows tint covers the "turned good" beat.
+
+   PHASE C: this generic angry-monster recolor is the OTHER bespoke look
+   the spec calls out -- CAST.authority has never fed this rendering at
+   all (always the chef's own tile, tinted, no matter who's cast). A
+   roster pick on CAST.authority now OVERRIDES it outright: draw that
+   person's plain tile (no tint, no angry brows -- a real likeness isn't
+   recolored/defaced) at the same size/position/bob. No pick keeps
+   EXACTLY today's tinted-monster rendering, both states, unchanged. */
 let aramSpriteCache = null, aramGoodSpriteCache = null;
 function buildAramSprite(tintRGBA){
   const off = document.createElement('canvas');
@@ -1103,6 +1167,8 @@ function getAramSprite(good){
   if(!aramSpriteCache) aramSpriteCache = buildAramSprite('rgba(120,18,18,0.55)');
   return aramSpriteCache;
 }
+const AUTHORITY_SPRITE_PICK = (CAST.authority && CAST.authority.sprite && Object.prototype.hasOwnProperty.call(ROSTER_BY_KEY, CAST.authority.sprite))
+  ? ROSTER_BY_KEY[CAST.authority.sprite] : null;
 const ARAM_SIZE = 128; // ~2x diner scale (diner draw is TILE*4 = 64px)
 function drawAram(ctx, x, y, poseT, walkT, good){
   const bob = Math.sin(walkT*8)*1.5;
@@ -1110,6 +1176,11 @@ function drawAram(ctx, x, y, poseT, walkT, good){
   ctx.save();
   ctx.translate(x, y+bob);
   ctx.imageSmoothingEnabled = false;
+  if(AUTHORITY_SPRITE_PICK){
+    ctx.drawImage(rawTile(sheetImage(AUTHORITY_SPRITE_PICK.sheet),AUTHORITY_SPRITE_PICK.col,AUTHORITY_SPRITE_PICK.row), -size/2, -size, size, size);
+    ctx.restore();
+    return;
+  }
   ctx.drawImage(getAramSprite(good), -size/2, -size, size, size);
   if(!good){
     // simple hand-drawn angry brows -- two dark angled bars over the upper face
@@ -3353,10 +3424,10 @@ function drawBaseScene(ctx){
       let bx = d.x, by = d.y;
       if(d.bounceT>0) by -= Math.abs(Math.sin(d.bounceT*14))*8;
       if(d.shakeT>0) bx += Math.sin(d.shakeT*40)*3;
-      drawDinerSprite(ctx, d.col, d.row, bx, by, d.flip);
+      drawDinerSprite(ctx, d.sheet, d.col, d.row, bx, by, d.flip);
     }
     const cd = diners[CRITIC_INDEX];
-    if(cd.walking && !cd.retired) drawDinerSprite(ctx, cd.col, cd.row, cd.x, cd.y, false);
+    if(cd.walking && !cd.retired) drawDinerSprite(ctx, cd.sheet, cd.col, cd.row, cd.x, cd.y, false);
   }
   if(bottlePickup.active) drawBottlePickupCue(ctx, gameT);
   drawBottles(ctx);
@@ -3644,7 +3715,7 @@ function drawEpBMiniDinner(ctx, cx, cy){
   const offs = [ [-15,-10], [11,-10], [-15, 9], [11, 9] ];
   for(let i=0;i<4;i++){
     const def = DINER_DEFS[i];
-    drawDinerSprite(ctx, def.col, def.row, cx+offs[i][0], cy+offs[i][1], def.flip, 0.5);
+    drawDinerSprite(ctx, def.sheet, def.col, def.row, cx+offs[i][0], cy+offs[i][1], def.flip, 0.5);
   }
 }
 function drawEpBDeskRoom(ctx, t){
@@ -3678,7 +3749,7 @@ function drawEpBDeskRoom(ctx, t){
     ctx.restore();
   }
   ctx.fillStyle = PAL.wood; ctx.fillRect(deskX-100, deskY-10, 200, 14);
-  drawTile(ctx, rawTile(imgDungeon, DINER_DEFS[3].col, DINER_DEFS[3].row), deskX-16, deskY-70, 2, false);
+  drawTile(ctx, rawTile(sheetImage(DINER_DEFS[3].sheet), DINER_DEFS[3].col, DINER_DEFS[3].row), deskX-16, deskY-70, 2, false);
   // typing animation + key blips run the whole shot (handled by the caller)
   const tap = Math.floor(t*7)%2===0;
   ctx.fillStyle = tap ? '#f3e9d2' : '#c9b98a';
@@ -3712,7 +3783,7 @@ function drawEpBSharing(ctx, pingIndex){
   for(let i=0;i<4;i++){
     const fx = EPB_FACE_XS[i], fy = EPB_FACE_Y;
     const def = DINER_DEFS[i];
-    drawTile(ctx, rawTile(imgDungeon, def.col, def.row), fx-32, fy-64, 2.5, false);
+    drawTile(ctx, rawTile(sheetImage(def.sheet), def.col, def.row), fx-32, fy-64, 2.5, false);
     if(i < pingIndex) drawPhoneIcon(ctx, fx, fy+14, gameT*6);
   }
 }

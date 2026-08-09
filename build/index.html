@@ -192,6 +192,27 @@
     .review-label{ flex-basis:100%; }
     .review-value{ white-space:normal; }
   }
+
+  /* ---------- sprite strip (PHASE C: "which one is them?") -- a compact,
+     horizontally-scrollable row of tappable tile swatches. Used in each
+     role card, the main-character/extra-friend fields, and (at a much
+     smaller size) inline in the review-card rows. ---------- */
+  .sprite-field{ margin-top:14px; }
+  .sprite-field-label{ font-size:0.78rem; color:var(--muted); margin:0 0 8px; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; }
+  .sprite-strip{ display:flex; gap:8px; overflow-x:auto; padding:2px 2px 8px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
+  .sprite-swatch{
+    flex:0 0 auto; width:52px; height:52px; padding:3px; scroll-snap-align:start;
+    background:var(--bg); border:2px solid var(--border-strong); border-radius:10px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .sprite-swatch canvas{ width:100%; height:100%; image-rendering:pixelated; -ms-interpolation-mode:nearest-neighbor; }
+  .sprite-swatch:hover{ border-color:var(--gold); }
+  .sprite-swatch.selected{ border-color:var(--gold); box-shadow:0 0 0 2px var(--gold) inset; background:rgba(232,184,75,0.10); }
+  .sprite-swatch:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+  .sprite-swatch-label{ font-size:10px; color:var(--muted-2); text-align:center; margin-top:4px; }
+
+  .review-value.has-sprites{ display:flex; align-items:center; gap:6px; overflow:visible; white-space:normal; }
+  .review-sprite-icon{ flex:0 0 auto; width:20px; height:20px; border-radius:5px; border:1px solid var(--border-strong); image-rendering:pixelated; background:var(--bg); }
 </style>
 </head>
 <body>
@@ -215,6 +236,7 @@
   <!-- steps are rendered into here by renderStep() -->
 </main>
 
+<script src="../game/roster.js"></script>
 <script src="../game/cfgcodec.js"></script>
 <script>
 'use strict';
@@ -274,6 +296,20 @@ const DEFAULT_SPRITE = {
   diner0:{spriteCol:1,spriteRow:7}, judge:{spriteCol:4,spriteRow:8},
   butterfingers:{spriteCol:3,spriteRow:8}, builder:{spriteCol:2,spriteRow:8},
 };
+// PHASE C (characters are their people) -- the game/roster.js key each
+// DEFAULT_SPRITE entry above corresponds to (same tile, just addressed by
+// roster key instead of raw col/row) -- what the sprite strip preselects
+// as "today's tile" for a slot the user hasn't touched the picker for.
+// host isn't a cast entry (CONFIG.host directly) but gets the same
+// treatment -- 'plain' is the chef's own hardcoded tile (game/roster.js).
+// authority/savior have NO entry here on purpose: they have no roster
+// tile today (bespoke tinted/plain rendering -- see game/engine.js's
+// drawAram/drawWoman) -- their strip starts with nothing selected, and
+// picking one OVERRIDES that bespoke look (see buildOverridesFromState).
+const DEFAULT_ROSTER_KEY = {
+  host: 'plain', diner0: 'villager', judge: 'grandma',
+  butterfingers: 'braid', builder: 'vest',
+};
 // PHASE M: a vibe pick is now a full 6-slot track SET (CFG_VIBE_TRACK_SETS,
 // game/cfgcodec.js, loaded above this script), not just one ambient loop --
 // the wizard's own preview button still only previews the set's headline
@@ -303,6 +339,16 @@ const REVIEW_ROWS = [
   { label:'Your group', step:1, summary(state){
       if(!state.host.trim()) return 'Not filled in yet';
       return state.host.trim() + (state.otherFriendName.trim() ? ' + ' + state.otherFriendName.trim() : '');
+    },
+    // PHASE C: tiny sprite next to the name(s) -- falls back to each
+    // slot's default tile (see DEFAULT_ROSTER_KEY) when nobody's touched
+    // the picker, same "always shows what you'll actually get" spirit as
+    // the rest of this review card.
+    sprites(state){
+      if(!state.host.trim()) return [];
+      const keys = [state.hostSprite || DEFAULT_ROSTER_KEY.host];
+      if(state.otherFriendName.trim()) keys.push(state.otherFriendSprite || DEFAULT_ROSTER_KEY.diner0);
+      return keys;
     } },
   { label:'The catchphrase', step:2, summary(state){
       if(!state.catchphrase.trim() && !state.title.trim()) return 'Not filled in yet';
@@ -318,6 +364,16 @@ const REVIEW_ROWS = [
       const cast = ROLE_DEFS.filter(r => state.cast[r.key] && state.cast[r.key].cast && state.cast[r.key].name && state.cast[r.key].name.trim());
       if(!cast.length) return 'Nobody cast -- the game adapts.';
       return cast.map(r => r.title + ' — ' + state.cast[r.key].name.trim()).join(', ');
+    },
+    // PHASE C: one tiny sprite per cast role -- authority/savior have no
+    // DEFAULT_ROSTER_KEY (no bespoke tile), so an unpicked one of those
+    // contributes nothing (null, filtered out below) rather than a
+    // misleading icon for a look that isn't actually a specific tile.
+    sprites(state){
+      return ROLE_DEFS
+        .filter(r => state.cast[r.key] && state.cast[r.key].cast && state.cast[r.key].name && state.cast[r.key].name.trim())
+        .map(r => state.cast[r.key].sprite || DEFAULT_ROSTER_KEY[r.cfgKey] || null)
+        .filter(Boolean);
     } },
   { label:'The vibe', step:5, summary(state){
       const vibe = VIBE_DEFS.find(v => v.key === state.vibe);
@@ -336,11 +392,12 @@ const WIZARD_STORAGE_KEY = 'ijg_build_wizard_v1';
 
 function defaultWizardState(){
   const cast = {};
-  for(const r of ROLE_DEFS) cast[r.key] = { cast:false, name:'', anecdote:'' };
+  for(const r of ROLE_DEFS) cast[r.key] = { cast:false, name:'', anecdote:'', sprite:null };
   return {
     step: 0,
     scene: 'dinner',
     host: '', otherFriendName: '',
+    hostSprite: null, otherFriendSprite: null, // PHASE C: null == "use the default tile"
     catchphrase: '', title: '',
     stories: [ {l1:'',l2:''}, {l1:'',l2:''} ],
     cast: cast,
@@ -362,7 +419,10 @@ function normalizeWizardState(saved){
   out.cast = Object.assign({}, base.cast, saved.cast || {});
   for(const r of ROLE_DEFS){
     out.cast[r.key] = Object.assign({}, base.cast[r.key], (saved.cast && saved.cast[r.key]) || {});
+    if(!ROSTER_BY_KEY[out.cast[r.key].sprite]) out.cast[r.key].sprite = null;
   }
+  if(!ROSTER_BY_KEY[out.hostSprite]) out.hostSprite = null;
+  if(!ROSTER_BY_KEY[out.otherFriendSprite]) out.otherFriendSprite = null;
   if(!SCENE_DEFS.some(s => s.key === out.scene)) out.scene = base.scene;
   if(typeof out.step !== 'number' || out.step < 0 || out.step >= WIZARD_STEP_COUNT) out.step = 0;
   return out;
@@ -450,12 +510,19 @@ function buildOverridesFromState(state){
       diner0: Object.assign({ name: wrapLine(state.otherFriendName || 'THE FOURTH FRIEND', 40), anecdote: 'Always up for anything.' }, DEFAULT_SPRITE.diner0),
     },
   };
+  // PHASE C: an explicit pick wins outright (game/roster.js's
+  // rosterResolveSprite -- sprite enum beats spriteCol/Row); skipping the
+  // picker leaves spriteCol/Row as the only signal, i.e. today's tile, so
+  // "never touched the strip" changes nothing.
+  if(state.hostSprite && ROSTER_BY_KEY[state.hostSprite]) overrides.host.sprite = state.hostSprite;
+  if(state.otherFriendSprite && ROSTER_BY_KEY[state.otherFriendSprite]) overrides.cast.diner0.sprite = state.otherFriendSprite;
   for(const r of ROLE_DEFS){
     const c = state.cast[r.key];
     if(c && c.cast && c.name && c.name.trim()){
       const entry = { name: wrapLine(c.name, 40) };
       if(c.anecdote && c.anecdote.trim()) entry.anecdote = String(c.anecdote).trim().slice(0, 160);
       if(DEFAULT_SPRITE[r.cfgKey]) Object.assign(entry, DEFAULT_SPRITE[r.cfgKey]);
+      if(c.sprite && ROSTER_BY_KEY[c.sprite]) entry.sprite = c.sprite;
       overrides.cast[r.cfgKey] = entry;
       // BOSS SLOTS: the boss HP bar / entrance card should read the actual
       // person's name, not the generic "THE CRITIC"/"THE BOSS HAS ARRIVED"
@@ -602,6 +669,76 @@ function initWizard(){
     }
   }
 
+  /* ---------------------------------------------------------------------
+     PHASE C (characters are their people) -- sprite strip. Draws real
+     16x16 tiles cropped straight out of the roster's own sheet PNGs
+     (game/roster.js, loaded above this script) at pixelated upscale, one
+     shared <img> per sheet (lazy-loaded, cached) so every swatch across
+     every strip on the page reuses the same 4 downloads.
+     --------------------------------------------------------------------- */
+  const SPRITE_SHEET_IMAGES = {};
+  function getSpriteSheetImage(sheetKey){
+    let img = SPRITE_SHEET_IMAGES[sheetKey];
+    if(img) return img;
+    img = new Image();
+    img.src = ENGINE_ROOT + (ROSTER_SHEETS[sheetKey] ? ROSTER_SHEETS[sheetKey].path : ROSTER_SHEETS.dungeon.path);
+    SPRITE_SHEET_IMAGES[sheetKey] = img;
+    return img;
+  }
+  function drawRosterSwatch(canvas, rosterKey){
+    const entry = ROSTER_BY_KEY[rosterKey];
+    if(!entry) return;
+    const S = 3; // 16px tile -> 48px swatch, pixelated
+    canvas.width = 16*S; canvas.height = 16*S;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const img = getSpriteSheetImage(entry.sheet);
+    function paint(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img, entry.col*16, entry.row*16, 16, 16, 0, 0, canvas.width, canvas.height); }
+    if(img.complete && img.naturalWidth>0) paint();
+    else img.addEventListener('load', paint, { once:true });
+  }
+
+  /* wrapEl gets replaced with a labeled, scrollable strip of every
+     ROSTER entry -- tap to pick. `currentKey` (may be null/undefined --
+     "no explicit pick yet") drives which swatch starts selected;
+     `fallbackKey` (may also be undefined -- "no bespoke default tile to
+     preselect", i.e. authority/savior) is what shows selected when
+     currentKey is unset, purely a visual "this is what you get if you
+     don't touch this" cue -- it does NOT itself get written to state
+     (skipping the picker entirely is what leaves state.*.sprite null,
+     see buildOverridesFromState: an unset pick changes nothing). `onPick`
+     fires with the tapped roster key. */
+  function renderSpriteStrip(container, label, currentKey, fallbackKey, onPick){
+    const field = document.createElement('div');
+    field.className = 'sprite-field';
+    const lbl = document.createElement('p');
+    lbl.className = 'sprite-field-label';
+    lbl.textContent = label;
+    field.appendChild(lbl);
+    const strip = document.createElement('div');
+    strip.className = 'sprite-strip';
+    const selectedKey = currentKey || fallbackKey || null;
+    for(const entry of ROSTER){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sprite-swatch' + (entry.key === selectedKey ? ' selected' : '');
+      btn.setAttribute('aria-pressed', entry.key === selectedKey ? 'true' : 'false');
+      btn.title = entry.label + ' (' + ROSTER_SHEETS[entry.sheet].pack + ')';
+      const canvas = document.createElement('canvas');
+      drawRosterSwatch(canvas, entry.key);
+      btn.appendChild(canvas);
+      btn.addEventListener('click', ()=>{
+        strip.querySelectorAll('.sprite-swatch').forEach(b=>{ b.classList.remove('selected'); b.setAttribute('aria-pressed','false'); });
+        btn.classList.add('selected');
+        btn.setAttribute('aria-pressed','true');
+        onPick(entry.key);
+      });
+      strip.appendChild(btn);
+    }
+    field.appendChild(strip);
+    container.appendChild(field);
+  }
+
   /* THE SETTING -- step 1 of 7, picks CONFIG.scene (game/skeletons.js).
      Same tap-to-select card pattern as renderStepVibe below (a div with
      role="button", .selected/aria-pressed toggled on click, Enter/Space
@@ -641,15 +778,28 @@ function initWizard(){
       '<h2>Your group</h2>' +
       '<p class="step-sub">Who the player plays as, and anyone else you want in the room.</p>' +
       '<div class="field"><label for="fHost">Main character’s name <span class="opt">(the one the player plays as)</span></label>' +
-      '<input type="text" id="fHost" maxlength="40" placeholder="e.g. Jordan"></div>' +
-      '<div class="field"><label for="fOther">Anyone else you want in the room who doesn’t fit a role below? <span class="opt">(optional)</span></label>' +
-      '<input type="text" id="fOther" maxlength="40" placeholder="e.g. Casey"></div>';
+      '<input type="text" id="fHost" maxlength="40" placeholder="e.g. Jordan"></div>';
     stepsContainer.appendChild(el);
     const hostInput = el.querySelector('#fHost');
-    const otherInput = el.querySelector('#fOther');
-    hostInput.value = state.host; otherInput.value = state.otherFriendName;
+    hostInput.value = state.host;
     hostInput.addEventListener('input', ()=>{ state.host = hostInput.value; persist(); checkLive(hostInput); });
+    // PHASE C: main character's sprite pick -- default preselected ('plain',
+    // the chef's own today's tile), skipping it changes nothing.
+    renderSpriteStrip(el, 'Which one is them?', state.hostSprite, DEFAULT_ROSTER_KEY.host, (key)=>{
+      state.hostSprite = key; persist();
+    });
+
+    const otherEl = document.createElement('div');
+    otherEl.innerHTML =
+      '<div class="field"><label for="fOther">Anyone else you want in the room who doesn’t fit a role below? <span class="opt">(optional)</span></label>' +
+      '<input type="text" id="fOther" maxlength="40" placeholder="e.g. Casey"></div>';
+    stepsContainer.appendChild(otherEl);
+    const otherInput = otherEl.querySelector('#fOther');
+    otherInput.value = state.otherFriendName;
     otherInput.addEventListener('input', ()=>{ state.otherFriendName = otherInput.value; persist(); checkLive(otherInput); });
+    renderSpriteStrip(otherEl, 'Which one is them?', state.otherFriendSprite, DEFAULT_ROSTER_KEY.diner0, (key)=>{
+      state.otherFriendSprite = key; persist();
+    });
     function checkLive(input){
       const v = checkForbidden(input.value);
       fieldWarning(input.parentElement, v[0] || null);
@@ -741,6 +891,13 @@ function initWizard(){
     const fields = body.querySelector('.role-fields');
     const nameInput = body.querySelector('.role-name');
     const anecInput = body.querySelector('.role-anec');
+    // PHASE C: "which one is them?" -- optional, skipping it changes nothing
+    // (see buildOverridesFromState). DEFAULT_ROSTER_KEY[role.cfgKey] is
+    // undefined for savior/authority (no bespoke tile to preselect -- see
+    // that map's own comment), so their strip starts with nothing selected.
+    renderSpriteStrip(fields, 'Which one is them?', c.sprite, DEFAULT_ROSTER_KEY[role.cfgKey], (key)=>{
+      c.sprite = key; persist();
+    });
     skipCb.checked = !c.cast;
     nameInput.value = c.name; anecInput.value = c.anecdote;
     fields.classList.toggle('skipped', skipCb.checked);
@@ -847,7 +1004,21 @@ function initWizard(){
       label.textContent = row.label;
       const value = document.createElement('span');
       value.className = 'review-value';
-      value.textContent = row.summary(state);
+      // PHASE C: rows that define sprites(state) get a tiny pixelated icon
+      // per entry, prepended before the text summary (see .review-sprite-icon).
+      const spriteKeys = row.sprites ? row.sprites(state) : [];
+      if(spriteKeys.length){
+        value.classList.add('has-sprites');
+        for(const key of spriteKeys){
+          const icon = document.createElement('canvas');
+          icon.className = 'review-sprite-icon';
+          drawRosterSwatch(icon, key);
+          value.appendChild(icon);
+        }
+      }
+      const text = document.createElement('span');
+      text.textContent = row.summary(state);
+      value.appendChild(text);
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.className = 'review-edit';

@@ -59,7 +59,21 @@ function fmt(s){
   return out;
 }
 function fmtLines(lines){ return lines.map(fmt); }
+const CAST = CONFIG.cast || {};
 const SAVIOR_CAST = !!(CONFIG.cast && CONFIG.cast.savior);
+/* PHASE C: Scene 3's flashback table used to hardcode these 4 tiles as
+   bare literals -- byte-identical to KCK, but blind to ANY cast sprite
+   pick (legacy spriteCol/Row or the new roster enum alike). Resolved once
+   here (CONFIG/CAST never change at runtime) via the same shared
+   rosterResolveSprite + fallback-col/row-IS-today's-literal pattern
+   game/engine.js's DINER_DEFS uses, so an unpicked cast (every pre-
+   Phase-C config) still renders these 4 literals exactly. */
+const INTRO_DINER_SPRITES = {
+  diner0: rosterResolveSprite(CAST.diner0, 1, 7),
+  judge: rosterResolveSprite(CAST.judge, 4, 8),
+  butterfingers: rosterResolveSprite(CAST.butterfingers, 3, 8),
+  builder: rosterResolveSprite(CAST.builder, 2, 8),
+};
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha:false });
@@ -113,11 +127,29 @@ imgTown.src = ENGINE_ROOT + 'intro/assets/tiny_town.png';
 imgDungeon.src = ENGINE_ROOT + 'intro/assets/tiny_dungeon.png';
 let assetsReady = false;
 let assetsLoaded = 0;
-function assetLoaded(){ assetsLoaded++; if(assetsLoaded>=2) assetsReady = true; }
+// PHASE C: imgTown/imgDungeon above are unchanged (imgTown is scenery-only,
+// not part of the roster -- see game/roster.js's own header comment); the
+// roster's OTHER sheets (Tiny Farm/Ski/Battle) load the same way, tracked
+// by the same assetsLoaded/assetsReady gate, just widened from a fixed "2"
+// to "however many sheets total" so this still only flips true once every
+// sheet has settled (loaded or errored).
+const ROSTER_SHEET_IMAGES = { dungeon: imgDungeon };
+const ROSTER_SHEET_KEYS = (typeof ROSTER_SHEETS !== 'undefined') ? Object.keys(ROSTER_SHEETS) : ['dungeon'];
+const ASSETS_TOTAL = 2 + (ROSTER_SHEET_KEYS.length - 1); // imgTown + imgDungeon + every non-dungeon roster sheet
+function assetLoaded(){ assetsLoaded++; if(assetsLoaded>=ASSETS_TOTAL) assetsReady = true; }
 imgTown.onload = assetLoaded;
 imgDungeon.onload = assetLoaded;
 imgTown.onerror = assetLoaded;
 imgDungeon.onerror = assetLoaded;
+for(const __sheetKey of ROSTER_SHEET_KEYS){
+  if(__sheetKey === 'dungeon') continue;
+  const img = new Image();
+  img.src = ENGINE_ROOT + ROSTER_SHEETS[__sheetKey].path;
+  img.onload = assetLoaded;
+  img.onerror = assetLoaded;
+  ROSTER_SHEET_IMAGES[__sheetKey] = img;
+}
+function sheetImage(sheetKey){ return ROSTER_SHEET_IMAGES[sheetKey] || imgDungeon; }
 
 /* tile sheet geometry: 16px tiles, 1px gap */
 /* NOTE: the Kenney "_packed" sheets are tightly packed (0px gap between tiles),
@@ -990,8 +1022,10 @@ function drawChefSilhouette(ctx, cx, feetY, t){
     }
   }
 }
-function drawDiner(ctx, col, row, x, y, flip){
-  drawTile(ctx, rawTile(imgDungeon,col,row), x-32, y-64, 4, flip);
+/* PHASE C: `sheet` is now a required first sprite param -- see
+   game/engine.js's identical drawDinerSprite for the full rationale. */
+function drawDiner(ctx, sheet, col, row, x, y, flip){
+  drawTile(ctx, rawTile(sheetImage(sheet),col,row), x-32, y-64, 4, flip);
 }
 function drawSpeechBubble(ctx, x, y, w, h, growT){
   const gw = Math.max(4,w*growT), gh = Math.max(4,h*growT);
@@ -1006,8 +1040,12 @@ function drawSpotlight(ctx, cx, cy){
                  [95,'rgba(243,233,210,0.16)'],[62,'rgba(243,233,210,0.24)'],[34,'rgba(255,248,230,0.35)']];
   for(const [r,color] of bands) drawPixelCircle(ctx, cx, cy, r, color, 4);
 }
+// PHASE C: same host sprite resolution as game/engine.js's HOST_SPRITE --
+// resolved once (CONFIG never changes at runtime), same {dungeon,2,7}
+// fallback, so an unpicked host renders byte-identical to before this phase.
+const HOST_SPRITE = rosterResolveSprite(CONFIG.host, 2, 7);
 function drawItemGetChef(ctx, cx, feetY, t){
-  drawTile(ctx, rawTile(imgDungeon,2,7), cx-32, feetY-64, 4, false);
+  drawTile(ctx, rawTile(sheetImage(HOST_SPRITE.sheet),HOST_SPRITE.col,HOST_SPRITE.row), cx-32, feetY-64, 4, false);
   drawToque(ctx, cx-16, feetY-74, 4);
   const steakY = feetY-112 + Math.sin(t*2)*3;
   drawSteak(ctx, cx-16, steakY, 4);
@@ -1093,10 +1131,10 @@ function drawScene3(ctx, localT, se){
   if(assetsReady){
     drawInterior(ctx);
     SKEL.drawCenterProp(ctx, localT, SKEL_HELPERS);
-    drawDiner(ctx,1,7,400,246,false);
-    drawDiner(ctx,4,8,560,246,false);
-    drawDiner(ctx,3,8,400,440,true);
-    drawDiner(ctx,2,8,560,440,true);
+    drawDiner(ctx,INTRO_DINER_SPRITES.diner0.sheet,INTRO_DINER_SPRITES.diner0.col,INTRO_DINER_SPRITES.diner0.row,400,246,false);
+    drawDiner(ctx,INTRO_DINER_SPRITES.judge.sheet,INTRO_DINER_SPRITES.judge.col,INTRO_DINER_SPRITES.judge.row,560,246,false);
+    drawDiner(ctx,INTRO_DINER_SPRITES.butterfingers.sheet,INTRO_DINER_SPRITES.butterfingers.col,INTRO_DINER_SPRITES.butterfingers.row,400,440,true);
+    drawDiner(ctx,INTRO_DINER_SPRITES.builder.sheet,INTRO_DINER_SPRITES.builder.col,INTRO_DINER_SPRITES.builder.row,560,440,true);
   }
   // size the bubble to the widest full line (not the partial typed text) so it
   // never has to resize mid-type, and text always stays inside its border.

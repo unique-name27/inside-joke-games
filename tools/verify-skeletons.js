@@ -36,6 +36,7 @@ const {
   cfgBuildDefaultConfig, cfgDeepMerge, cfgEncodeConfigFragment, cfgDecompress, CFG_SCENE_KEYS,
 } = require(path.join(REPO_ROOT, 'game', 'cfgcodec.js'));
 const { SKELETONS } = require(path.join(REPO_ROOT, 'game', 'skeletons.js'));
+const { ROSTER, ROSTER_SHEETS } = require(path.join(REPO_ROOT, 'game', 'roster.js'));
 const {
   verifyConfigFile, verifyConfigSource, toneGateSource, loadEngineWithConfig, drivePlaythrough,
 } = require('./verify-config.js');
@@ -205,6 +206,63 @@ function checkRoundTrip(){
   }
 }
 
+/* ----------------------------------------------------------------------
+   9. PHASE C (characters are their people) -- resource check: the harness
+   never draws a tile (tools/lib/sandbox.js's FakeImage never actually
+   decodes a PNG), so this is the one place that can actually prove every
+   roster entry's backing sheet ships as a real file on disk, and that
+   every entry's `sheet` key resolves to a real ROSTER_SHEETS mapping (no
+   typo pointing an entry at an unlisted sheet).
+   ---------------------------------------------------------------------- */
+function checkRosterAssets(){
+  const missing = [];
+  for(const entry of ROSTER){
+    const sheetDef = ROSTER_SHEETS[entry.sheet];
+    if(!sheetDef){ missing.push(entry.key + ': unknown sheet "' + entry.sheet + '"'); continue; }
+    const abs = path.join(REPO_ROOT, sheetDef.path);
+    if(!fs.existsSync(abs)) missing.push(entry.key + ': ' + sheetDef.path + ' does not exist');
+  }
+  record('roster: every entry\'s backing sheet ships in assets/ (' + ROSTER.length + ' entries, ' + Object.keys(ROSTER_SHEETS).length + ' sheets)', missing.length === 0, missing.join('; '));
+}
+
+/* ----------------------------------------------------------------------
+   10. PHASE C -- no-pick KCK parity: game/config.js has no `sprite` (or
+   spriteCol/spriteRow beyond its own existing 4 literals) anywhere, so
+   every cast/host sprite resolution must come out EXACTLY as it did
+   before this phase existed -- proves the "absent pick -> byte-identical
+   regression" guarantee end to end (not just per-function in isolation).
+   __rosterProbe (tools/verify-config.js's PROBE) exposes the resolved
+   values directly off the running sandbox.
+   ---------------------------------------------------------------------- */
+function checkRosterNoPickParity(){
+  const expected = {
+    diners: [
+      { sheet:'dungeon', col:1, row:7 }, // diner0
+      { sheet:'dungeon', col:4, row:8 }, // judge
+      { sheet:'dungeon', col:3, row:8 }, // butterfingers
+      { sheet:'dungeon', col:2, row:8 }, // builder
+    ],
+    host: { sheet:'dungeon', col:2, row:7 },
+    critic: { sheet:'dungeon', col:4, row:8 },
+    savior: { sheet:'dungeon', col:3, row:8 },
+    authorityPick: null,
+  };
+  try{
+    const configSource = fs.readFileSync(GAME_CONFIG_PATH, 'utf8');
+    const sb = loadEngineWithConfig(configSource, {});
+    const actual = sb.__rosterProbe();
+    const mismatches = [];
+    for(const key in expected){
+      const exp = JSON.stringify(expected[key]);
+      const act = JSON.stringify(actual[key]);
+      if(exp !== act) mismatches.push(key + ': expected ' + exp + ', got ' + act);
+    }
+    record('roster: KCK (game/config.js) no-pick parity -- every seat resolves to today\'s exact sheet/col/row', mismatches.length === 0, mismatches.join('; '));
+  }catch(e){
+    record('roster: KCK (game/config.js) no-pick parity', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+}
+
 function main(){
   checkDinnerParity();
   checkKckPlaythroughs();
@@ -212,6 +270,8 @@ function main(){
   checkSceneMatrix();
   checkSkeletonsToneGate();
   checkRoundTrip();
+  checkRosterAssets();
+  checkRosterNoPickParity();
 
   const failed = results.filter(r => !r.ok);
   console.log('');
@@ -221,4 +281,4 @@ function main(){
 
 if(require.main === module) main();
 
-module.exports = { checkDinnerParity, checkKckPlaythroughs, checkExamples, checkSceneMatrix, checkSkeletonsToneGate, checkRoundTrip };
+module.exports = { checkDinnerParity, checkKckPlaythroughs, checkExamples, checkSceneMatrix, checkSkeletonsToneGate, checkRoundTrip, checkRosterAssets, checkRosterNoPickParity };

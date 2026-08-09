@@ -438,10 +438,27 @@ function cfgEnum(values){ return { type:'enum', values: values }; }
 function cfgArr(maxLen, item){ return { type:'array', maxLen: maxLen, item: item }; }
 function cfgObj(fields, nullable){ return { type:'object', fields: fields, nullable: !!nullable }; }
 
+/* PHASE C (characters are their people): `sprite` is an ENUM pick among
+   game/roster.js's fixed, engine-shipped ROSTER_KEYS -- never a path, col,
+   or row (those stay engine-side data; see that file's own header
+   comment). `CFG_ROSTER_KEYS` degrades to an empty array (so the enum
+   whitelist becomes "nothing validates", never "anything validates") if
+   roster.js somehow isn't loaded before this file evaluates -- it always
+   is in every real page and every harness (see game/index.html,
+   intro/index.html, tools/verify-config.js's loadEngineWithConfig), so
+   this is defensive-only. `spriteCol`/`spriteRow` stay exactly as they
+   were pre-Phase-C -- the resolved-value back-compat fields a legacy
+   config/fragment may still carry; game/roster.js's rosterResolveSprite
+   is the ONE place that decides which of `sprite` vs spriteCol/spriteRow
+   wins (sprite wins outright when it's a valid key, never a partial mix). */
+var CFG_ROSTER_KEYS = (typeof ROSTER_KEYS !== 'undefined') ? ROSTER_KEYS
+  : (typeof require === 'function' ? (function(){ try{ return require('./roster.js').ROSTER_KEYS; }catch(e){ return []; } })() : []);
+
 var CFG_CAST_ENTRY_FIELDS = {
   name: cfgStr(40),
   spriteCol: cfgNum(0, 15),
   spriteRow: cfgNum(0, 15),
+  sprite: cfgEnum(CFG_ROSTER_KEYS),
   anecdote: cfgStr(160),
 };
 function cfgCastEntry(nullable){ return cfgObj(CFG_CAST_ENTRY_FIELDS, nullable); }
@@ -550,7 +567,13 @@ var CFG_FRAGMENT_SCHEMA = {
     gamePageTitle: cfgStr(60),
   }),
   punchline: cfgStr(40),
-  host: cfgObj({ name: cfgStr(40) }),
+  // PHASE C: the host/player gets the same optional sprite pick a cast
+  // entry does (see CFG_CAST_ENTRY_FIELDS's own comment for the
+  // sprite-vs-spriteCol/Row precedence -- game/roster.js's
+  // rosterResolveSprite is the one place that resolves it, for host and
+  // cast alike). Absent (every pre-Phase-C config/fragment) resolves to
+  // today's hardcoded chef tile -- see game/engine.js's drawChef.
+  host: cfgObj({ name: cfgStr(40), spriteCol: cfgNum(0, 15), spriteRow: cfgNum(0, 15), sprite: cfgEnum(CFG_ROSTER_KEYS) }),
   forbiddenWords: cfgArr(10, cfgStr(30)),
   stories: cfgArr(4, cfgObj({ lines: cfgArr(2, cfgStr(80)) })),
   dismissiveLine: cfgStr(80),
@@ -789,5 +812,6 @@ if(typeof module !== 'undefined' && module.exports){
     CFG_MAX_FRAGMENT_CHARS: CFG_MAX_FRAGMENT_CHARS,
     CFG_SCENE_KEYS: CFG_SCENE_KEYS,
     CFG_SCENE_DEFAULTS: CFG_SCENE_DEFAULTS,
+    CFG_ROSTER_KEYS: CFG_ROSTER_KEYS,
   };
 }

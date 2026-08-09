@@ -1,0 +1,33 @@
+Sprite credits — character roster (Phase C)
+============================================
+
+All character tile sheets in this folder are by Kenney (www.kenney.nl),
+released under Creative Commons Zero (CC0 1.0):
+https://creativecommons.org/publicdomain/zero/1.0/
+
+CC0 means these files are free to use in personal, educational, and
+commercial projects with no attribution required. This credit is included
+anyway because Kenney's work makes projects like this possible. Each
+pack's own license text ships alongside it here (KENNEY-LICENSE*.txt).
+
+Source packs (Tiny family — all share the same 16x16px tile grid):
+  tiny_dungeon.png   Tiny Dungeon   — KENNEY-LICENSE.txt (shared w/ tiny_town.png)
+  tiny_town.png      Tiny Town      — KENNEY-LICENSE.txt (scenery only — no character
+                                       tiles; not part of the Phase C roster, reserved
+                                       for Phase S scenes)
+  tiny_farm.png      Tiny Farm      — KENNEY-LICENSE-tiny-farm.txt
+  tiny_ski.png       Tiny Ski       — KENNEY-LICENSE-tiny-ski.txt
+  tiny_battle.png    Tiny Battle    — KENNEY-LICENSE-tiny-battle.txt
+
+Each tilemap_packed.png was copied bit-identical from Kenney's own
+distribution (SHA-256 verified at copy time). See game/roster.js for the
+full ~26-entry roster this repo actually draws from (key/label/sheet/
+col/row) — not every tile in these sheets is used.
+
+Packs considered and NOT used:
+  Animal Pack Remastered — individual character PNGs are ~128-160px
+  portrait icons on no consistent tile grid (not a 16px-tile sheet at
+  all), so it doesn't fit alongside the Tiny family packs cleanly. Per
+  SPEC-their-game.md Phase C ("skip if it doesn't fit the grid cleanly"),
+  it's excluded. Non-human roster picks come from Tiny Dungeon (slime,
+  spider), Tiny Farm (cow), and Tiny Ski (snowman) instead.
