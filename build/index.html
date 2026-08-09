@@ -203,7 +203,7 @@
    interactive: assembles a CONFIG in the browser, validates it through
    the EXACT SAME whitelist game/cfgcodec.js uses for a real `#cfg=` link
    (no separate/looser rules for "preview" vs "the real thing"), and lets
-   the buyer play their own game immediately -- no deployment, no wait.
+   the user play their own game immediately -- no deployment, no wait.
 
    Structure: PURE LOGIC first (state shape, config assembly, the content
    gate) -- no `document`/`window` references anywhere in this section, on
@@ -665,7 +665,19 @@ function initWizard(){
       fields.classList.toggle('skipped', skipCb.checked);
       persist();
     });
-    nameInput.addEventListener('input', ()=>{ c.name = nameInput.value; persist(); fieldWarning(fields, checkForbidden(nameInput.value)[0]||null); });
+    nameInput.addEventListener('input', ()=>{
+      c.name = nameInput.value;
+      // typing a real name auto-casts the role -- "Skip this role" remains the
+      // explicit opt-out (still works after this, and doesn't clear the name);
+      // clearing the name back out does NOT auto-skip, on purpose.
+      if(nameInput.value.trim() && !c.cast){
+        c.cast = true;
+        skipCb.checked = false;
+        fields.classList.remove('skipped');
+      }
+      persist();
+      fieldWarning(fields, checkForbidden(nameInput.value)[0]||null);
+    });
     anecInput.addEventListener('input', ()=>{ c.anecdote = anecInput.value; persist(); });
     return card;
   }
@@ -733,11 +745,16 @@ function initWizard(){
     stepsContainer.appendChild(el);
 
     const violations = checkStateForbidden(state);
-    const warnBanner = document.createElement('div');
-    warnBanner.className = 'warning-banner' + (violations.length ? ' show' : '');
-    warnBanner.innerHTML = '<strong>Before you share:</strong><ul>' +
-      violations.map(v=>'<li>'+v+'</li>').join('') + '</ul>';
-    stepsContainer.appendChild(warnBanner);
+    // only ever added to the DOM when there's something to say -- an always-
+    // present-but-visually-hidden banner was pure a11y noise (screen readers/
+    // find-in-page still see it) for the common zero-violations case.
+    if(violations.length){
+      const warnBanner = document.createElement('div');
+      warnBanner.className = 'warning-banner show';
+      warnBanner.innerHTML = '<strong>Before you share:</strong><ul>' +
+        violations.map(v=>'<li>'+v+'</li>').join('') + '</ul>';
+      stepsContainer.appendChild(warnBanner);
+    }
 
     if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim()){
       const missing = document.createElement('div');
@@ -761,7 +778,7 @@ function initWizard(){
     // encode the SANITIZED OVERRIDE DELTA, never `merged`: applying a vibe
     // resolves musicVibe into merged.music.loops and then deletes the
     // consumed key -- and `music` itself is deliberately not fragment-
-    // settable -- so encoding `merged` dropped the buyer's chosen music
+    // settable -- so encoding `merged` dropped the user's chosen music
     // entirely (default track on both the preview and the shared link).
     // `sanitized` still carries musicVibe, is already whitelist-validated,
     // and is the semantically right payload (a fragment is the delta, not
@@ -794,27 +811,18 @@ function initWizard(){
       }
     });
 
-    const upsell = document.createElement('div');
-    upsell.className = 'card upsell';
-    upsell.innerHTML =
-      '<h2 style="color:var(--gold);">Make it permanent -- $5</h2>' +
-      '<p style="font-size:0.92rem;color:var(--muted);margin:0 0 16px;">A shareable link works forever, but a permanent hosted link (your own tidy <code>/games/</code> URL) plus your own uploaded song is the paid tier -- and a real human reviews your stories before it goes out.</p>' +
-      '<div class="btn-row"><a class="btn btn-secondary" id="upsellStart">Start your order</a><a class="btn btn-primary" id="upsellPay">Pay $5</a></div>' +
-      '<p class="link-len" id="upsellNote" style="text-align:center;margin-top:12px;"></p>';
-    stepsContainer.appendChild(upsell);
-    wireOrderButton(upsell.querySelector('#upsellStart'), SITE_CONFIG.intakeFormUrl, 'Start your order');
-    wireOrderButton(upsell.querySelector('#upsellPay'), SITE_CONFIG.paymentUrl, 'Pay $5');
-    if(!SITE_CONFIG.intakeFormUrl || !SITE_CONFIG.paymentUrl){
-      upsell.querySelector('#upsellNote').textContent = 'Orders opening soon.';
-    }
-  }
-  function wireOrderButton(elem, url, label){
-    if(url){
-      elem.href = url; elem.removeAttribute('aria-disabled'); elem.target = '_blank'; elem.rel = 'noopener';
-    } else {
-      elem.href = '#'; elem.setAttribute('aria-disabled', 'true');
-      elem.addEventListener('click', e=>e.preventDefault());
-      elem.textContent = label;
+    // price surfaces exactly once, quietly, and only once there's somewhere
+    // real to send it -- the whole card is simply never added to the DOM
+    // (not disabled/hidden-with-a-note) while intakeFormUrl is unset.
+    if(SITE_CONFIG.intakeFormUrl){
+      const permanent = document.createElement('div');
+      permanent.className = 'card upsell';
+      permanent.innerHTML =
+        '<h2>Keep it forever</h2>' +
+        '<p style="font-size:0.92rem;color:var(--muted);margin:0 0 16px;">Want your game to have a permanent home? Its own address, your own song, a human read-through before it ships -- one-time $5.</p>' +
+        '<div class="cta-row"><a class="btn btn-primary" id="permanentBtn" target="_blank" rel="noopener">Send us your game</a></div>';
+      stepsContainer.appendChild(permanent);
+      permanent.querySelector('#permanentBtn').href = SITE_CONFIG.intakeFormUrl;
     }
   }
 

@@ -436,7 +436,7 @@ exception is two reusable tokens, `{HOST}` and `{ITEM}`, which a small
 replaces wherever they appear: `{HOST}` → `CONFIG.host.name`, `{ITEM}` →
 `CONFIG.savior.itemName`. This covers the handful of sentences that repeat
 the host's name or the gift item's name across both files (e.g. "CHEF
-{HOST}... YOU SAVED THE DINNER.") without needing a buyer/Claude-mapping
+{HOST}... YOU SAVED THE DINNER.") without needing a user/Claude-mapping
 step to keep four separately-authored sentences in sync by hand. Everything
 else — stories, critique lines, cast anecdotes, epilogue captions — is
 free-form text with no placeholders, written whole by whoever maps an
@@ -538,12 +538,12 @@ moment-to-moment difficulty):
 
 `five_min`'s hard-mode numbers for those same three DIFF-routed knobs
 aren't spelled out by spec (unlocking hard mode is a KCK-specific
-meta-progression feature that isn't guaranteed relevant to every buyer
+meta-progression feature that isn't guaranteed relevant to every user
 config, but could in principle be reached from a five_min preset too) — a
 judgment call applies the same normal→hard delta `'full'` mode uses:
 boss HP +2, phase-2 HP +2, resets +1.
 
-**Music.** `CONFIG.music.customSongPath` — a buyer's uploaded song, or
+**Music.** `CONFIG.music.customSongPath` — a user's uploaded song, or
 `null` for a config with no custom song. When set, it always wins (same
 `USE_CUSTOM_SONG` mechanism Phase A built), with `CONFIG.music.loops` (a
 `{dinner, boss, chase, celebration, sad, gameover}` map of asset paths)

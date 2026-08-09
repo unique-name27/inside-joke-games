@@ -1,7 +1,7 @@
 # SPEC — Story Skeletons (scene templates)
 
 Four settings for the same game: **THE DINNER PARTY** (the original), **THE ROAD
-TRIP**, **THE OFFICE PARTY**, **THE WEDDING WEEKEND**. A buyer picks one in the
+TRIP**, **THE OFFICE PARTY**, **THE WEDDING WEEKEND**. A user picks one in the
 wizard; the game re-dresses itself around it. This is the feature that makes the
 tool feel limitless instead of well-disguised: the copy already promises "any
 group" — this makes the *scene* match the group too.
@@ -36,10 +36,10 @@ support). Do not touch beat logic, timings, degradation map, or DIFF tables.
    per-scene palettes, draw functions, mechanic-flavor strings. Loaded as a
    plain global (`SKELETONS`) by BOTH pages, before engine.js. Browser global +
    `module.exports` guard, same dual-load pattern as cfgcodec.js.
-3. **Buyer config** — gains ONE new field: `scene: 'dinner'|'roadtrip'|'office'|'wedding'`.
+3. **User config** — gains ONE new field: `scene: 'dinner'|'roadtrip'|'office'|'wedding'`.
    Everything else about a config is unchanged.
 
-**Security invariant (unchanged from the codec's design):** a fragment/buyer
+**Security invariant (unchanged from the codec's design):** a fragment/user
 config can only ever *pick* a skeleton by enum key. No draw code, no asset
 paths, no strings enter from the fragment via this feature. `cfgSanitize`
 whitelists `scene` as `cfgEnum(['dinner','roadtrip','office','wedding'])`.
@@ -108,7 +108,7 @@ COIN/BILL/COST/NOTHING, and FREE only inside a literal `FOR FREE?`.
 Every value = today's literal, moved verbatim. This skeleton is the regression
 proof: extraction is correct when KCK plays byte-identically. (Known quirk,
 accepted: the start card says `THE GUYS TELL THEIR STORIES.` for every
-dinner-scene buyer, as it already does today.)
+dinner-scene user, as it already does today.)
 
 ### roadtrip — THE ROAD TRIP
 - Scene: a night pull-off / rest stop. Floor: dirt-and-grass tones. Top wall:
@@ -189,7 +189,7 @@ dinner-scene buyer, as it already does today.)
    today's (old links regress perfectly). For other scenes, a small
    `CFG_SCENE_DEFAULTS` table (text only — it lives in cfgcodec.js so the
    codec keeps zero dependency on skeletons.js) overrides exactly these
-   defaults, buyer answers still win over all of them:
+   defaults, user answers still win over all of them:
    - roadtrip: `introStory.scene1Lines: ['NOT LONG AGO,','{HOST} TOOK THE CREW ON A DRIVE.','THE STORIES THEY TOLD WERE VERY ORDINARY.']`,
      `scene2Lines: ['THEY SAY {HOST} IS STILL AT THE WHEEL...','LISTENING.']`,
      `loseLine: 'THE TRIP IS RUINED.'`, `rankNames.worst: 'FRIEND WHO RUINS ROAD TRIPS'`

@@ -57,29 +57,29 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
 
 ```jsonc
 {
-  "scene": "dinner",                        // optional, defaults to "dinner" -- "dinner" | "roadtrip" | "office" | "wedding" (see "Story skeletons" in README.md)
-  "catchphrase": "FOR FREE?",              // Q1, required
-  "stories": ["...", "..."],                // Q2, required — array of 2-4 plain-English sentences, pre-split (one string per story); the generator uppercases + word-wraps each into up to 2 short lines itself
-  "title": "The Test Group",                // Q3, required
-  "host": "Jordan",                         // Q4, required — first name/nickname
-  "cast": {                                 // Q5 — role: name, or null/omitted to skip
+  "scene": "dinner",                        // Q1, optional, defaults to "dinner" -- "dinner" | "roadtrip" | "office" | "wedding" (see "Story skeletons" in README.md)
+  "catchphrase": "FOR FREE?",              // Q2, required
+  "stories": ["...", "..."],                // Q3, required — array of 2-4 plain-English sentences, pre-split (one string per story); the generator uppercases + word-wraps each into up to 2 short lines itself
+  "title": "The Test Group",                // Q4, required
+  "host": "Jordan",                         // Q5, required — first name/nickname
+  "cast": {                                 // Q6 — role: name, or null/omitted to skip
     "critic": "Bob",                        //   "The Critic"       -> CONFIG.cast.judge
     "boss": null,                           //   "The Boss"         -> CONFIG.cast.authority
     "savior": null,                         //   "The Savior"       -> CONFIG.cast.savior
     "butterfingers": "Morgan",              //   "Butterfingers"    -> CONFIG.cast.butterfingers
     "builder": "Riley"                      //   "The Builder"      -> CONFIG.cast.builder
   },
-  "anecdotes": {                            // Q6 — one per cast role (matching keys above)
+  "anecdotes": {                            // Q7 — one per cast role (matching keys above)
     "butterfingers": "Takes 40 photos of every plate.",
     "builder": "Builds something every time we hang out."
   },
   "music": {
-    "vibe": "surprise",                     // Q7 — "upbeat" | "spy" | "chase" | "warm" | "sincere" | "surprise" (anything else/omitted behaves like "surprise": no override, stock Wacky Waiting default)
-    "songFile": null                        // Q7 — local path to an uploaded song file, or null
+    "vibe": "surprise",                     // Q8 — "upbeat" | "spy" | "chase" | "warm" | "sincere" | "surprise" (anything else/omitted behaves like "surprise": no override, stock Wacky Waiting default)
+    "songFile": null                        // Q8 — local path to an uploaded song file, or null
   },
-  "spellings": [ { "from": "Catherine", "to": "Kathryn" } ], // Q8, optional — literal find/replace over every generated string
-  "offLimits": [],                          // Q9, optional — appended to forbiddenWords ON TOP OF the baseline (never replaces it)
-  "email": "buyer@example.com",             // Q10, required — delivery contact only, not part of CONFIG
+  "spellings": [ { "from": "Catherine", "to": "Kathryn" } ], // Q9, optional — literal find/replace over every generated string
+  "offLimits": [],                          // Q10, optional — appended to forbiddenWords ON TOP OF the baseline (never replaces it)
+  "email": "user@example.com",              // Q11, required — delivery contact only, not part of CONFIG
   "lengthPreset": "five_min"                // optional, defaults to 'five_min' per FULFILLMENT.md
 }
 ```
@@ -119,7 +119,7 @@ something crueler. **Read every free-text answer before delivering.**
 supporting dialogue for each cast role (critique lines, entrance lines,
 epilogue captions, etc.) reuses `cfgBuildDefaultConfig`'s generic-but-
 complete, already tone-gate-clean template text — the same content a
-`#cfg=` link falls back to for anything a buyer didn't specify. Real
+`#cfg=` link falls back to for anything a user didn't specify. Real
 per-order wit remains `FULFILLMENT.md`'s hand-authored path (copy
 `game/config.js` as the schema reference, write every line by hand) —
 this CLI automates getting a *complete, correct, deployed, verified*

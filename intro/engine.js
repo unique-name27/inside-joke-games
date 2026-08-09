@@ -96,6 +96,11 @@ function fitCanvas(){
 window.addEventListener('resize', fitCanvas);
 window.addEventListener('orientationchange', fitCanvas);
 fitCanvas();
+/* see game/engine.js's identical listener for the full rationale: a new
+   #cfg= link opened while this same path is already loaded only fires
+   hashchange (no real navigation), so without this the tab would keep
+   playing the OLD, already-resolved config under the new URL. */
+window.addEventListener('hashchange', ()=>{ location.reload(); });
 
 /* ---------------- mobile / touch ---------------- */
 let isTouch = ('ontouchstart' in window);

@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inside Joke Games — turn your group's inside joke into a video game</title>
-<meta name="description" content="Turn your group's inside joke into a real, playable video game. Your names, your stories, your catchphrase. Free to build in your browser; $5 to keep it forever.">
+<meta name="description" content="Turn your group's inside joke into a real, playable video game. Your names, your stories, your catchphrase — free, in your browser, in about five minutes.">
 <meta name="theme-color" content="#141428">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Inside Joke Games — turn your group's inside joke into a video game">
-<meta property="og:description" content="Your group, your stories, your catchphrase -- built into a playable comedy game in about five minutes. Free to try, $5 to keep.">
+<meta property="og:description" content="Your group, your stories, your catchphrase — built into a playable comedy game in about five minutes. Nothing to install.">
 <meta property="og:url" content="https://unique-name27.github.io/inside-joke-games/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23141428'/%3E%3Ctext x='8' y='12' font-size='9' text-anchor='middle' fill='%23e8b84b' font-family='monospace' font-weight='bold'%3EHA%3C/text%3E%3C/svg%3E">
 <style>
@@ -175,31 +175,6 @@
   .step h3{ margin:0 0 6px; font-size:1.02rem; }
   .step p{ margin:0; color:var(--muted); font-size:0.92rem; }
 
-  /* ---------- pricing ---------- */
-  .pricing-grid{
-    display:grid; gap:var(--space-5); grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
-    max-width:820px; margin:0 auto; align-items:stretch;
-  }
-  .pricing-card{ display:flex; flex-direction:column; position:relative; }
-  .pricing-card-featured{
-    border-color:var(--gold);
-    box-shadow:0 0 0 1px var(--gold) inset, var(--shadow-md);
-    background:linear-gradient(180deg, rgba(232,184,75,0.09), var(--surface) 45%);
-  }
-  .pricing-badge{
-    position:absolute; top:-13px; left:50%; transform:translateX(-50%);
-    background:var(--gold); color:var(--gold-ink); font-size:0.72rem; font-weight:800;
-    text-transform:uppercase; letter-spacing:0.05em; padding:4px 12px; border-radius:999px;
-  }
-  .price-tier{ margin:0; text-transform:uppercase; letter-spacing:0.06em; font-size:0.8rem; color:var(--muted); font-weight:700; }
-  .price-amount{ margin:4px 0 0; font-size:2.4rem; font-weight:800; color:var(--cream); }
-  .price-desc{ margin:0 0 18px; color:var(--muted); font-size:0.9rem; }
-  .price-features{ list-style:none; padding:0; margin:0 0 24px; display:flex; flex-direction:column; gap:10px; flex:1; }
-  .price-features li{ position:relative; padding-left:26px; color:var(--cream); font-size:0.92rem; }
-  .price-features li::before{ content:'\2713'; position:absolute; left:0; color:var(--gold); font-weight:800; }
-  .price-note{ font-size:0.78rem; color:var(--muted-2); text-align:center; margin:14px 0 0; text-transform:uppercase; letter-spacing:0.03em; }
-  .pricing-card .cta-row{ margin-top:auto; padding-top:8px; }
-
   /* ---------- FAQ ---------- */
   .faq-list{ display:flex; flex-direction:column; gap:10px; }
   .faq-item{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:2px 20px; }
@@ -243,7 +218,7 @@
     <nav class="site-nav" id="siteNav" aria-label="Primary">
       <a href="#how">How it works</a>
       <a href="#faq">FAQ</a>
-      <a href="#pricing">Build yours</a>
+      <a href="build/">Build yours</a>
       <a class="btn btn-primary btn-sm" href="build/">Build your game free</a>
     </nav>
   </div>
@@ -325,48 +300,19 @@
         <div class="step">
           <div class="step-num">3</div>
           <h3>Play it instantly</h3>
-          <p>Try your game free, right now. Like it? Make it permanent for $5.</p>
+          <p>Your game exists the moment you finish &mdash; play it, then drop the link in the group chat.</p>
         </div>
       </div>
     </div>
   </section>
 
   <section class="section" id="pricing" aria-labelledby="pricingTitle">
-    <div class="container">
-      <div class="section-head">
-        <p class="eyebrow">Pricing</p>
-        <h2 id="pricingTitle">Try it free. Keep it for $5.</h2>
-        <p class="section-sub">Every game starts free &mdash; pay only if you want a permanent link.</p>
-      </div>
-      <div class="pricing-grid">
-        <div class="card pricing-card">
-          <p class="price-tier">Free</p>
-          <p class="price-amount">$0</p>
-          <p class="price-desc">Try it instantly</p>
-          <ul class="price-features">
-            <li>Play in your browser right now</li>
-            <li>Pick a music vibe from the built-in library</li>
-            <li>Shareable link &mdash; works forever</li>
-          </ul>
-          <div class="cta-row">
-            <a class="btn btn-secondary" href="build/">Build your game free</a>
-          </div>
-        </div>
-        <div class="card pricing-card pricing-card-featured">
-          <p class="pricing-badge">Most popular</p>
-          <p class="price-tier">Permanent</p>
-          <p class="price-amount">$5</p>
-          <p class="price-desc">One time</p>
-          <ul class="price-features">
-            <li>Permanent hosted link &mdash; your own tidy URL</li>
-            <li>Your own uploaded song</li>
-            <li>A real human reviews it before it ships</li>
-          </ul>
-          <div class="cta-row">
-            <a class="btn btn-secondary" id="startOrderBtn" href="build/">Start your order</a>
-            <a class="btn btn-primary" id="payBtn" href="#">Pay $5</a>
-          </div>
-          <p id="orderNote" class="price-note"></p>
+    <div class="container container-narrow">
+      <div class="card" style="max-width:480px;margin:0 auto;text-align:center;">
+        <h2 id="pricingTitle" style="margin:0 0 10px;">Keep it forever</h2>
+        <p style="color:var(--muted);margin:0 0 20px;">Your shareable link works forever, free. If you want your game to have a permanent home &mdash; its own tidy address, your own song under the soundtrack, and a human read-through before it ships &mdash; that's a one-time $5.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" id="permanentBtn" href="#">Get a permanent home</a>
         </div>
       </div>
     </div>
@@ -391,9 +337,9 @@
           to be funny on their own; the game does that part.</p></div>
         </details>
         <details class="faq-item">
-          <summary>How long does it take?</summary>
-          <div class="faq-answer"><p>The free version is instant &mdash; you're playing it at the end of the form.
-          A paid permanent link is about 48 hours, usually faster.</p></div>
+          <summary>What does the permanent version add?</summary>
+          <div class="faq-answer"><p>A permanent hosted address, your own uploaded song, and a human review before
+          it ships. The free link never expires either way.</p></div>
         </details>
         <details class="faq-item">
           <summary>What if nobody fits a role?</summary>
@@ -455,39 +401,29 @@
 <script>
 'use strict';
 /* ======================================================================
-   SITE_CONFIG -- the storefront's only remaining "backend": the
-   permanent-tier payment link is null until the real Stripe Payment Link
-   exists (see FULFILLMENT.md and SPEC-game.md's Phase E checklist).
-   intakeFormUrl is gone -- "Start your order" goes straight to /build/,
-   the self-serve wizard, which IS the order start (see build/index.html).
-   Flipping paymentUrl live later is a one-line edit, no other code
-   changes needed.
+   SITE_CONFIG -- the storefront's only remaining "backend". The whole
+   "Keep it forever" section (#pricing) is hidden entirely -- not shown
+   disabled, not shown with a placeholder note -- until intakeFormUrl is
+   set to a real destination (a Google Form / inbox link; see
+   FULFILLMENT.md). paymentUrl (e.g. a future Stripe Payment Link) is kept
+   here for later but unused for now -- nothing in this page reads it yet.
+   Setting intakeFormUrl is a one-line edit, no other code changes needed.
    ====================================================================== */
 const SITE_CONFIG = {
-  paymentUrl: null,      // e.g. a Stripe Payment Link
+  intakeFormUrl: null,   // e.g. a Google Form / contact link -- reveals #pricing when set
+  paymentUrl: null,      // e.g. a Stripe Payment Link -- unused for now
 };
 
-function wireOrderButton(el, url, label){
-  if(url){
-    el.href = url;
-    el.removeAttribute('aria-disabled');
-    el.target = '_blank';
-    el.rel = 'noopener';
+(function wirePermanentSection(){
+  const section = document.getElementById('pricing');
+  const btn = document.getElementById('permanentBtn');
+  if(!section || !btn) return;
+  if(SITE_CONFIG.intakeFormUrl){
+    btn.href = SITE_CONFIG.intakeFormUrl;
+    btn.target = '_blank';
+    btn.rel = 'noopener';
   } else {
-    el.href = '#';
-    el.setAttribute('aria-disabled', 'true');
-    el.addEventListener('click', function(e){ e.preventDefault(); });
-    el.textContent = label;
-  }
-}
-(function wireOrderSection(){
-  // startOrderBtn already points at build/ in the markup, always live --
-  // the wizard works with zero configuration, no SITE_CONFIG gate needed.
-  const payBtn = document.getElementById('payBtn');
-  wireOrderButton(payBtn, SITE_CONFIG.paymentUrl, 'Pay $5');
-  const note = document.getElementById('orderNote');
-  if(!SITE_CONFIG.paymentUrl){
-    note.textContent = 'Permanent hosting opening soon — build your game free above.';
+    section.style.display = 'none';
   }
 })();
 

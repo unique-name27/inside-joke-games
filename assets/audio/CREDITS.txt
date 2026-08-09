@@ -48,7 +48,7 @@ Not sample-replaced by design: the Karplus-Strong jaw-harp "twang" and the
 speech-synthesis narration remain fully synthesized/native — see
 game/index.html and intro/index.html.
 
-The buyer's own uploaded song (theme.mp3, config slot) always overrides this
+The user's own uploaded song (theme.mp3, config slot) always overrides this
 score when one is configured; Karks Cub Kingdom ships with its own song and
 keeps it (USE_CUSTOM_SONG = true), with these loops wired in underneath as
 the quiet cover during the download window and the eventual fallback score

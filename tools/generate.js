@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 /* ======================================================================
-   tools/generate.js -- turns a buyer's INTAKE.md answers into a deployed
+   tools/generate.js -- turns a user's INTAKE.md answers into a deployed
    games/<slug>/ folder, automatically. Zero dependencies (only Node
    builtins: fs, path, crypto).
 
@@ -13,7 +13,7 @@
       for a worked example -- the-test group content, in this schema).
    2. Builds a CONFIG object: cfgBuildDefaultConfig() (game/cfgcodec.js,
       the SAME neutral template a URL-fragment game merges onto) is the
-      base, deep-merged with the buyer's answers via cfgDeepMerge (also
+      base, deep-merged with the user's answers via cfgDeepMerge (also
       from cfgcodec.js -- Part 1's codec, reused rather than duplicated).
       This is genuine automation of STRUCTURE (names, stories, title,
       catchphrase, cast, forbidden words) -- the supporting dialogue
@@ -220,8 +220,8 @@ function applySpellings(obj, spellings){
   let out = json;
   for(const { from, to } of spellings){
     // most in-game text is ALL CAPS by this project's established style
-    // (see game/config.js's own header comment) -- Q8's answers come in as
-    // a buyer would naturally type them ("Kathryn not Catherine"), so an
+    // (see game/config.js's own header comment) -- Q9's answers come in as
+    // a user would naturally type them ("Kathryn not Catherine"), so an
     // uppercased pass catches that majority; title.introPageTitle/
     // gamePageTitle are the one deliberately mixed-case exception (rendered
     // as literal <title> text, e.g. KCK's own 'Karks Cub Kingdom'), so an
@@ -236,7 +236,7 @@ function applySpellings(obj, spellings){
 /* ---------------------------------------------------------------------
    config.js serialization -- JSON.stringify produces valid JS object-
    literal syntax (JSON is a syntactic subset of it), which sidesteps any
-   hand-rolled-string-escaping risk entirely: a buyer's story text
+   hand-rolled-string-escaping risk entirely: a user's story text
    containing a quote or backslash can never break out of a literal the
    way naive string concatenation could. Slightly different quoting style
    from the rest of the codebase's hand-authored configs (double quotes,
@@ -288,9 +288,9 @@ function main(){
     // `music` is deliberately not fragment-settable (see CFG_FRAGMENT_SCHEMA
     // -- no link may point the engine's fetch() at an arbitrary URL), so
     // encoding a config whose music lives in music.loops silently dropped
-    // the buyer's chosen track from the link. The whitelisted `musicVibe`
+    // the user's chosen track from the link. The whitelisted `musicVibe`
     // enum is the supported way to say "use this stock track", so translate
-    // the pick back into it here. A buyer's UPLOADED song still can't ride
+    // the pick back into it here. A user's UPLOADED song still can't ride
     // in a link at all -- that's the hosted tier's job (noted in the output
     // below).
     fragmentPayload = applySpellings(cfgDeepMerge({}, overrides), spellings);
@@ -372,7 +372,7 @@ function main(){
   console.log('  (fragment length: ' + fragment.length + ' chars' + (baseUrl === '<PAGES_DOMAIN>' ? ' -- pass --base-url=https://<your-pages-domain> for a real link' : '') + ')');
   console.log('');
   console.log('Reminder: FULFILLMENT.md step 2 (content review) is a human judgment call');
-  console.log('this CLI does NOT automate -- read the buyer\'s free-text answers before delivering.');
+  console.log('this CLI does NOT automate -- read the user\'s free-text answers before delivering.');
 }
 
 if(require.main === module) main();

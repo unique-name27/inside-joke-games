@@ -173,6 +173,15 @@ function fitCanvas(){
 window.addEventListener('resize', fitCanvas);
 window.addEventListener('orientationchange', fitCanvas);
 fitCanvas();
+/* opening a DIFFERENT #cfg= link while a game/intro tab from an OLDER link
+   is still open only fires a hashchange (same path -> no real navigation,
+   see cfgLoadFragmentOverride's own doc comment: CONFIG is resolved once at
+   script-load time and never re-read) -- without this, the tab would keep
+   playing the stale, already-loaded config under the new URL. A full reload
+   re-evaluates everything from CFG_FRAGMENT down, correctly, with zero new
+   state to manage. The endcard/losecard "play again" navigations go to a
+   different PATH (../intro/, etc.), so they never trigger this. */
+window.addEventListener('hashchange', ()=>{ location.reload(); });
 
 /* ---------------- assets (reused from ../intro/assets/) ---------------- */
 const imgDungeon = new Image();
