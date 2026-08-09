@@ -880,10 +880,11 @@ function initWizard(){
       stepsContainer.appendChild(warnBanner);
     }
 
-    if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim()){
+    const storyCount = state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim())).length;
+    if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim() || storyCount < 1){
       const missing = document.createElement('div');
       missing.className = 'warning-banner show';
-      missing.textContent = 'Main character name, catchphrase, and title are all required -- go back and fill those in.';
+      missing.textContent = 'Main character name, catchphrase, title, and at least one story are all required -- go back and fill those in.';
       stepsContainer.appendChild(missing);
       return;
     }
