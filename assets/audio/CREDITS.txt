@@ -1,0 +1,55 @@
+Audio credits — Karks Cub Kingdom
+=================================
+
+All sound effects and music loops in this folder are by Kenney
+(www.kenney.nl), released under Creative Commons Zero (CC0 1.0):
+https://creativecommons.org/publicdomain/zero/1.0/
+
+CC0 means these files are free to use in personal, educational, and
+commercial projects with no attribution required. This credit is included
+anyway because Kenney's work makes projects like this possible.
+
+Source packs (from Kenney's asset library):
+  - Interface Sounds
+  - Impact Sounds
+  - Foley Sounds
+  - Music Jingles
+  - Music Loops
+
+sfx/ — one-shot sound effects
+  close_002.ogg             Interface Sounds  — laugh-meter drain tick
+  confirmation_001.ogg      Interface Sounds  — typewriter/line-complete ding, boss transform cue
+  confirmation_004.ogg      Interface Sounds  — laugh captured / review given pickup chime
+  error_003.ogg             Interface Sounds  — early-punchline "groan" penalty
+  impactGlass_heavy_001.ogg Impact Sounds     — HP bar "shatter"
+  impactSoft_medium_002.ogg Impact Sounds     — soft thud (napkin/bottle hits)
+  impactWood_heavy_002.ogg  Impact Sounds     — door/table slam boom
+  jingles-hit_02.ogg        Music Jingles     — "ha" blip layered on the pickup chime
+  jingles-hit_03.ogg        Music Jingles     — fake-death victory jingle (cut off by the scratch)
+  jingles-hit_10.ogg        Music Jingles     — fanfare stinger
+  minimize_006.ogg          Interface Sounds  — sad descending swoop (Epilogue A reaction)
+  scratch_002.ogg           Interface Sounds  — DJ record scratch (fake-death gag)
+  select_006.ogg            Interface Sounds  — Epilogue B phone-share ping
+  stoneDrag2.ogg            Foley Sounds      — critic transformation rumble
+  tick_001.ogg              Interface Sounds  — Epilogue B desk typing key blip
+  woosh3.ogg                Foley Sounds      — dodge whoosh
+
+music/ — per-beat score loops (renamed from Kenney's Music Loops pack; each
+loops seamlessly)
+  wacky-waiting.ogg         "Wacky Waiting"        — dinner (Beat 1)
+  mission-plausible.ogg     "Mission Plausible"    — the critic boss fight
+  time-driving.ogg          "Time Driving"         — chase beats (Aram, tech support)
+  farm-frolics.ogg          "Farm Frolics"         — celebration / triumph stings
+  sad-descent.ogg           "Sad Descent"          — bathroom epilogue / quiet sincere beat
+  game-over.ogg             "Game Over"            — game over screen
+  night-at-the-beach.ogg    "Night at the Beach"   — intro cinematic fallback (warm, nostalgic)
+
+Not sample-replaced by design: the Karplus-Strong jaw-harp "twang" and the
+speech-synthesis narration remain fully synthesized/native — see
+game/index.html and intro/index.html.
+
+The buyer's own uploaded song (theme.mp3, config slot) always overrides this
+score when one is configured; Karks Cub Kingdom ships with its own song and
+keeps it (USE_CUSTOM_SONG = true), with these loops wired in underneath as
+the quiet cover during the download window and the eventual fallback score
+for future games in the product line that don't configure a custom song.
