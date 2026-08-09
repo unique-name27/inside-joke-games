@@ -102,7 +102,58 @@ every game — resolve the same way: `ENGINE_ROOT`, computed once from
 back at this repo's real `assets/`/`intro/assets/` folders regardless of
 which page loaded the script. A buyer's own uploaded song is the one
 per-order asset — see `FULFILLMENT.md`'s "Assets" note for where that
-lives.
+lives. There's also a THIRD shared file, `game/cfgcodec.js`, loaded right
+alongside `engine.js` on both page types — see "URL-fragment configs"
+below for what it does.
+
+## The generator (`tools/`)
+
+`node tools/generate.js <answers.json>` turns an `INTAKE.md` response into
+a deployed `games/<slug>/`, automatically: builds the `CONFIG`, refuses to
+write anything unless a full headless playthrough and the tone gate both
+pass, deploys the shell pages, and prints a shareable link. See
+`tools/README.md` for the answers-file schema and exactly what is (and
+isn't) automated — the content-review judgment call in `FULFILLMENT.md`
+step 2 still needs a human either way.
+
+## URL-fragment configs (self-serve, no deployment needed)
+
+Every game/intro page also understands a `#cfg=<data>` URL fragment as an
+alternative to its file `config.js` — appended to `/game/` or `/intro/`
+(this repo's own top-level pages, or in principle any page that loads
+`game/engine.js`/`intro/engine.js`), it *replaces* the page's CONFIG
+entirely for that visit, no `games/<slug>/` folder required at all. This
+is what makes an "instant link" possible: `tools/generate.js` prints one
+alongside every hosted URL, and a future self-serve builder page could
+generate one entirely client-side.
+
+Mechanics, all in `game/cfgcodec.js` (loaded by both engines, and reused
+directly by `tools/generate.js` — see that file's own header comment for
+the full design):
+
+- **Codec**: a small, self-contained LZW compressor + an unpadded
+  URL-safe base64 encoder (no external "lz-string" dependency, not
+  bit-compatible with one — it only ever needs to round-trip with
+  itself). Handles arbitrary Unicode (emoji included) via UTF-8.
+- **Default + merge**: the decoded fragment deep-merges onto
+  `cfgBuildDefaultConfig()` — a neutral, fully-populated template (NOT
+  Karks Cub Kingdom's own branding, which stays the *schema* reference in
+  `game/config.js`) — so a fragment can supply just a few fields (a host
+  name, a punchline) and still get a complete, playable game; anything it
+  doesn't specify falls back to generic-but-complete template content.
+- **Whitelist validation**: the decoded object is sanitized against an
+  explicit schema before it ever touches `CONFIG` — unknown keys are
+  dropped, strings/arrays are length-capped, and `music`/`gameId` are
+  never fragment-settable at all (no link can ever redirect the engine's
+  asset `fetch()` calls at an attacker-chosen URL). An oversized,
+  corrupt, or malformed fragment fails closed to the page's own file
+  `CONFIG`, silently — never a partial or broken override.
+- **Its own save slot**: a fragment-loaded game has no `gameId` of its
+  own, so its `localStorage` prefix is derived from a hash of the
+  fragment payload instead — the same link always reuses the same save
+  data, and two different links never collide.
+- The intro↔game page transitions forward `location.hash` so the same
+  fragment survives navigating between them.
 
 ## The CONFIG schema & role casting
 
@@ -139,4 +190,6 @@ music file.
 - `SPEC-intro.md` / `SPEC-game.md` — full behavioral spec, including the
   `CONFIG` schema and role-degradation map.
 - `INTAKE.md` — the order form.
-- `FULFILLMENT.md` — turning an order into a deployed game.
+- `FULFILLMENT.md` — turning an order into a deployed game (now largely
+  automated — see "The fast path" at its top).
+- `tools/README.md` — the generator CLI's answers-file schema and usage.

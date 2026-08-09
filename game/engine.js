@@ -1,5 +1,4 @@
 'use strict';
-document.title = CONFIG.title.gamePageTitle;
 /* ======================================================================
    KARKS CUB KINGDOM -- playable demo
    Single-file implementation per SPEC-game.md. Shares the palette, pixel
@@ -18,8 +17,31 @@ document.title = CONFIG.title.gamePageTitle;
    of how deeply nested the page that loaded this script is. document.
    currentScript is only valid synchronously while this (classic, non-
    deferred) script is first evaluated, so it's captured immediately, into
-   the very first statement that needs it. */
+   the very first statement that needs it -- moved ahead of document.title
+   (previously the first line) specifically so the URL-fragment override
+   below, which needs ENGINE_ROOT for its default music paths, can run
+   before anything else touches CONFIG. */
 const ENGINE_ROOT = new URL('../', document.currentScript.src).href;
+
+/* ---------------- URL-fragment CONFIG override (self-serve generator) ----------------
+   A `#cfg=<data>` URL fragment lets a game run entirely from a shareable
+   link, no games/<slug>/ deployment needed -- see game/cfgcodec.js (loaded
+   just before this script, right after config.js) for the codec/schema/
+   merge/validation this leans on. CONFIG is declared `const` in config.js,
+   which this script can't reassign (separate <script> tags share one
+   top-level lexical scope, but the BINDING is still const) -- so instead
+   of reassigning CONFIG, its contents are replaced in place, preserving
+   the object identity every later `CONFIG.xxx` read already expects.
+   Anything invalid, oversized, or simply absent falls back to the page's
+   own file CONFIG unchanged (cfgLoadFragmentOverride returns null for
+   every one of those cases alike -- see its own doc comment). */
+const CFG_FRAGMENT = (typeof cfgLoadFragmentOverride === 'function') ? cfgLoadFragmentOverride(ENGINE_ROOT) : null;
+if(CFG_FRAGMENT && CFG_FRAGMENT.config){
+  for(const k in CONFIG){ if(Object.prototype.hasOwnProperty.call(CONFIG, k)) delete CONFIG[k]; }
+  Object.assign(CONFIG, CFG_FRAGMENT.config);
+}
+
+document.title = CONFIG.title.gamePageTitle;
 
 /* ---------------- constants & palette ---------------- */
 const CW = 960, CH = 540, TILE = 16;
@@ -32,13 +54,18 @@ const PAL = {
 };
 
 /* ---------------- CONFIG-derived helpers (Phase B: template extraction) ----------------
-   CONFIG comes from config.js (loaded before this script). STORAGE_PREFIX
-   keeps different games' localStorage keys from colliding when several are
-   hosted under the same origin. fmt() replaces the two reusable name tokens
-   -- {HOST} and {ITEM} -- wherever a config string uses them; every other
-   piece of display text in config is already a complete, final sentence
-   (no generic templating beyond these two tokens). */
-const STORAGE_PREFIX = (CONFIG && CONFIG.gameId) || 'kck';
+   CONFIG comes from config.js (loaded before this script), possibly
+   overridden above by a URL fragment. STORAGE_PREFIX keeps different
+   games' localStorage keys from colliding when several are hosted under
+   the same origin -- a fragment-loaded game has no gameId of its own (the
+   fragment schema deliberately doesn't allow setting one), so it derives
+   its prefix from a hash of the fragment payload itself instead: the same
+   link always reuses the same save slot, and two different links never
+   collide. fmt() replaces the two reusable name tokens -- {HOST} and
+   {ITEM} -- wherever a config string uses them; every other piece of
+   display text in config is already a complete, final sentence (no
+   generic templating beyond these two tokens). */
+const STORAGE_PREFIX = CFG_FRAGMENT ? ('frag_' + CFG_FRAGMENT.hash) : ((CONFIG && CONFIG.gameId) || 'kck');
 function skey(name){ return STORAGE_PREFIX + '_' + name; }
 function fmt(s){
   if(typeof s !== 'string') return s;
@@ -3184,8 +3211,12 @@ function handleAction(){
     else if(gameOverReason==='beat1') retryBeat1();
     else retryBeat2();
   }
-  else if(phase==='losecard') window.location.href = '../intro/';
-  else if(phase==='endcard') window.location.href = '../intro/';
+  // both forward location.hash so a `#cfg=` fragment override stays attached
+  // across the game->intro navigation (see intro/engine.js's triggerSkip for
+  // the matching intro->game forward; '' when there's no fragment, a no-op
+  // for every file-CONFIG game).
+  else if(phase==='losecard') window.location.href = '../intro/' + location.hash;
+  else if(phase==='endcard') window.location.href = '../intro/' + location.hash;
 }
 /* Beat 1 game over (hard-mode early-press death with no floor, or the new
    normal-mode laugh-drain death) -- restarts the CURRENT round at its story.

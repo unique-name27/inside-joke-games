@@ -1,0 +1,28 @@
+{
+  "catchphrase": "FOR FREE?",
+  "stories": [
+    "I missed my flight by four minutes.",
+    "I alphabetized the spice rack while we were on hold."
+  ],
+  "title": "The Test Group",
+  "host": "Jordan",
+  "cast": {
+    "critic": null,
+    "boss": null,
+    "savior": null,
+    "butterfingers": "Morgan",
+    "builder": "Riley"
+  },
+  "anecdotes": {
+    "butterfingers": "Takes 40 photos of every plate.",
+    "builder": "Builds something every time we hang out."
+  },
+  "music": {
+    "vibe": "surprise",
+    "songFile": null
+  },
+  "spellings": [],
+  "offLimits": [],
+  "email": "buyer@example.com",
+  "lengthPreset": "five_min"
+}

@@ -178,9 +178,9 @@
 <section class="wrap" id="order">
   <h2 class="pixel-heading section-title">Order your game</h2>
   <div class="order-box">
-    <p>Two steps, in either order — fill out the form and pay whenever's convenient.</p>
+    <p>Build your game right here — free to try, five dollars to make it permanent.</p>
     <div class="cta-row">
-      <a class="btn btn-secondary" id="startOrderBtn" href="#">Start your order</a>
+      <a class="btn btn-secondary" id="startOrderBtn" href="build/">Start your order</a>
       <a class="btn btn-primary" id="payBtn" href="#">Pay $5</a>
     </div>
     <p id="orderNote" class="btn-note"></p>
@@ -231,13 +231,15 @@
 <script>
 'use strict';
 /* ======================================================================
-   SITE_CONFIG -- the storefront's only "backend": both order links are
-   null until the real intake form / Stripe Payment Link exist (see
-   FULFILLMENT.md and SPEC-game.md's Phase E checklist). Flipping this repo
-   live later is a one-line edit per field, no other code changes needed.
+   SITE_CONFIG -- the storefront's only remaining "backend": the
+   permanent-tier payment link is null until the real Stripe Payment Link
+   exists (see FULFILLMENT.md and SPEC-game.md's Phase E checklist).
+   intakeFormUrl is gone -- "Start your order" now goes straight to
+   /build/, the self-serve wizard, which IS the order start (see
+   build/index.html). Flipping paymentUrl live later is a one-line edit,
+   no other code changes needed.
    ====================================================================== */
 const SITE_CONFIG = {
-  intakeFormUrl: null,   // e.g. 'https://forms.gle/xxxxxxxx'
   paymentUrl: null,      // e.g. a Stripe Payment Link
 };
 
@@ -255,15 +257,13 @@ function wireOrderButton(el, url, label){
   }
 }
 (function wireOrderSection(){
-  const startBtn = document.getElementById('startOrderBtn');
+  // startOrderBtn already points at build/ in the markup, always live --
+  // the wizard works with zero configuration, no SITE_CONFIG gate needed.
   const payBtn = document.getElementById('payBtn');
-  wireOrderButton(startBtn, SITE_CONFIG.intakeFormUrl, 'Start your order');
   wireOrderButton(payBtn, SITE_CONFIG.paymentUrl, 'Pay $5');
   const note = document.getElementById('orderNote');
-  // shown whenever either link isn't live yet -- both need to be configured
-  // before the order flow is actually usable end to end
-  if(!SITE_CONFIG.intakeFormUrl || !SITE_CONFIG.paymentUrl){
-    note.textContent = 'ORDERS OPENING SOON';
+  if(!SITE_CONFIG.paymentUrl){
+    note.textContent = 'PERMANENT HOSTING OPENING SOON -- BUILD YOUR GAME FREE ABOVE';
   }
 })();
 

@@ -5,6 +5,28 @@ file/shell access to this repo) once an `INTAKE.md` response comes in.
 Target: ≤30 minutes of wall time, ≈zero hands-on beyond reviewing the
 diff and pushing.
 
+## The fast path: `tools/generate.js`
+
+Steps 3-5 below (map answers to a config, deploy the shell pages, verify)
+are now automated by the generator — see `tools/README.md` for the full
+answers-file schema:
+
+```
+node tools/generate.js <answers.json> --base-url=https://<pages-domain>
+```
+
+It builds the config, refuses to write anything if verification (syntax +
+a full playthrough + the tone gate) fails, deploys `games/<slug>/` on
+success, and prints both a hosted URL and an instant, deployment-free
+`#cfg=` link. **Step 0, step 1 (turning the raw form response into
+`answers.json`), and — critically — step 2 (the content review gate) are
+NOT automated** and still need a human before you run the CLI, let alone
+before you deliver: the generator has no way to judge whether a story is
+affectionate ribbing or something crueler. Steps 3-5 remain documented in
+full below both as a reference for what the CLI is actually doing, and as
+the manual fallback for a bespoke order (real hand-written dialogue,
+rather than the CLI's generic-but-complete template lines).
+
 ## 0. Before you start
 
 You need: the buyer's intake response (from the Google Form / response
@@ -94,11 +116,19 @@ Keep the title short (2 short words/lines, like KCK's own `['KARKS CUB',
 — never copied per order (see `README.md` "How games are added"). Only a
 buyer's own uploaded song is order-specific: place it at
 `games/<slug>/assets/theme.mp3` and point `music.customSongPath` at
-`'assets/theme.mp3'` (relative to the config file's own folder, `games/<slug>/`
-— see the "config sharing" note in `SPEC-game.md` for how relative asset
-paths work at this nesting depth; the shipped `games/test-group/config.js`
-shows the equivalent pattern for the shared Kenney loops, one directory
-shallower since it has no per-order asset of its own).
+`'../assets/theme.mp3'`. `CONFIG.music.*` paths are resolved relative to
+the **page** that loads them (`games/<slug>/game/index.html` /
+`intro/index.html` — a plain `fetch(path)`, no config-relative base),
+which sits one directory *below* `games/<slug>/config.js` itself — so the
+path needs that one extra `../` to climb back up to `games/<slug>/`
+before descending into `assets/`. (An earlier version of this note said
+`'assets/theme.mp3'`, relative to config.js's own folder — that was
+wrong, just never caught because KCK's own config.js and its game/intro
+pages happen to sit in the very same folder at the repo root, where the
+two interpretations coincide. `games/test-group/config.js` shows the
+correct page-relative pattern for the shared Kenney loops,
+`'../../../assets/...'` — three levels, since that file's page is three
+levels deep instead of one.)
 
 ## 4. Deploy the pages
 
@@ -120,33 +150,26 @@ added" for why this works without duplicating the engine.
 
 ## 5. Verify before deploying
 
-Run, in order:
+Run:
 
-1. `node --check` on `games/<slug>/config.js` (and the game/intro engine
-   files, if you touched them — you shouldn't have).
-2. The vm-harness playthrough against the new config — see
-   `harness/README.md`-equivalent instructions below; at minimum, confirm:
-   the config loads without throwing, every cast role's content bucket is
-   present, an attentive-player Beat 1 completes, the flow reaches the
-   configured degradation point correctly (full cast → boss fight;
-   uncast JUDGE → straight to celebration; etc.), and the run reaches the
-   end card.
-3. Tone gate: grep the new config file (and only that file — the shared
-   engine/intro files never contain personalized text) for
-   `CONFIG.forbiddenWords`, whole-word case-sensitive, plus the separate
-   `FREE`-only-inside-`CONFIG.punchline` rule. (This is the same check
-   `SPEC-game.md`'s "Template & roles" section describes, just pointed at
-   the new file.)
+```
+node tools/verify-config.js games/<slug>/config.js
+```
 
-Since there's no persistent test suite file in this repo (harnesses are
-built fresh per verification round, per this project's convention), the
-quickest way to run the harness against a brand new order is: take the
-Phase B/C verification harness pattern (a Node `vm` sandbox stubbing
-canvas/AudioContext/DOM, documented in the commit history / prior session
-transcripts) and point its config loader at `games/<slug>/config.js`
-instead of `game/config.js`. If you don't have that harness handy, at
-minimum load the config file with `node --check`, and manually verify in
-the browser per step 6 below before delivering.
+This is the real, checked-in tool (not a from-scratch harness per round
+anymore) — it runs, in order: a syntax check; a full headless playthrough
+(Node `vm`, no browser) that follows whatever degradation path this
+config's own cast implies (full cast → boss fight → Widowmaker →
+Aram chase; uncast JUDGE → straight to celebration; etc.) all the way to
+the end card; and the tone gate (the baseline safety words + this
+config's own `forbiddenWords`, whole-word case-sensitive, plus the
+separate `FREE`-only-inside-`CONFIG.punchline` rule — see
+`SPEC-game.md`'s "Template & roles" section for the underlying rule this
+implements). Prints PASS/FAIL, which phase the playthrough reached, which
+roles read as cast, and every error — exit code 0 on pass. If you used
+`tools/generate.js` (see "The fast path" above) this already ran
+automatically and refused to write the config on failure; run it again
+by hand after any manual edit to `games/<slug>/config.js`.
 
 ## 6. Verify live, then deliver
 
@@ -170,7 +193,9 @@ to a stranger who found the link.
 ## Worked example: `examples/test-group.config.js` end to end
 
 Walking the whole playbook against the config this repo already ships, as
-if it were a real order:
+if it were a real order. This exact hypothetical intake is also checked in
+as `tools/example-answers.json` — `node tools/generate.js
+tools/example-answers.json` reproduces steps 3-5 below automatically.
 
 1. **Intake (hypothetical)**: catchphrase "FOR FREE?" · stories: missed a
    flight by 4 minutes, alphabetized the spice rack on hold · title "The

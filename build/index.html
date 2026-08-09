@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build your game — Inside Joke Games</title>
+<meta name="description" content="Build your own tiny personalized game, right here — see it play instantly, or make it permanent for five dollars.">
+<style>
+  :root{
+    --cream:#f3e9d2; --terracotta:#c96f4a; --wood:#8a5a30;
+    --gold:#e8b84b; --outline:#6b2b1f; --ink:#2a1c12;
+    --silhouette:#0a0a14; --wall:#241a22; --floor:#3a2a1c;
+    --napkin:#efe6d0; --bad:#e0645a; --good:#7fae5a;
+    --maxw: 720px;
+  }
+  *{box-sizing:border-box;}
+  html{background:var(--silhouette);}
+  body{
+    margin:0; background:var(--silhouette); color:var(--cream);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5; font-size:16px; padding-bottom:60px;
+    background-image:
+      radial-gradient(ellipse at 20% -10%, rgba(232,184,75,0.10), transparent 55%),
+      radial-gradient(ellipse at 90% 0%, rgba(201,111,74,0.10), transparent 45%);
+  }
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 18px;}
+  a{color:var(--gold);}
+  .pixel-heading{
+    font-family:'Courier New',Courier,monospace; text-transform:uppercase;
+    letter-spacing:0.03em; font-weight:700; color:var(--cream);
+    text-shadow:2px 2px 0 var(--outline); margin:0 0 8px;
+  }
+  h1.pixel-heading{ font-size:22px; text-align:center; }
+  h2.pixel-heading{ font-size:17px; }
+  p.step-sub{ color:#a89a86; font-size:14px; margin:0 0 20px; }
+  label{ display:block; font-size:13px; color:var(--napkin); margin:14px 0 5px; font-weight:600; }
+  label .opt{ color:#8a7a6a; font-weight:400; text-transform:none; letter-spacing:0; }
+  input[type=text], textarea{
+    width:100%; background:#1a1410; border:2px solid var(--outline); border-radius:2px;
+    color:var(--cream); font-size:15px; padding:10px 12px; font-family:inherit;
+  }
+  input[type=text]:focus, textarea:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+  .charcount{ font-size:11px; color:#8a7a6a; text-align:right; margin-top:3px; }
+  .charcount.over{ color:var(--bad); font-weight:700; }
+  .field-warning{ font-size:12px; color:var(--bad); margin-top:4px; display:none; }
+  .field-warning.show{ display:block; }
+
+  /* ---------- header / progress ---------- */
+  header.wrap{ padding:22px 18px 0; }
+  .backlink{ font-size:13px; color:#a89a86; text-decoration:none; }
+  .progress-row{ display:flex; gap:4px; margin:16px 0 4px; }
+  .progress-seg{ flex:1; height:8px; background:var(--floor); border:2px solid var(--outline); image-rendering:pixelated; }
+  .progress-seg.done{ background:var(--gold); }
+  .progress-seg.current{ background:var(--terracotta); }
+  .step-label{ font-size:12px; color:#a89a86; text-align:center; margin-bottom:18px; text-transform:uppercase; letter-spacing:0.05em; }
+
+  /* ---------- buttons ---------- */
+  .btn{
+    display:inline-block; font-family:'Courier New',Courier,monospace; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; cursor:pointer;
+    padding:13px 22px; border-radius:3px; border:3px solid var(--outline);
+    box-shadow:0 4px 0 var(--outline); font-size:14px; transition:transform 0.08s ease;
+    background:var(--terracotta); color:var(--cream);
+  }
+  .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--outline); }
+  .btn-primary{ background:var(--gold); color:var(--ink); }
+  .btn[disabled], .btn[aria-disabled="true"]{
+    background:var(--floor); color:#8a7a6a; border-color:#4a3a2c; box-shadow:0 4px 0 #4a3a2c;
+    cursor:not-allowed; pointer-events:none;
+  }
+  .btn-row{ display:flex; gap:10px; margin-top:26px; justify-content:space-between; }
+  .btn-row .btn{ flex:1; text-align:center; }
+  .btn-small{ padding:8px 14px; font-size:12px; box-shadow:0 3px 0 var(--outline); }
+  .btn-small:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--outline); }
+
+  /* ---------- cards ---------- */
+  .card{ background:var(--wall); border:3px solid var(--outline); border-radius:2px; padding:16px; margin-bottom:12px; }
+  .story-card{ position:relative; }
+  .story-remove{ position:absolute; top:10px; right:10px; font-size:11px; color:#8a7a6a; background:none; border:none; cursor:pointer; text-decoration:underline; }
+
+  /* ---------- role pick-cards (step 4) ---------- */
+  .role-card{ display:flex; gap:14px; align-items:flex-start; }
+  .role-card canvas{ image-rendering:pixelated; flex-shrink:0; background:#1a1410; border:2px solid var(--outline); }
+  .role-body{ flex:1; min-width:0; }
+  .role-title-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .role-desc{ font-size:13px; color:#a89a86; margin:4px 0 10px; }
+  .skip-toggle{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--napkin); cursor:pointer; user-select:none; text-transform:uppercase; letter-spacing:0.04em; }
+  .skip-toggle input{ accent-color:var(--terracotta); width:15px; height:15px; }
+  .role-fields{ margin-top:6px; }
+  .role-fields.skipped{ opacity:0.35; pointer-events:none; }
+  .role-fields input, .role-fields textarea{ margin-bottom:6px; }
+
+  /* ---------- vibe cards (step 5) ---------- */
+  .vibe-card{ display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; }
+  .vibe-card.selected{ border-color:var(--gold); box-shadow:0 0 0 2px var(--gold) inset; }
+  .vibe-label{ font-weight:700; font-size:14px; }
+  .vibe-sub{ font-size:12px; color:#8a7a6a; }
+  .vibe-play{ flex-shrink:0; }
+
+  /* ---------- step 6 preview/share ---------- */
+  .copybox{ display:flex; gap:8px; align-items:stretch; margin:10px 0; }
+  .copybox input{ flex:1; font-size:12px; }
+  .link-len{ font-size:11px; color:#8a7a6a; margin-top:2px; }
+  .upsell{ background:linear-gradient(180deg, rgba(232,184,75,0.10), transparent); border:3px solid var(--gold); }
+  .warning-banner{ background:rgba(224,100,90,0.15); border:2px solid var(--bad); border-radius:2px; padding:10px 12px; font-size:13px; margin:14px 0; display:none; }
+  .warning-banner.show{ display:block; }
+
+  @media (max-width:480px){
+    .role-card{ flex-direction:column; }
+    .btn-row{ flex-direction:column-reverse; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <a class="backlink" href="../">&larr; Inside Joke Games</a>
+  <h1 class="pixel-heading" style="margin-top:14px;">Build your game</h1>
+  <div class="progress-row" id="progressRow"></div>
+  <p class="step-label" id="stepLabel"></p>
+</header>
+
+<main class="wrap" id="stepsContainer">
+  <!-- steps are rendered into here by renderStep() -->
+</main>
+
+<script src="../game/cfgcodec.js"></script>
+<script>
+'use strict';
+/* ======================================================================
+   build/index.html -- the self-serve wizard. Same product as the
+   FULFILLMENT.md/tools/generate.js pipeline, but entirely client-side and
+   interactive: assembles a CONFIG in the browser, validates it through
+   the EXACT SAME whitelist game/cfgcodec.js uses for a real `#cfg=` link
+   (no separate/looser rules for "preview" vs "the real thing"), and lets
+   the buyer play their own game immediately -- no deployment, no wait.
+
+   Structure: PURE LOGIC first (state shape, config assembly, the content
+   gate) -- no `document`/`window` references anywhere in this section, on
+   purpose, so it can be lifted into a Node `vm` sandbox and harness-tested
+   headlessly, the same methodology this whole project's verification has
+   used throughout (see the harness this round's summary references).
+   DOM WIRING second, guarded behind initWizard() which only ever runs via
+   a DOMContentLoaded listener -- so simply evaluating this script (as a
+   harness does) never touches the DOM at all.
+   ====================================================================== */
+
+/* ---------------------------------------------------------------------
+   PURE LOGIC
+   --------------------------------------------------------------------- */
+const ROLE_DEFS = [
+  { key:'critic', cfgKey:'judge', title:'THE CRITIC',
+    desc:'The one who critiques everything -- the food, the seating, your throw. Shows up as the game’s boss fight.' },
+  { key:'boss', cfgKey:'authority', title:'THE BOSS',
+    desc:'An intimidating figure who storms in angry about something small, then comes around.' },
+  { key:'savior', cfgKey:'savior', title:'THE SAVIOR',
+    desc:'The sincere one who saves the day -- shows up right when things look bad.' },
+  { key:'butterfingers', cfgKey:'butterfingers', title:'BUTTERFINGERS',
+    desc:'The one tech/phone mishaps always happen to.' },
+  { key:'builder', cfgKey:'builder', title:'THE BUILDER',
+    desc:'The one who’d actually go build something like this game.' },
+];
+const DEFAULT_SPRITE = {
+  diner0:{spriteCol:1,spriteRow:7}, judge:{spriteCol:4,spriteRow:8},
+  butterfingers:{spriteCol:3,spriteRow:8}, builder:{spriteCol:2,spriteRow:8},
+};
+const VIBE_DEFS = [
+  { key:'upbeat', label:'Upbeat / a little goofy', track:'wacky-waiting' },
+  { key:'spy', label:'Playful tension, like a spy movie', track:'mission-plausible' },
+  { key:'chase', label:'Fast and fun, chase energy', track:'time-driving' },
+  { key:'warm', label:'Warm and celebratory', track:'farm-frolics' },
+  { key:'sincere', label:'Quiet and sincere', track:'sad-descent' },
+  { key:'surprise', label:'Surprise us', track:null },
+];
+// mirrors tools/verify-config.js's BASELINE_FORBIDDEN -- this is a
+// standalone static page with no shared module system with the Node CLI,
+// so this list is duplicated by the same established convention as
+// fmt()/skey() across game/engine.js and intro/engine.js. Keep in sync.
+const BASELINE_FORBIDDEN = ['COIN', 'BILL', 'COST', 'NOTHING'];
+
+const WIZARD_STEP_COUNT = 6;
+const WIZARD_STORAGE_KEY = 'ijg_build_wizard_v1';
+
+function defaultWizardState(){
+  const cast = {};
+  for(const r of ROLE_DEFS) cast[r.key] = { cast:false, name:'', anecdote:'' };
+  return {
+    step: 0,
+    host: '', otherFriendName: '',
+    catchphrase: '', title: '',
+    stories: [ {l1:'',l2:''}, {l1:'',l2:''} ],
+    cast: cast,
+    vibe: null,
+  };
+}
+
+/* shallow-merges a possibly-partial/stale saved state onto a fresh
+   default so a schema change never crashes a returning visitor with old
+   localStorage data -- same "never trust old persisted shape blindly"
+   spirit as cfgDeepMerge, kept intentionally simpler since this is
+   trusted same-origin data, not an untrusted link. */
+function normalizeWizardState(saved){
+  const base = defaultWizardState();
+  if(!saved || typeof saved !== 'object') return base;
+  const out = Object.assign({}, base, saved);
+  if(!Array.isArray(out.stories) || out.stories.length < 2) out.stories = base.stories;
+  out.stories = out.stories.slice(0, 4).map(s => ({ l1: (s && typeof s.l1==='string') ? s.l1 : '', l2: (s && typeof s.l2==='string') ? s.l2 : '' }));
+  out.cast = Object.assign({}, base.cast, saved.cast || {});
+  for(const r of ROLE_DEFS){
+    out.cast[r.key] = Object.assign({}, base.cast[r.key], (saved.cast && saved.cast[r.key]) || {});
+  }
+  if(typeof out.step !== 'number' || out.step < 0 || out.step >= WIZARD_STEP_COUNT) out.step = 0;
+  return out;
+}
+
+function serializeWizardState(state){ return JSON.stringify(state); }
+function deserializeWizardState(json){
+  try{ return normalizeWizardState(JSON.parse(json)); }catch(e){ return defaultWizardState(); }
+}
+
+/* live content gate: baseline safety words (whole-word, case-insensitive
+   since this scans free-typed text, not a finished ALL-CAPS config file)
+   + the FREE-outside-FOR-FREE? rule. Best-effort/client-side, per the
+   round's own framing -- the paid path still gets FULFILLMENT.md's real
+   human content review. Returns an array of short, friendly messages
+   (empty = clean). */
+function checkForbidden(text){
+  if(!text) return [];
+  const violations = [];
+  const upper = String(text).toUpperCase();
+  for(const w of BASELINE_FORBIDDEN){
+    const re = new RegExp('\\b' + w + '\\b');
+    if(re.test(upper)) violations.push('Contains "' + w + '" -- this word can’t appear in the game text.');
+  }
+  const freeRe = /FREE/g;
+  let m;
+  while((m = freeRe.exec(upper))){
+    const window = upper.slice(Math.max(0, m.index-8), m.index+10);
+    if(window.indexOf('FOR FREE?') === -1){
+      violations.push('"FREE" can only appear as part of "FOR FREE?" -- try rewording.');
+      break;
+    }
+  }
+  return violations;
+}
+function checkStateForbidden(state){
+  const fields = [state.host, state.otherFriendName, state.catchphrase, state.title];
+  for(const s of state.stories){ fields.push(s.l1); fields.push(s.l2); }
+  for(const r of ROLE_DEFS){ const c = state.cast[r.key]; if(c.cast){ fields.push(c.name); fields.push(c.anecdote); } }
+  const all = [];
+  for(const f of fields) all.push(...checkForbidden(f));
+  return Array.from(new Set(all));
+}
+
+function wrapLine(raw, maxLen){
+  const s = String(raw||'').trim().toUpperCase().replace(/\s+/g,' ');
+  return s.length > maxLen ? s.slice(0, maxLen) : s;
+}
+
+/* mirrors tools/generate.js's buildOverrides -- same shape, same
+   defaults, reading from the wizard's own state object instead of an
+   answers.json file. NOT run through cfgSanitizeConfig itself (that
+   happens once, uniformly, in assembleConfig below) -- this function's
+   only job is "wizard state -> a CONFIG-shaped overrides object". */
+function buildOverridesFromState(state){
+  const host = wrapLine(state.host || 'HOST', 40);
+  const title = String(state.title || 'My Game').trim();
+  const overrides = {
+    lengthPreset: 'five_min',
+    // an ENUM pick among a fixed set of built-in stock tracks -- see
+    // game/cfgcodec.js's cfgApplyMusicVibe for why this is the one
+    // narrow exception to "no music from a fragment, ever" (never an
+    // arbitrary URL, just one of 5 known keys). 'surprise'/unset -> no
+    // override, stock Wacky Waiting default (cfgSanitizeConfig drops an
+    // unrecognized/absent enum value harmlessly either way).
+    musicVibe: state.vibe && state.vibe !== 'surprise' ? state.vibe : undefined,
+    title: {
+      lockupLines: wrapTitleLines(title, 14, 2),
+      introPageTitle: title,
+      gamePageTitle: title + ' -- Playable Demo',
+    },
+    punchline: wrapLine(state.catchphrase || 'FOR FREE?', 40),
+    host: { name: host },
+    stories: state.stories
+      .filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim()))
+      .slice(0, 4)
+      .map(s => ({ lines: [s.l1, s.l2].map(l => wrapLine(l, 40)).filter(Boolean) })),
+    cast: {
+      diner0: Object.assign({ name: wrapLine(state.otherFriendName || 'THE FOURTH FRIEND', 40), anecdote: 'Always up for anything.' }, DEFAULT_SPRITE.diner0),
+    },
+  };
+  for(const r of ROLE_DEFS){
+    const c = state.cast[r.key];
+    if(c && c.cast && c.name && c.name.trim()){
+      const entry = { name: wrapLine(c.name, 40) };
+      if(c.anecdote && c.anecdote.trim()) entry.anecdote = String(c.anecdote).trim().slice(0, 160);
+      if(DEFAULT_SPRITE[r.cfgKey]) Object.assign(entry, DEFAULT_SPRITE[r.cfgKey]);
+      overrides.cast[r.cfgKey] = entry;
+    } else {
+      overrides.cast[r.cfgKey] = null;
+    }
+  }
+  return overrides;
+}
+function wrapTitleLines(raw, maxLineLen, maxLines){
+  const words = String(raw).trim().toUpperCase().replace(/\s+/g,' ').split(' ').filter(Boolean);
+  if(words.length <= 1) return [wrapLine(raw, maxLineLen)];
+  const mid = Math.ceil(words.length/2);
+  const lines = [words.slice(0,mid).join(' '), words.slice(mid).join(' ')].filter(Boolean).slice(0,maxLines);
+  return lines.map(l => l.length > maxLineLen ? l.slice(0,maxLineLen) : l);
+}
+
+/* the whole point: build overrides -> whitelist-sanitize them through the
+   EXACT SAME cfgSanitizeConfig a real `#cfg=` link is validated against
+   (game/cfgcodec.js, loaded above) -- so "preview" and "the real
+   shareable link" can never drift apart -- then deep-merge onto the
+   neutral default template and return { merged, sanitized }. Requires
+   `cfgSanitizeConfig`/`cfgDeepMerge`/`cfgBuildDefaultConfig` to be in
+   scope (from cfgcodec.js); throws if they aren't -- callers/tests must
+   load that file first, same as the real engines do. */
+function assembleConfig(state, engineRoot){
+  const overrides = buildOverridesFromState(state);
+  const sanitized = cfgSanitizeConfig(overrides);
+  const base = cfgBuildDefaultConfig(engineRoot);
+  const merged = cfgDeepMerge(base, sanitized);
+  // mirrors exactly what cfgLoadFragmentOverride does when a real link is
+  // opened -- so the preview's music matches what sharing the link
+  // actually produces, not just its dialogue/cast.
+  cfgApplyMusicVibe(merged, sanitized.musicVibe, engineRoot);
+  delete merged.musicVibe;
+  return { overrides: overrides, sanitized: sanitized, merged: merged };
+}
+
+/* ---------------------------------------------------------------------
+   DOM WIRING -- everything below touches document/window/localStorage.
+   Guarded behind initWizard(), only ever invoked via DOMContentLoaded, so
+   merely `eval`-ing this whole script (as a headless harness does) never
+   runs any of it.
+   --------------------------------------------------------------------- */
+function initWizard(){
+  const SITE_CONFIG = {
+    // mirrors the root index.html's own SITE_CONFIG -- duplicated by the
+    // same convention noted above; keep both in sync by hand.
+    intakeFormUrl: null,
+    paymentUrl: null,
+  };
+  const ENGINE_ROOT = new URL('../', document.location.href).href;
+
+  let state = normalizeWizardState((function(){
+    try{ const raw = localStorage.getItem(WIZARD_STORAGE_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+  })());
+
+  function persist(){
+    try{ localStorage.setItem(WIZARD_STORAGE_KEY, serializeWizardState(state)); }catch(e){}
+  }
+
+  const stepsContainer = document.getElementById('stepsContainer');
+  const progressRow = document.getElementById('progressRow');
+  const stepLabelEl = document.getElementById('stepLabel');
+  const STEP_NAMES = ['Your group', 'The punchline', 'The stories', 'The cast', 'The vibe', 'Preview & share'];
+
+  let currentAudio = null;
+  function stopPreview(){ if(currentAudio){ try{ currentAudio.pause(); }catch(e){} currentAudio = null; } }
+
+  function renderProgress(){
+    progressRow.innerHTML = '';
+    for(let i=0;i<WIZARD_STEP_COUNT;i++){
+      const seg = document.createElement('div');
+      seg.className = 'progress-seg' + (i < state.step ? ' done' : (i === state.step ? ' current' : ''));
+      progressRow.appendChild(seg);
+    }
+    stepLabelEl.textContent = 'Step ' + (state.step+1) + ' of ' + WIZARD_STEP_COUNT + ' -- ' + STEP_NAMES[state.step];
+  }
+
+  function fieldWarning(container, text){
+    let el = container.querySelector('.field-warning');
+    if(!el){ el = document.createElement('div'); el.className = 'field-warning'; container.appendChild(el); }
+    if(text){ el.textContent = text; el.classList.add('show'); }
+    else { el.classList.remove('show'); }
+  }
+
+  function makeCharCounter(input, maxLen, wrapEl){
+    const counter = document.createElement('div');
+    counter.className = 'charcount';
+    function update(){
+      const len = input.value.length;
+      counter.textContent = len + ' / ' + maxLen;
+      counter.classList.toggle('over', len > maxLen);
+    }
+    input.addEventListener('input', update);
+    update();
+    wrapEl.appendChild(counter);
+    return counter;
+  }
+
+  function drawRoleIcon(canvas, roleKey){
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const S = 4; // pixel scale
+    const ICONS = {
+      critic: ['000011110000','000100001000','001000000100','010000000010','010003330010','010030300010','010003330010','001000000100','000100001000','000011110000','000000110000','000001111000'],
+      boss:   ['000111111000','001111111100','011111111110','011003300110','011000000110','011111111110','001101101100','001101101100','000110110000','000111111000','000111111000','000011110000'],
+      savior: ['000001100000','000011110000','000111111000','001111111100','011111111110','000111111000','000011110000','000001100000','000110011000','001100001100','011000000110','000000000000'],
+      butterfingers: ['000111111000','001111111100','011000000110','011033330110','011030030110','011033330110','011000000110','001111111100','000111111000','000001100000','000011110000','000000000000'],
+      builder: ['000000011000','000000111100','000001111110','000011001110','000110000000','011000000000','000000110000','000001111000','000011001100','000110000110','011000000011','000000000000'],
+    };
+    const grid = ICONS[roleKey] || ICONS.critic;
+    const rows = grid.length, cols = grid[0].length;
+    canvas.width = cols*S; canvas.height = rows*S;
+    ctx.fillStyle = '#1a1410'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const ch = grid[r][c];
+        if(ch==='0') continue;
+        ctx.fillStyle = ch==='1' ? '#e8b84b' : '#c96f4a';
+        ctx.fillRect(c*S, r*S, S, S);
+      }
+    }
+  }
+
+  function renderStepHost(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2 class="pixel-heading">Your group</h2>' +
+      '<p class="step-sub">Just the essentials -- who’s hosting, and who else is at the table.</p>' +
+      '<label for="fHost">Host’s name <span class="opt">(you -- the one the player plays)</span></label>' +
+      '<input type="text" id="fHost" maxlength="40" placeholder="e.g. Jordan">' +
+      '<label for="fOther">Anyone else at the table who doesn’t fit a role below? <span class="opt">(optional)</span></label>' +
+      '<input type="text" id="fOther" maxlength="40" placeholder="e.g. Casey">';
+    stepsContainer.appendChild(el);
+    const hostInput = el.querySelector('#fHost');
+    const otherInput = el.querySelector('#fOther');
+    hostInput.value = state.host; otherInput.value = state.otherFriendName;
+    hostInput.addEventListener('input', ()=>{ state.host = hostInput.value; persist(); checkLive(hostInput); });
+    otherInput.addEventListener('input', ()=>{ state.otherFriendName = otherInput.value; persist(); checkLive(otherInput); });
+    function checkLive(input){
+      const v = checkForbidden(input.value);
+      fieldWarning(input.parentElement, v[0] || null);
+    }
+  }
+
+  function renderStepPunchline(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2 class="pixel-heading">The punchline</h2>' +
+      '<p class="step-sub">The thing your group always says, and what to call your game.</p>' +
+      '<label for="fCatch">Your group’s catchphrase</label>' +
+      '<input type="text" id="fCatch" maxlength="40" placeholder="e.g. For free?">' +
+      '<label for="fTitle">What should we call your game?</label>' +
+      '<input type="text" id="fTitle" maxlength="40" placeholder="e.g. The Example Crew">';
+    stepsContainer.appendChild(el);
+    const catchInput = el.querySelector('#fCatch');
+    const titleInput = el.querySelector('#fTitle');
+    catchInput.value = state.catchphrase; titleInput.value = state.title;
+    makeCharCounter(catchInput, 40, catchInput.parentElement);
+    catchInput.addEventListener('input', ()=>{ state.catchphrase = catchInput.value; persist(); fieldWarning(catchInput.parentElement, checkForbidden(catchInput.value)[0] || null); });
+    titleInput.addEventListener('input', ()=>{ state.title = titleInput.value; persist(); });
+  }
+
+  function renderStoryCard(story, idx){
+    const card = document.createElement('div');
+    card.className = 'card story-card';
+    card.innerHTML =
+      (state.stories.length > 2 ? '<button type="button" class="story-remove" data-idx="'+idx+'">remove</button>' : '') +
+      '<label>Story ' + (idx+1) + ' -- line 1</label><input type="text" class="s-l1" maxlength="60" value="">' +
+      '<label>Story ' + (idx+1) + ' -- line 2 <span class="opt">(optional)</span></label><input type="text" class="s-l2" maxlength="60" value="">';
+    const l1 = card.querySelector('.s-l1'), l2 = card.querySelector('.s-l2');
+    l1.value = story.l1; l2.value = story.l2;
+    // character counters attached directly under each input's own row
+    const l1Wrap = document.createElement('div'); l1.after(l1Wrap);
+    const l2Wrap = document.createElement('div'); l2.after(l2Wrap);
+    makeCharCounter(l1, 40, l1Wrap);
+    makeCharCounter(l2, 40, l2Wrap);
+    l1.addEventListener('input', ()=>{ story.l1 = l1.value; persist(); fieldWarning(l1Wrap, checkForbidden(l1.value)[0]||null); });
+    l2.addEventListener('input', ()=>{ story.l2 = l2.value; persist(); fieldWarning(l2Wrap, checkForbidden(l2.value)[0]||null); });
+    const removeBtn = card.querySelector('.story-remove');
+    if(removeBtn) removeBtn.addEventListener('click', ()=>{ state.stories.splice(idx,1); persist(); renderStep(); });
+    return card;
+  }
+
+  function renderStepStories(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2 class="pixel-heading">The stories</h2>' +
+      '<p class="step-sub">2-4 real, boring stories from your group. The joke is that they’re ordinary -- keep each line short.</p>';
+    stepsContainer.appendChild(el);
+    const list = document.createElement('div');
+    list.id = 'storyList';
+    stepsContainer.appendChild(list);
+    for(let i=0;i<state.stories.length;i++) list.appendChild(renderStoryCard(state.stories[i], i));
+    if(state.stories.length < 4){
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button'; addBtn.className = 'btn btn-small';
+      addBtn.textContent = '+ Add another story';
+      addBtn.addEventListener('click', ()=>{ state.stories.push({l1:'',l2:''}); persist(); renderStep(); });
+      stepsContainer.appendChild(addBtn);
+    }
+  }
+
+  function renderRoleCard(role){
+    const c = state.cast[role.key];
+    const card = document.createElement('div');
+    card.className = 'card role-card';
+    const canvas = document.createElement('canvas');
+    drawRoleIcon(canvas, role.key);
+    const body = document.createElement('div');
+    body.className = 'role-body';
+    body.innerHTML =
+      '<div class="role-title-row"><h2 class="pixel-heading" style="margin:0;font-size:14px;">'+role.title+'</h2>' +
+      '<label class="skip-toggle"><input type="checkbox" class="skip-cb"> Skip this role</label></div>' +
+      '<p class="role-desc">'+role.desc+'</p>' +
+      '<div class="role-fields">' +
+      '<label>Name</label><input type="text" class="role-name" maxlength="40" placeholder="e.g. '+role.title.split(' ').pop()+'’s actual name">' +
+      '<label>One quick memory or quirk <span class="opt">(optional -- flavor, not literal dialogue)</span></label>' +
+      '<textarea class="role-anec" rows="2" maxlength="160" placeholder="e.g. Reviews every restaurant before anyone has taken a bite."></textarea>' +
+      '</div>';
+    card.appendChild(canvas);
+    card.appendChild(body);
+    const skipCb = body.querySelector('.skip-cb');
+    const fields = body.querySelector('.role-fields');
+    const nameInput = body.querySelector('.role-name');
+    const anecInput = body.querySelector('.role-anec');
+    skipCb.checked = !c.cast;
+    nameInput.value = c.name; anecInput.value = c.anecdote;
+    fields.classList.toggle('skipped', skipCb.checked);
+    skipCb.addEventListener('change', ()=>{
+      c.cast = !skipCb.checked;
+      fields.classList.toggle('skipped', skipCb.checked);
+      persist();
+    });
+    nameInput.addEventListener('input', ()=>{ c.name = nameInput.value; persist(); fieldWarning(fields, checkForbidden(nameInput.value)[0]||null); });
+    anecInput.addEventListener('input', ()=>{ c.anecdote = anecInput.value; persist(); });
+    return card;
+  }
+
+  function renderStepCast(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2 class="pixel-heading">The cast</h2>' +
+      '<p class="step-sub">Give us a name for anyone who fits -- skip anything that doesn’t. The game adjusts itself automatically.</p>';
+    stepsContainer.appendChild(el);
+    for(const role of ROLE_DEFS) stepsContainer.appendChild(renderRoleCard(role));
+  }
+
+  function renderStepVibe(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2 class="pixel-heading">The vibe</h2>' +
+      '<p class="step-sub">Pick the register that scores your dinner scenes. Tap ▶ to preview.</p>';
+    stepsContainer.appendChild(el);
+    for(const vibe of VIBE_DEFS){
+      const card = document.createElement('div');
+      card.className = 'card vibe-card' + (state.vibe === vibe.key ? ' selected' : '');
+      card.innerHTML =
+        '<div><div class="vibe-label">'+vibe.label+'</div>' +
+        '<div class="vibe-sub">'+(vibe.track ? vibe.track.replace(/-/g,' ') : 'no music override -- default score') +'</div></div>' +
+        (vibe.track ? '<button type="button" class="btn btn-small vibe-play">&#9654; preview</button>' : '');
+      card.addEventListener('click', (e)=>{
+        if(e.target.closest('.vibe-play')) return;
+        state.vibe = vibe.key; persist();
+        stepsContainer.querySelectorAll('.vibe-card').forEach(c2=>c2.classList.remove('selected'));
+        card.classList.add('selected');
+      });
+      const playBtn = card.querySelector('.vibe-play');
+      if(playBtn){
+        playBtn.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          stopPreview();
+          const audio = new Audio('../assets/audio/music/' + vibe.track + '.ogg');
+          audio.volume = 0.5;
+          currentAudio = audio;
+          audio.play().catch(()=>{});
+          setTimeout(()=>{ if(currentAudio===audio) stopPreview(); }, 6000);
+        });
+      }
+      stepsContainer.appendChild(card);
+    }
+  }
+
+  function renderStepPreview(){
+    stopPreview();
+    const el = document.createElement('div');
+    el.innerHTML = '<h2 class="pixel-heading">Preview & share</h2>';
+    stepsContainer.appendChild(el);
+
+    const violations = checkStateForbidden(state);
+    const warnBanner = document.createElement('div');
+    warnBanner.className = 'warning-banner' + (violations.length ? ' show' : '');
+    warnBanner.innerHTML = '<strong>Before you share:</strong><ul style="margin:6px 0 0;padding-left:18px;">' +
+      violations.map(v=>'<li>'+v+'</li>').join('') + '</ul>';
+    stepsContainer.appendChild(warnBanner);
+
+    if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim()){
+      const missing = document.createElement('div');
+      missing.className = 'warning-banner show';
+      missing.textContent = 'Host name, catchphrase, and title are all required -- go back and fill those in.';
+      stepsContainer.appendChild(missing);
+      return;
+    }
+
+    let assembled;
+    try{
+      assembled = assembleConfig(state, ENGINE_ROOT);
+    }catch(e){
+      const err = document.createElement('div');
+      err.className = 'warning-banner show';
+      err.textContent = 'Something went wrong building your preview: ' + e.message;
+      stepsContainer.appendChild(err);
+      return;
+    }
+
+    const fragment = cfgEncodeConfigFragment(assembled.merged);
+    const introUrl = new URL('../intro/#cfg=' + fragment, document.location.href).href;
+    const gameUrl = new URL('../game/#cfg=' + fragment, document.location.href).href;
+
+    const playCard = document.createElement('div');
+    playCard.className = 'card';
+    playCard.innerHTML =
+      '<p style="margin:0 0 12px;">Your game is ready to try -- right now, no waiting.</p>' +
+      '<a class="btn btn-primary" id="playBtn" target="_blank" rel="noopener" style="display:block;text-align:center;">&#9654; Play your game</a>' +
+      '<label style="margin-top:16px;">Shareable link</label>' +
+      '<div class="copybox"><input type="text" id="shareLink" readonly><button type="button" class="btn btn-small" id="copyBtn">Copy</button></div>' +
+      '<div class="link-len" id="linkLen"></div>';
+    stepsContainer.appendChild(playCard);
+    const playBtn = playCard.querySelector('#playBtn');
+    playBtn.href = gameUrl;
+    if(violations.length){ playBtn.setAttribute('aria-disabled','true'); playBtn.removeAttribute('href'); playBtn.addEventListener('click', e=>e.preventDefault()); }
+    const shareInput = playCard.querySelector('#shareLink');
+    shareInput.value = introUrl;
+    playCard.querySelector('#linkLen').textContent = 'Link length: ' + fragment.length + ' characters';
+    playCard.querySelector('#copyBtn').addEventListener('click', ()=>{
+      shareInput.select();
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(shareInput.value).catch(()=>{ try{ document.execCommand('copy'); }catch(e){} });
+      } else {
+        try{ document.execCommand('copy'); }catch(e){}
+      }
+    });
+
+    const upsell = document.createElement('div');
+    upsell.className = 'card upsell';
+    upsell.innerHTML =
+      '<h2 class="pixel-heading" style="font-size:15px;color:var(--gold);">Make it permanent -- $5</h2>' +
+      '<p style="font-size:13px;color:var(--napkin);margin:0 0 14px;">A shareable link works forever, but a permanent hosted link (your own tidy <code>/games/</code> URL) plus your own uploaded song is the paid tier -- and a real human reviews your stories before it goes out.</p>' +
+      '<div class="btn-row"><a class="btn" id="upsellStart">Start your order</a><a class="btn btn-primary" id="upsellPay">Pay $5</a></div>' +
+      '<p class="link-len" id="upsellNote" style="text-align:center;"></p>';
+    stepsContainer.appendChild(upsell);
+    wireOrderButton(upsell.querySelector('#upsellStart'), SITE_CONFIG.intakeFormUrl, 'Start your order');
+    wireOrderButton(upsell.querySelector('#upsellPay'), SITE_CONFIG.paymentUrl, 'Pay $5');
+    if(!SITE_CONFIG.intakeFormUrl || !SITE_CONFIG.paymentUrl){
+      upsell.querySelector('#upsellNote').textContent = 'ORDERS OPENING SOON';
+    }
+  }
+  function wireOrderButton(elem, url, label){
+    if(url){
+      elem.href = url; elem.removeAttribute('aria-disabled'); elem.target = '_blank'; elem.rel = 'noopener';
+    } else {
+      elem.href = '#'; elem.setAttribute('aria-disabled', 'true');
+      elem.addEventListener('click', e=>e.preventDefault());
+      elem.textContent = label;
+    }
+  }
+
+  const STEP_RENDERERS = [renderStepHost, renderStepPunchline, renderStepStories, renderStepCast, renderStepVibe, renderStepPreview];
+
+  function renderStep(){
+    stopPreview();
+    stepsContainer.innerHTML = '';
+    renderProgress();
+    STEP_RENDERERS[state.step]();
+    const nav = document.createElement('div');
+    nav.className = 'btn-row';
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button'; backBtn.className = 'btn';
+    backBtn.textContent = '← Back';
+    backBtn.disabled = state.step === 0;
+    backBtn.addEventListener('click', ()=>{ if(state.step>0){ state.step--; persist(); renderStep(); window.scrollTo(0,0); } });
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button'; nextBtn.className = 'btn btn-primary';
+    nextBtn.textContent = state.step === WIZARD_STEP_COUNT-1 ? 'Start over' : 'Next →';
+    nextBtn.addEventListener('click', ()=>{
+      if(state.step === WIZARD_STEP_COUNT-1){
+        if(confirm('Clear everything and start a new game?')){
+          state = defaultWizardState(); persist(); renderStep(); window.scrollTo(0,0);
+        }
+        return;
+      }
+      state.step++; persist(); renderStep(); window.scrollTo(0,0);
+    });
+    nav.appendChild(backBtn); nav.appendChild(nextBtn);
+    stepsContainer.appendChild(nav);
+  }
+
+  renderStep();
+}
+
+if(typeof document !== 'undefined' && document.addEventListener){
+  document.addEventListener('DOMContentLoaded', initWizard);
+}
+</script>
+</body>
+</html>

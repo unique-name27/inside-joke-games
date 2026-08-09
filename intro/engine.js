@@ -1,13 +1,28 @@
 'use strict';
-document.title = CONFIG.title.introPageTitle;
 /* ======================================================================
    KARKS CUB KINGDOM -- intro cinematic
    Single-file implementation per SPEC-intro.md
    ====================================================================== */
 
 /* ---------------- shared-engine asset root -- see game/index.html for the
-   identical mechanism/rationale (README "How games are added") ---------------- */
+   identical mechanism/rationale (README "How games are added"). Moved
+   ahead of document.title -- previously the first line -- for the same
+   reason as game/engine.js: the URL-fragment override just below needs
+   ENGINE_ROOT before anything else touches CONFIG. ---------------- */
 const ENGINE_ROOT = new URL('../', document.currentScript.src).href;
+
+/* ---------------- URL-fragment CONFIG override (self-serve generator) ----------------
+   See game/engine.js for the full rationale -- identical mechanism here,
+   duplicated by this project's established convention for anything
+   shared between the two engines. game/cfgcodec.js is loaded just before
+   this script (right after config.js), same as on the game/ page. */
+const CFG_FRAGMENT = (typeof cfgLoadFragmentOverride === 'function') ? cfgLoadFragmentOverride(ENGINE_ROOT) : null;
+if(CFG_FRAGMENT && CFG_FRAGMENT.config){
+  for(const k in CONFIG){ if(Object.prototype.hasOwnProperty.call(CONFIG, k)) delete CONFIG[k]; }
+  Object.assign(CONFIG, CFG_FRAGMENT.config);
+}
+
+document.title = CONFIG.title.introPageTitle;
 
 /* ---------------- constants & palette ---------------- */
 const CW = 960, CH = 540, TILE = 16, SPR_SCALE = 4;
@@ -20,9 +35,12 @@ const RECORD_MODE = new URLSearchParams(location.search).get('record') === '1';
 
 /* ---------------- CONFIG-derived helpers (Phase B: template extraction) ----------------
    CONFIG comes from ../game/config.js (same file the game reads -- see the
-   "config sharing" note in SPEC-game.md's Template & roles section). See
-   game/index.html for the identical (duplicated by convention) fmt()/skey(). */
-const STORAGE_PREFIX = (CONFIG && CONFIG.gameId) || 'kck';
+   "config sharing" note in SPEC-game.md's Template & roles section),
+   possibly overridden above by a URL fragment. See game/engine.js for why
+   a fragment-loaded game's STORAGE_PREFIX is hash-derived instead of
+   CONFIG.gameId. See game/index.html for the identical (duplicated by
+   convention) fmt()/skey(). */
+const STORAGE_PREFIX = CFG_FRAGMENT ? ('frag_' + CFG_FRAGMENT.hash) : ((CONFIG && CONFIG.gameId) || 'kck');
 function skey(name){ return STORAGE_PREFIX + '_' + name; }
 function fmt(s){
   if(typeof s !== 'string') return s;
@@ -1324,8 +1342,11 @@ function triggerSkip(){
   if(se>=40){
     // on the title screen: PRESS START / any click / key / gamepad button now
     // launches the game instead of replaying (attract-loop idle-replay is separate,
-    // still handled by the 25s-idle timer in frame()).
-    window.location.href = '../game/';
+    // still handled by the 25s-idle timer in frame()). Forward location.hash so a
+    // `#cfg=` fragment override (see cfgLoadFragmentOverride) stays attached to the
+    // SAME link across the intro->game navigation -- location.hash is already
+    // '' when there's no fragment, so this is a no-op for every file-CONFIG game.
+    window.location.href = '../game/' + location.hash;
     return;
   }
   sceneClockOffset = trueElapsed() - 40;
