@@ -37,8 +37,9 @@ else — no build step, no npm install.
 
 Pull the user's answers for all 11 questions (see `INTAKE.md`). Note which
 setting they picked (Q1 — defaults to THE DINNER PARTY if unanswered) and
-which of the five optional roles (Critic/Boss/Savior/Butterfingers/Builder)
-they actually cast — anything left blank is skipped, not defaulted.
+which of the five optional roles (First Boss/Final Boss/Savior/
+Butterfingers/Builder) they actually cast — anything left blank is skipped,
+not defaulted.
 
 ## 2. Content review gate
 
@@ -83,7 +84,7 @@ point, then fill in every field from the intake answers:
 | Q3 stories | `stories[]` (each `{lines:[...]}`, 1-2 lines each, ALL CAPS to match the game's chunky-text style) |
 | Q4 title | `title.lockupLines` (short — see "Title font" below), `title.introPageTitle`, `title.gamePageTitle` |
 | Q5 host | `host.name`, and `cast.diner0`/etc. sprite picks as you see fit |
-| Q6 role casting | `cast.judge` / `cast.authority` / `cast.savior` / `cast.butterfingers` / `cast.builder` — `null` for any left blank in Q6. **Every uncast role's own content bucket (`CONFIG.judge`, `CONFIG.authority`, etc.) can be omitted from the file entirely** — nothing reads it once the role is uncast (this is exactly what `examples/test-group.config.js` demonstrates: JUDGE uncast, and `CONFIG.judge`/`authority`/`savior` simply don't exist in that file). Only write content buckets for roles Q6 actually cast. |
+| Q6 role casting | `cast.judge` / `cast.authority` / `cast.savior` / `cast.butterfingers` / `cast.builder` — `null` for any left blank in Q6. Q6's "The First Boss"/"The Final Boss" are `judge`/`authority` under the hood (historical key names — see `tools/README.md`). **Every uncast role's own content bucket (`CONFIG.judge`, `CONFIG.authority`, etc.) can be omitted from the file entirely** — nothing reads it once the role is uncast (this is exactly what `examples/test-group.config.js` demonstrates: JUDGE uncast, and `CONFIG.judge`/`authority`/`savior` simply don't exist in that file). Only write content buckets for roles Q6 actually cast. |
 | Q7 anecdotes | each cast role's `anecdote` field, and inform the flavor of that role's written lines (see below) |
 | Q8 music | `music.customSongPath` (user's uploaded file, copied into `games/<slug>/assets/` — see "Assets" below) **or** `null` + pick one `music.loops` entry to lean on (see the vibe → loop-key mapping below) |
 | Q9 spellings | apply throughout — every name that appears in any line |
@@ -107,8 +108,18 @@ per role: `judge.critiqueLines`/`duckLines`/`hitLines`/`cardBody`/
 `cardBody`, `savior.line1`/`line2`/`sincereLine`, `butterfingers.*`,
 `builder.*`). This is genuinely hand-written per order, not templated —
 that's the point of the product. Keep the tone matching KCK's own (deadpan,
-ALL CAPS, short lines) and lean on the Q7 anecdotes for flavor. The
-`{HOST}` and `{ITEM}` tokens (see `SPEC-game.md`'s "Template & roles"
+ALL CAPS, short lines) and lean on the Q7 anecdotes for flavor.
+
+**Boss slots read as real people.** When The First Boss (`judge`) is cast,
+set `judge.title` to that person's name, ALL CAPS — it's what the boss HP
+bar shows during the fight, and it should read MARCO, not the generic "THE
+CRITIC" placeholder. Likewise, when The Final Boss (`authority`) is cast,
+set `authority.cardTitle` to `'<NAME> HAS ARRIVED'`, ALL CAPS — see
+`game/config.js`'s own `'ARAM HAS ARRIVED'` for the pattern this comes
+from. (`tools/generate.js` and the `/build/` wizard both do this
+automatically now; this only matters when you're hand-authoring a config.)
+
+The `{HOST}` and `{ITEM}` tokens (see `SPEC-game.md`'s "Template & roles"
 section) are available if a line needs to say the host's name or the gift
 item's name — don't hand-write those in more than the two token spots
 unless you specifically want a line to differ from the shared value.
@@ -211,7 +222,7 @@ tools/example-answers.json` reproduces steps 3-5 below automatically.
 1. **Intake (hypothetical)**: catchphrase "FOR FREE?" · stories: missed a
    flight by 4 minutes, alphabetized the spice rack on hold · title "The
    Test Group" · host "Jordan" · cast: only Butterfingers ("Morgan") and
-   Builder ("Riley") — Critic/Boss/Savior all left blank · anecdotes:
+   Builder ("Riley") — First Boss/Final Boss/Savior all left blank · anecdotes:
    Morgan takes 40 photos of every plate, Riley builds something every
    hangout · music: no upload, "surprise us" → picked `dinner`/`Wacky
    Waiting` as the default register · no off-limits list · five_min (the

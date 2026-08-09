@@ -171,6 +171,27 @@
   }
   .warning-banner.show{ display:block; }
   .warning-banner ul{ margin:8px 0 0; padding-left:20px; }
+
+  /* ---------- answers review (preview step, above the play/share card)
+     -- dense: small text, one row per step, an Edit link that jumps back.
+     Renders straight from `state` every time, so it's always accurate. ---------- */
+  .review-row{
+    display:flex; align-items:baseline; gap:10px; padding:8px 0;
+    border-top:1px solid var(--border); font-size:0.85rem;
+  }
+  .review-row:first-of-type{ border-top:none; }
+  .review-label{ flex:0 0 96px; color:var(--muted-2); text-transform:uppercase; font-size:0.7rem; letter-spacing:0.04em; font-weight:700; }
+  .review-value{ flex:1; color:var(--cream); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .review-edit{
+    flex:0 0 auto; background:none; border:none; color:var(--gold); font-size:0.78rem;
+    font-weight:700; cursor:pointer; padding:4px 2px; text-decoration:underline;
+  }
+  .review-edit:hover{ color:var(--gold-hover); }
+  @media (max-width:480px){
+    .review-row{ flex-wrap:wrap; }
+    .review-label{ flex-basis:100%; }
+    .review-value{ white-space:normal; }
+  }
 </style>
 </head>
 <body>
@@ -230,11 +251,18 @@ const SCENE_DEFS = [
   { key:'office', label:'THE OFFICE PARTY', desc:'The break room, after hours.' },
   { key:'wedding', label:'THE WEDDING WEEKEND', desc:'A reception hall, a DJ booth, and the toasts.' },
 ];
+// Role framing: BOSS SLOTS, not personality archetypes -- the product's
+// promise is that every boss is a real person the group knows. `key`/
+// `cfgKey` (the underlying CONFIG.cast/answers-schema keys: judge,
+// authority) are unchanged -- this is presentation/copy only, see
+// buildOverridesFromState below for the matching judge.title/
+// authority.cardTitle behavior (the boss bar/entrance card show the
+// PERSON's name, not a generic label, once that slot is cast).
 const ROLE_DEFS = [
-  { key:'critic', cfgKey:'judge', title:'THE CRITIC',
-    desc:'The one who critiques everything -- the food, the seating, your throw. Shows up as the game’s boss fight.' },
-  { key:'boss', cfgKey:'authority', title:'THE BOSS',
-    desc:'An intimidating figure who storms in angry about something small, then comes around.' },
+  { key:'critic', cfgKey:'judge', title:'THE FIRST BOSS',
+    desc:'Every game needs a boss fight. Pick a real person from your group -- they’ll heckle from on high and throw things, and the player throws them right back.' },
+  { key:'boss', cfgKey:'authority', title:'THE FINAL BOSS',
+    desc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who storms in mad about something small, then comes around.' },
   { key:'savior', cfgKey:'savior', title:'THE SAVIOR',
     desc:'The sincere one who saves the day -- shows up right when things look bad.' },
   { key:'butterfingers', cfgKey:'butterfingers', title:'BUTTERFINGERS',
@@ -254,6 +282,41 @@ const VIBE_DEFS = [
   { key:'sincere', label:'Quiet and sincere', track:'sad-descent' },
   { key:'surprise', label:'Surprise us', track:null },
 ];
+
+/* the Preview step's "Your answers" review card -- one row per earlier
+   step, `summary(state)` reads straight off the live wizard state (never
+   a snapshot), so it's always accurate, including right after an Edit
+   round-trip. `step` is the index renderStep()/state.step jumps back to. */
+const REVIEW_ROWS = [
+  { label:'The setting', step:0, summary(state){
+      const scene = SCENE_DEFS.find(s => s.key === state.scene);
+      return scene ? scene.label : 'Not chosen yet';
+    } },
+  { label:'Your group', step:1, summary(state){
+      if(!state.host.trim()) return 'Not filled in yet';
+      return state.host.trim() + (state.otherFriendName.trim() ? ' + ' + state.otherFriendName.trim() : '');
+    } },
+  { label:'The catchphrase', step:2, summary(state){
+      if(!state.catchphrase.trim() && !state.title.trim()) return 'Not filled in yet';
+      return (state.catchphrase.trim() || '…') + ' · ' + (state.title.trim() || '…');
+    } },
+  { label:'The stories', step:3, summary(state){
+      const filled = state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim()));
+      if(!filled.length) return 'No stories yet';
+      return filled.length + ' ' + (filled.length===1 ? 'story' : 'stories') + ': ' +
+        filled.map(s => (s.l1 && s.l1.trim()) || '…').join(' / ');
+    } },
+  { label:'The cast', step:4, summary(state){
+      const cast = ROLE_DEFS.filter(r => state.cast[r.key] && state.cast[r.key].cast && state.cast[r.key].name && state.cast[r.key].name.trim());
+      if(!cast.length) return 'Nobody cast -- the game adapts.';
+      return cast.map(r => r.title + ' — ' + state.cast[r.key].name.trim()).join(', ');
+    } },
+  { label:'The vibe', step:5, summary(state){
+      const vibe = VIBE_DEFS.find(v => v.key === state.vibe);
+      return vibe ? vibe.label : 'Not chosen yet';
+    } },
+];
+
 // mirrors tools/verify-config.js's BASELINE_FORBIDDEN -- this is a
 // standalone static page with no shared module system with the Node CLI,
 // so this list is duplicated by the same established convention as
@@ -386,6 +449,16 @@ function buildOverridesFromState(state){
       if(c.anecdote && c.anecdote.trim()) entry.anecdote = String(c.anecdote).trim().slice(0, 160);
       if(DEFAULT_SPRITE[r.cfgKey]) Object.assign(entry, DEFAULT_SPRITE[r.cfgKey]);
       overrides.cast[r.cfgKey] = entry;
+      // BOSS SLOTS: the boss HP bar / entrance card should read the actual
+      // person's name, not the generic "THE CRITIC"/"THE BOSS HAS ARRIVED"
+      // default text (see cfgBuildDefaultConfig, which those defaults still
+      // come from for anyone who leaves this slot uncast). entry.name is
+      // already uppercase (wrapLine), matching KCK's own hardcoded pattern
+      // ('ARAM HAS ARRIVED' in game/config.js) -- cfgSanitizeConfig's own
+      // cfgStr(40) cap on judge.title/authority.cardTitle truncates safely
+      // if a long name pushes " HAS ARRIVED" past the limit.
+      if(r.cfgKey === 'judge') overrides.judge = { title: entry.name };
+      if(r.cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
     } else {
       overrides.cast[r.cfgKey] = null;
     }
@@ -647,7 +720,7 @@ function initWizard(){
       '<label class="skip-toggle" for="'+skipId+'"><input type="checkbox" class="skip-cb" id="'+skipId+'"> Skip this role</label></div>' +
       '<p class="role-desc">'+role.desc+'</p>' +
       '<div class="role-fields">' +
-      '<div class="field"><label for="'+nameId+'">Name</label><input type="text" class="role-name" id="'+nameId+'" maxlength="40" placeholder="e.g. '+role.title.split(' ').pop()+'’s actual name"></div>' +
+      '<div class="field"><label for="'+nameId+'">Name</label><input type="text" class="role-name" id="'+nameId+'" maxlength="40" placeholder="e.g. their actual name or nickname"></div>' +
       '<div class="field"><label for="'+anecId+'">One quick memory or quirk <span class="opt">(optional -- flavor, not literal dialogue)</span></label>' +
       '<textarea class="role-anec" id="'+anecId+'" rows="2" maxlength="160" placeholder="e.g. Has an opinion about everything, whether or not anyone asked."></textarea></div>' +
       '</div>';
@@ -686,7 +759,7 @@ function initWizard(){
     const el = document.createElement('div');
     el.innerHTML =
       '<h2>The cast</h2>' +
-      '<p class="step-sub">Give us a name for anyone who fits -- skip anything that doesn’t. The game adjusts itself automatically.</p>';
+      '<p class="step-sub">Every boss is somebody you actually know. Real people only -- skip any slot that doesn’t fit, and the game rewrites itself.</p>';
     stepsContainer.appendChild(el);
     for(const role of ROLE_DEFS) stepsContainer.appendChild(renderRoleCard(role));
   }
@@ -738,11 +811,47 @@ function initWizard(){
     }
   }
 
+  /* "Your answers" review card -- built fresh from REVIEW_ROWS/state every
+     render, so an Edit round-trip (jump back, change something, return to
+     Preview) always shows the updated answer, never a stale snapshot. Uses
+     textContent for every state-derived value (never innerHTML string
+     concatenation) so a stray "<"/"&" in a typed name/story can't break
+     the markup. */
+  function renderReviewCard(){
+    const card = document.createElement('div');
+    card.className = 'card';
+    const heading = document.createElement('h2');
+    heading.textContent = 'Your answers';
+    heading.style.cssText = 'font-size:1rem;margin:0 0 4px;';
+    card.appendChild(heading);
+    for(const row of REVIEW_ROWS){
+      const r = document.createElement('div');
+      r.className = 'review-row';
+      const label = document.createElement('span');
+      label.className = 'review-label';
+      label.textContent = row.label;
+      const value = document.createElement('span');
+      value.className = 'review-value';
+      value.textContent = row.summary(state);
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'review-edit';
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', ()=>{
+        state.step = row.step; persist(); renderStep(); window.scrollTo(0,0);
+      });
+      r.appendChild(label); r.appendChild(value); r.appendChild(editBtn);
+      card.appendChild(r);
+    }
+    return card;
+  }
+
   function renderStepPreview(){
     stopPreview();
     const el = document.createElement('div');
     el.innerHTML = '<h2>Preview &amp; share</h2>';
     stepsContainer.appendChild(el);
+    stepsContainer.appendChild(renderReviewCard());
 
     const violations = checkStateForbidden(state);
     // only ever added to the DOM when there's something to say -- an always-

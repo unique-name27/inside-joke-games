@@ -56,17 +56,23 @@ first name (or nickname) is fine.
 
 **Q6. Cast the rest of your group.** *(a short-answer field per row below — skip any that don't fit; only Q5's host is required)*
 
-For each role, give us a name **or** leave it blank to skip that role
-entirely — the game adjusts automatically, no placeholder needed. Most
-groups cast 2–4 of these.
+Every boss is somebody you actually know. Real people only — for each
+role, give us a name **or** leave it blank to skip that slot entirely — the
+game adjusts automatically, no placeholder needed. Most groups cast 2–4 of
+these.
 
 | Role | Who's this? |
 |---|---|
-| **The Critic** | The one who critiques everything — the food, the seating, your throw. Shows up as the game's boss fight. |
-| **The Boss** | An intimidating figure who storms in angry about something small, then comes around. |
+| **The First Boss** | Every game needs a boss fight. Pick a real person from your group — they'll heckle from on high and throw things, and the player throws them right back. |
+| **The Final Boss** | Someone with actual authority in your world — a manager, a parent, a coach, a landlord — who storms in mad about something small, then comes around. |
 | **The Savior** | The sincere one who saves the day — shows up right when things look bad. |
 | **Butterfingers** | The one tech/phone mishaps always happen to. |
 | **The Builder** | The one who'd actually go build something like this game. |
+
+*(The First Boss and The Final Boss are historically named "critic" and
+"boss" in the answers schema / `game/config.js` — `judge`/`authority`
+under the hood; the names on this form are the current, boss-slot framing
+only.)*
 
 ---
 

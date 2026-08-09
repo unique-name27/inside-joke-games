@@ -188,6 +188,20 @@ function buildOverrides(answers, slug){
       if(anecdotes[introKey]) entry.anecdote = String(anecdotes[introKey]).slice(0, 160);
       if(DEFAULT_SPRITE[cfgKey]) Object.assign(entry, DEFAULT_SPRITE[cfgKey]);
       overrides.cast[cfgKey] = entry;
+      // BOSS SLOTS: the boss HP bar / entrance card reads the actual
+      // person's name, not cfgBuildDefaultConfig's generic "THE CRITIC"/
+      // "THE BOSS HAS ARRIVED" fallback text -- entry.name is already
+      // uppercase above, matching KCK's own hardcoded pattern ('ARAM HAS
+      // ARRIVED' in game/config.js). This written-to-file config.js path
+      // doesn't run through cfgSanitizeConfig (see this function's own doc
+      // comment -- answers.json is trusted operator input), so a name at
+      // the full 40-char cap plus " HAS ARRIVED" can run long here; the
+      // instant #cfg= link built from the same overrides further below
+      // does go through cfgEncodeConfigFragment -> cfgSanitizeConfig, whose
+      // cfgStr(40) on judge.title/authority.cardTitle truncates that copy
+      // safely.
+      if(cfgKey === 'judge') overrides.judge = { title: entry.name };
+      if(cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
     } else {
       overrides.cast[cfgKey] = null;
     }

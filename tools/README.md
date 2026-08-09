@@ -62,9 +62,12 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
   "stories": ["...", "..."],                // Q3, required — array of 2-4 plain-English sentences, pre-split (one string per story); the generator uppercases + word-wraps each into up to 2 short lines itself
   "title": "The Test Group",                // Q4, required
   "host": "Jordan",                         // Q5, required — first name/nickname
-  "cast": {                                 // Q6 — role: name, or null/omitted to skip
-    "critic": "Bob",                        //   "The Critic"       -> CONFIG.cast.judge
-    "boss": null,                           //   "The Boss"         -> CONFIG.cast.authority
+  "cast": {                                 // Q6 — role: name, or null/omitted to skip. Boss slots -- every
+                                             // boss is a real person the group knows (see README.md's role
+                                             // section); "critic"/"boss" are historical key names for what
+                                             // the form now calls The First Boss / The Final Boss.
+    "critic": "Bob",                        //   "The First Boss"   -> CONFIG.cast.judge
+    "boss": null,                           //   "The Final Boss"   -> CONFIG.cast.authority
     "savior": null,                         //   "The Savior"       -> CONFIG.cast.savior
     "butterfingers": "Morgan",              //   "Butterfingers"    -> CONFIG.cast.butterfingers
     "builder": "Riley"                      //   "The Builder"      -> CONFIG.cast.builder
