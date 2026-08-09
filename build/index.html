@@ -699,13 +699,15 @@ function initWizard(){
       return;
     }
 
-    // encode the RAW OVERRIDES: applying a music vibe consumes musicVibe
-    // (it's resolved into music.loops and deleted from both `sanitized` and
-    // `merged`), so encoding either of those silently dropped the buyer's
-    // chosen vibe from the share link. `overrides` still carries it, and the
-    // receiving page re-sanitizes every fragment through the same whitelist,
-    // so nothing unvalidated can ride along.
-    const fragment = cfgEncodeConfigFragment(assembled.overrides);
+    // encode the SANITIZED OVERRIDE DELTA, never `merged`: applying a vibe
+    // resolves musicVibe into merged.music.loops and then deletes the
+    // consumed key -- and `music` itself is deliberately not fragment-
+    // settable -- so encoding `merged` dropped the buyer's chosen music
+    // entirely (default track on both the preview and the shared link).
+    // `sanitized` still carries musicVibe, is already whitelist-validated,
+    // and is the semantically right payload (a fragment is the delta, not
+    // the whole default-filled config -- also ~4x smaller).
+    const fragment = cfgEncodeConfigFragment(assembled.sanitized);
     const introUrl = new URL('../intro/#cfg=' + fragment, document.location.href).href;
     const gameUrl = new URL('../game/#cfg=' + fragment, document.location.href).href;
 

@@ -257,7 +257,7 @@ function main(){
     process.exit(1);
   }
 
-  let slug, overrides, merged;
+  let slug, overrides, merged, fragmentPayload;
   try{
     requireField(answers, 'email', 'Q10: delivery email');
     const titleForSlug = requireField(answers, 'title', 'Q3');
@@ -267,6 +267,22 @@ function main(){
     const base = cfgBuildDefaultConfig('../../../'); // page-relative root matching games/<slug>/{game,intro}/'s nesting depth (see games/test-group/config.js for the identical convention)
     merged = cfgDeepMerge(base, overrides);
     merged = applySpellings(merged, spellings);
+
+    // The instant #cfg= link carries the OVERRIDE DELTA, not `merged`.
+    // `music` is deliberately not fragment-settable (see CFG_FRAGMENT_SCHEMA
+    // -- no link may point the engine's fetch() at an arbitrary URL), so
+    // encoding a config whose music lives in music.loops silently dropped
+    // the buyer's chosen track from the link. The whitelisted `musicVibe`
+    // enum is the supported way to say "use this stock track", so translate
+    // the pick back into it here. A buyer's UPLOADED song still can't ride
+    // in a link at all -- that's the hosted tier's job (noted in the output
+    // below).
+    fragmentPayload = applySpellings(cfgDeepMerge({}, overrides), spellings);
+    delete fragmentPayload.music;
+    const pickedVibe = (answers.music || {}).vibe;
+    if(pickedVibe && Object.prototype.hasOwnProperty.call(CFG_VIBE_TRACK_MAP, pickedVibe)){
+      fragmentPayload.musicVibe = pickedVibe;
+    }
   }catch(e){
     if(e instanceof GenerateError){ console.error('Invalid answers file: ' + e.message); process.exit(1); }
     throw e;
@@ -324,7 +340,7 @@ function main(){
     console.log('Copied uploaded song to ' + path.join('games', slug, 'assets', 'theme.mp3'));
   }
 
-  const fragment = cfgEncodeConfigFragment(merged);
+  const fragment = cfgEncodeConfigFragment(fragmentPayload);
   const hostedUrl = baseUrl.replace(/\/$/, '') + '/' + outDir + '/' + slug + '/';
   const instantIntroUrl = baseUrl.replace(/\/$/, '') + '/intro/#cfg=' + fragment;
   const instantGameUrl = baseUrl.replace(/\/$/, '') + '/game/#cfg=' + fragment;
