@@ -32,6 +32,7 @@ const GAME_ENGINE_PATH = path.join(REPO_ROOT, 'game', 'engine.js');
 const CFGCODEC_PATH = path.join(REPO_ROOT, 'game', 'cfgcodec.js');
 const SKELETONS_PATH = path.join(REPO_ROOT, 'game', 'skeletons.js');
 const ROSTER_PATH = path.join(REPO_ROOT, 'game', 'roster.js');
+const FRAMEWORK_PATH = path.join(REPO_ROOT, 'shared', 'framework.js');
 
 function escapeRegex(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
@@ -153,10 +154,13 @@ function loadEngineWithConfig(configSource, opts){
   const cfgcodecSrc = fs.readFileSync(CFGCODEC_PATH, 'utf8');
   const skeletonsSrc = fs.readFileSync(SKELETONS_PATH, 'utf8');
   const rosterSrc = fs.readFileSync(ROSTER_PATH, 'utf8');
+  const frameworkSrc = fs.readFileSync(FRAMEWORK_PATH, 'utf8');
   // roster.js MUST precede cfgcodec.js in this concatenation -- cfgcodec.js's
   // CFG_CAST_ENTRY_FIELDS reads the ROSTER_KEYS global at top-level eval
-  // time (see its own comment), same real-page order as every index.html.
-  const combined = configSource + '\n' + rosterSrc + '\n' + cfgcodecSrc + '\n' + skeletonsSrc + '\n' + engineSrc + '\n' + PROBE;
+  // time (see its own comment). shared/framework.js loads right before
+  // engine.js, mirroring every real index.html's own <script> order (THE
+  // GALLERY round 1 -- see shared/framework.js's header).
+  const combined = configSource + '\n' + rosterSrc + '\n' + cfgcodecSrc + '\n' + skeletonsSrc + '\n' + frameworkSrc + '\n' + engineSrc + '\n' + PROBE;
   const sandbox = buildSandbox({ network: 'fail', currentScriptSrc: 'https://example.test/game/engine.js', locationHash: opts.locationHash });
   if(opts.beforeRun) opts.beforeRun(sandbox);
   const ctx = vm.createContext(sandbox);

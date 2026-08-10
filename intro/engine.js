@@ -37,12 +37,20 @@ document.title = CONFIG.title.introPageTitle;
 
 /* ---------------- constants & palette ---------------- */
 const CW = 960, CH = 540, TILE = 16, SPR_SCALE = 4;
+// fitCanvas() (shared/framework.js) reads CW/CH -- the one initial call has
+// to happen here, now that CW exists, rather than inside framework.js
+// itself (which loads before this declaration) -- see its own comment.
+fitCanvas();
 const PAL = {
   cream:'#f3e9d2', terracotta:'#c96f4a', wood:'#8a5a30',
   night:'#141428', starWhite:'#fff3c9', glowHi:'#ffb347', glowLo:'#7a4a1e',
   gold:'#e8b84b', outline:'#6b2b1f', ink:'#2a1c12', silhouette:'#0a0a14'
 };
-const RECORD_MODE = new URLSearchParams(location.search).get('record') === '1';
+// RECORD_MODE is declared (as a safe `let ... = false` default) in
+// shared/framework.js, loaded just before this script -- reassigning
+// (not re-declaring) it here preserves this deliberate intro-only feature.
+// See shared/framework.js's header, reconciliation 1.
+RECORD_MODE = new URLSearchParams(location.search).get('record') === '1';
 
 /* ---------------- story skeleton (scene) resolution -- see game/skeletons.js
    ----------------
@@ -61,7 +69,8 @@ const SKEL_HELPERS = { PAL: PAL, drawPixelCircle: drawPixelCircle, drawBitmap: d
    CONFIG.gameId. See game/index.html for the identical (duplicated by
    convention) fmt()/skey(). */
 const STORAGE_PREFIX = CFG_FRAGMENT ? ('frag_' + CFG_FRAGMENT.hash) : ((CONFIG && CONFIG.gameId) || 'game');
-function skey(name){ return STORAGE_PREFIX + '_' + name; }
+// skey() now lives in shared/framework.js -- see game/engine.js's matching
+// comment / shared/framework.js's header for why this is safe.
 function fmt(s){
   if(typeof s !== 'string') return s;
   let out = s;
@@ -86,50 +95,13 @@ const INTRO_DINER_SPRITES = {
   builder: rosterResolveSprite(CAST.builder, 2, 8),
 };
 
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d', { alpha:false });
-
-/* DPR-aware backing store: size the canvas's actual pixel buffer to match its
-   displayed size in device pixels exactly, so the browser never has to
-   resample the canvas itself (that resample, at the non-integer ratios most
-   window sizes produce, is what was blurring text). All existing drawing
-   code still works in the 960x540 logical space -- one ctx transform maps it
-   onto the native-resolution backing store. Setting canvas.width/height
-   resets both the transform and imageSmoothingEnabled, so both are
-   (re)applied here, every time, after sizing. */
-function fitCanvas(){
-  // no floor of 1x -- phones are smaller than the 960x540 logical canvas, so
-  // it has to be allowed to scale DOWN to fit, not just up. But a hidden or
-  // just-restoring tab can report a 0-size viewport; a 0-scale canvas never
-  // recovers without a resize event, so fall back to 1x until real
-  // dimensions exist (the rAF loop also self-heals).
-  const rawScale = Math.min(window.innerWidth / CW, window.innerHeight / CH);
-  const cssScale = (isFinite(rawScale) && rawScale > 0.01) ? rawScale : 1;
-  const cssW = Math.floor(CW*cssScale), cssH = Math.floor(CH*cssScale);
-  canvas.style.width = cssW + 'px';
-  canvas.style.height = cssH + 'px';
-  // cap the effective DPR at 2 once we're shrinking (cssScale<1)
-  const dpr = cssScale < 1 ? Math.min(2, window.devicePixelRatio||1) : (window.devicePixelRatio || 1);
-  const bw = Math.max(1, Math.round(cssW*dpr));
-  const scale = bw / CW;
-  const bh = Math.max(1, Math.round(CH*scale));
-  canvas.width = bw;
-  canvas.height = bh;
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-}
-window.addEventListener('resize', fitCanvas);
-window.addEventListener('orientationchange', fitCanvas);
-fitCanvas();
+/* canvas/ctx/fitCanvas/isTouch/rotatePromptActive now live in
+   shared/framework.js (loaded before this script). */
 /* see game/engine.js's identical listener for the full rationale: a new
    #cfg= link opened while this same path is already loaded only fires
    hashchange (no real navigation), so without this the tab would keep
    playing the OLD, already-resolved config under the new URL. */
 window.addEventListener('hashchange', ()=>{ location.reload(); });
-
-/* ---------------- mobile / touch ---------------- */
-let isTouch = ('ontouchstart' in window);
-let rotatePromptActive = false;
 
 /* ---------------- assets ---------------- */
 const imgTown = new Image();
@@ -212,94 +184,8 @@ function drawTile(ctx, tileCanvas, dx, dy, scale, flipY){
   }
 }
 
-/* ---------------- pixel text (half-res upscale trick) ---------------- */
-const textCache = new Map();
-function pixelText(text, px, color, weight){
-  weight = weight || 'bold';
-  const key = text+'|'+px+'|'+color+'|'+weight;
-  let hit = textCache.get(key);
-  if(hit) return hit;
-  const half = Math.max(5, Math.round(px/2));
-  let tmp = document.createElement('canvas');
-  let tctx = tmp.getContext('2d');
-  tctx.font = weight+' '+half+'px monospace';
-  const m = tctx.measureText(text);
-  const w = Math.max(1, Math.ceil(m.width)) + 4;
-  const h = half + 8;
-  tmp.width = w; tmp.height = h;
-  tctx = tmp.getContext('2d');
-  tctx.font = weight+' '+half+'px monospace';
-  tctx.fillStyle = color;
-  tctx.textBaseline = 'top';
-  tctx.imageSmoothingEnabled = false;
-  tctx.fillText(text, 2, 2);
-  const result = { canvas: tmp, w: w*2, h: h*2 };
-  textCache.set(key, result);
-  return result;
-}
-function drawPixelText(ctx, text, x, y, px, color, align, weight){
-  if(!text) return 0;
-  const pt = pixelText(text, px, color, weight);
-  let dx = x;
-  if(align === 'center') dx = x - pt.w/2;
-  else if(align === 'right') dx = x - pt.w;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(pt.canvas, Math.round(dx), Math.round(y), pt.w, pt.h);
-  return pt.w;
-}
-/* chunky outlined text (used for the punchline slam + banner label) */
-function drawChunkyText(ctx, text, cx, cy, px, fill, outline, align){
-  align = align || 'center';
-  const offs = [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,-2],[-2,2],[2,2]];
-  for(const [ox,oy] of offs){
-    drawPixelText(ctx, text, cx+ox, cy+oy, px, outline, align);
-  }
-  return drawPixelText(ctx, text, cx, cy, px, fill, align);
-}
-
-/* ---------------- "reading" text: crisp native fillText, no half-res upscale ----------------
-   Used for narration/dialogue/captions the player has to actually read (as opposed to
-   "display" text -- the title logo, punchline slams, PRESS START/PRESS ANY BUTTON prompts --
-   which stays on the chunky pixelText path). The half-res-then-2x trick that pixelText uses
-   compounds with the DPR backing-store scale and blurs at most window sizes; native fillText
-   at final integer pixel size, drawn straight onto the already DPR-correct backing store,
-   stays crisp. */
-function readingFont(px){ return 'bold '+px+'px monospace'; }
-function measureReadingText(ctx, text, px){
-  ctx.save();
-  ctx.font = readingFont(px);
-  const w = ctx.measureText(text).width;
-  ctx.restore();
-  return w;
-}
-function drawReadingText(ctx, text, x, y, px, color, align){
-  if(!text) return 0;
-  ctx.save();
-  ctx.font = readingFont(px);
-  ctx.textBaseline = 'top';
-  ctx.textAlign = align || 'left';
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
-  const w = ctx.measureText(text).width;
-  ctx.restore();
-  return w;
-}
-function drawReadingTextOutlined(ctx, text, x, y, px, color, outlineColor, align){
-  if(!text) return 0;
-  ctx.save();
-  ctx.font = readingFont(px);
-  ctx.textBaseline = 'top';
-  ctx.textAlign = align || 'left';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = outlineColor;
-  ctx.strokeText(text, x, y);
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
-  const w = ctx.measureText(text).width;
-  ctx.restore();
-  return w;
-}
+/* pixelText/drawPixelText/drawChunkyText/readingFont/measureReadingText/
+   drawReadingText/drawReadingTextOutlined now live in shared/framework.js. */
 
 /* ---------------- pixel primitives ---------------- */
 function drawPixelCircle(ctx, cx, cy, r, color, px){
@@ -532,123 +418,32 @@ function drawMoon(ctx, x, y, r){
   drawPixelCircle(ctx, x+3, y+2, r-5, '#e9dcb0', 2);
 }
 
-/* ---------------- typewriter ---------------- */
-function makeTypewriter(lines, cps, gap){
-  cps = cps || 20;
-  gap = gap===undefined ? 0.4 : gap;
-  const starts = [];
-  let acc = 0;
-  for(let i=0;i<lines.length;i++){
-    starts.push(acc);
-    acc += lines[i].length/cps + gap;
-  }
-  const totalDur = acc;
-  return {
-    lines, starts, cps, totalDur,
-    prevRevealed: lines.map(()=>0),
-    getState(t){
-      const out = [];
-      for(let i=0;i<lines.length;i++){
-        const rel = t - starts[i];
-        let n = 0;
-        if(rel > 0) n = Math.min(lines[i].length, Math.floor(rel*cps));
-        out.push(n);
-      }
-      return out;
-    },
-    allDone(t){ return t >= starts[starts.length-1] + lines[lines.length-1].length/cps; },
-    lineDoneTime(i){ return starts[i] + lines[i].length/cps; }
-  };
-}
+/* makeTypewriter (typewriter speech bubbles bucket) now lives in
+   shared/framework.js -- its `doneAt` member replaces this file's old
+   totalDur/lineDoneTime, which were dead code (never referenced anywhere;
+   see shared/framework.js's header, reconciliation 6). */
 
 /* ======================================================================
    AUDIO ENGINE -- real Kenney CC0 samples (a few one-shot SFX + a single
    fallback music loop) over WebAudio, loaded via a generalized buffer-bank
-   loader. The Karplus-Strong jaw-harp "twang" stays fully synthesized.
+   loader. The Karplus-Strong jaw-harp "twang" stays fully synthesized. The
+   generic loader/player, BEAT_DEFAULT/MUSIC_BASE_GAIN/ducking, the twang
+   synth, master volume + the volume UI, and the SpeechSynthesis wrapper all
+   now live in shared/framework.js -- see its header for the full list and
+   every reconciliation made (this file's old BPM/BEAT is now
+   BEAT_DEFAULT -- same value, shared name; its one call site below was
+   updated to match).
    ====================================================================== */
-const BPM = 112;
-const BEAT = 60/BPM; // seconds per quarter note ~0.536 -- still used to time the slam-sequence twangs
 
-/* PHASE M (mix discipline) -- see game/engine.js's identical constant for
-   the full rationale: music sits clearly under the SFX layer now (one
-   shared value both engines use); duckDown/duckUp/setMusicLevel below all
-   still take a 0..1 fraction of "full" as before this phase, just scaled
-   onto this lower ceiling internally, so every existing call site (and
-   the whole dip-and-recover ducking curve) is unchanged. */
-const MUSIC_BASE_GAIN = 0.35;
-let actx = null, masterGain = null, compressor = null, musicGain = null, fxGain = null, loopGain = null;
-let noiseBuffer = null;
-let recordDest = null; // MediaStreamAudioDestinationNode when recording
-
-/* ---------------- master volume setting ----------------
-   Shared with game/index.html via localStorage[skey('volume')] (STORAGE_
-   PREFIX-scoped -- see this file's fmt()/skey() comment above) so the
-   choice carries between the intro and the game. RECORD_MODE forces full volume at
-   load (recordings must stay full-volume) and hides/disables the icon so it
-   can't be undone mid-recording. */
-function loadVolumeSetting(){
-  if(RECORD_MODE) return 1.0;
-  try{
-    if(!window.localStorage) return 0.25;
-    const raw = localStorage.getItem(skey('volume'));
-    if(raw===null) return 0.25;
-    const v = parseFloat(raw);
-    if(!isFinite(v) || v<0 || v>1) return 0.25;
-    if(v===0.55 || v===1) return 0.25; // legacy louder-scale values from older builds remap to the new MED
-    return v;
-  }catch(e){ return 0.25; }
-}
-function saveVolumeSetting(v){
-  try{ if(window.localStorage) localStorage.setItem(skey('volume'), String(v)); }catch(e){}
-}
+/* loadVolumeSetting/saveVolumeSetting/applyMasterVolume/setVolumeSetting/
+   initAudio now live in shared/framework.js -- RECONCILED there to this
+   file's RECORD_MODE-aware bodies (see its header, reconciliation 1) and
+   BUG-FIXED to also call tryDecodeAllSamples() (reconciliation 2: this
+   file's old initAudio only called tryDecodeAllLoops(), so its 3 defined
+   SFX -- ding/slamBoom/fanfare, actually called from this file's own scene
+   code -- almost certainly never played). */
 let volumeSetting = loadVolumeSetting();
 let volumeBeforeMute = volumeSetting>0 ? volumeSetting : 0.25;
-function applyMasterVolume(immediate){
-  if(!actx || !masterGain) return;
-  const target = 0.8 * volumeSetting;
-  const now = actx.currentTime;
-  masterGain.gain.cancelScheduledValues(now);
-  masterGain.gain.setValueAtTime(masterGain.gain.value, now);
-  if(immediate) masterGain.gain.setValueAtTime(target, now);
-  else masterGain.gain.linearRampToValueAtTime(target, now+0.08);
-}
-function setVolumeSetting(v){
-  if(RECORD_MODE) return; // locked at 1.0 for the duration of a recording
-  volumeSetting = Math.max(0, Math.min(1, v));
-  saveVolumeSetting(volumeSetting);
-  applyMasterVolume(false);
-}
-
-function initAudio(){
-  if(actx) return;
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  actx = new Ctx();
-
-  noiseBuffer = actx.createBuffer(1, actx.sampleRate*2, actx.sampleRate);
-  const nd = noiseBuffer.getChannelData(0);
-  for(let i=0;i<nd.length;i++) nd[i] = (Math.random()*2-1);
-
-  compressor = actx.createDynamicsCompressor();
-  masterGain = actx.createGain(); masterGain.gain.value = 0.8 * volumeSetting;
-  compressor.connect(masterGain);
-  masterGain.connect(actx.destination);
-
-  musicGain = actx.createGain(); musicGain.gain.value = MUSIC_BASE_GAIN;
-  musicGain.connect(compressor);
-  fxGain = actx.createGain(); fxGain.gain.value = 1.0;
-  fxGain.connect(compressor);
-  // quiet-understudy level for the loop fallback while USE_CUSTOM_SONG's
-  // track is still downloading; silenced entirely once it's confirmed
-  // playing (see updateBeatMusic()) -- same role the old chiptune played
-  loopGain = actx.createGain(); loopGain.gain.value = USE_CUSTOM_SONG ? 0.3 : 1.0;
-  loopGain.connect(musicGain);
-  tryDecodeAllLoops();
-
-  if(RECORD_MODE){
-    recordDest = actx.createMediaStreamDestination();
-    masterGain.connect(recordDest);
-  }
-}
 
 /* ---------------- background music track (theme.mp3) ----------------
    FULLY BUFFERED playback, same approach as game/index.html: fetch at page
@@ -696,35 +491,8 @@ function tryStartMusic(){
 }
 if(USE_CUSTOM_SONG) prefetchMusic();
 
-/* ---------------- generalized sample buffer bank ----------------
-   Same fetch+decodeAudioData pattern as the theme.mp3 loader above,
-   generalized to a keyed bank -- see game/index.html for the identical
-   (duplicated by this codebase's convention) implementation. */
-function makeBufferBank(defs){
-  const bank = {};
-  for(const key in defs) bank[key] = { state:'idle', rawBytes:null, buffer:null };
-  function prefetch(key){
-    const rec = bank[key];
-    if(rec.state!=='idle') return;
-    rec.state = 'loading';
-    fetch(defs[key].src)
-      .then(r=>{ if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
-      .then(bytes=>{ rec.rawBytes = bytes; rec.state = 'fetched'; tryDecode(key); })
-      .catch(()=>{ rec.state = 'failed'; });
-  }
-  function tryDecode(key){
-    const rec = bank[key];
-    if(!actx || !rec.rawBytes || rec.state!=='fetched') return;
-    rec.state = 'decoding';
-    const bytes = rec.rawBytes; rec.rawBytes = null;
-    try{
-      actx.decodeAudioData(bytes, (decoded)=>{ rec.buffer=decoded; rec.state='ready'; }, ()=>{ rec.state='failed'; });
-    }catch(e){ rec.state = 'failed'; }
-  }
-  function prefetchAll(){ for(const key in defs) prefetch(key); }
-  function tryDecodeAll(){ for(const key in defs) tryDecode(key); }
-  return { bank, prefetchAll, tryDecodeAll };
-}
+/* makeBufferBank/playSample (generic loader/player) now live in
+   shared/framework.js. */
 
 /* ---- one-shot SFX (real samples; same files as game/index.html) ---- */
 const SFX_DEFS = {
@@ -735,16 +503,6 @@ const SFX_DEFS = {
 const sfxLoader = makeBufferBank(SFX_DEFS);
 function tryDecodeAllSamples(){ sfxLoader.tryDecodeAll(); }
 sfxLoader.prefetchAll();
-function playSample(key, t, gainMul){
-  const rec = sfxLoader.bank[key];
-  if(!actx || !rec || rec.state!=='ready' || !rec.buffer) return;
-  const src = actx.createBufferSource();
-  src.buffer = rec.buffer;
-  const g = actx.createGain();
-  g.gain.value = (SFX_DEFS[key].gain!==undefined?SFX_DEFS[key].gain:1) * (gainMul===undefined?1:gainMul);
-  src.connect(g); g.connect(fxGain);
-  src.start(t===undefined?actx.currentTime:t);
-}
 
 /* ---- single fallback music loop (the cinematic has no "beats" to score
    separately -- one warm, nostalgic loop covers the whole thing while
@@ -756,100 +514,21 @@ const MUSIC_LOOP_DEFS = {
 const loopLoader = makeBufferBank(MUSIC_LOOP_DEFS);
 function tryDecodeAllLoops(){ loopLoader.tryDecodeAll(); }
 loopLoader.prefetchAll();
+// currentLoopKey/startLoopNow/stopLoopNow/updateBeatMusic (shared/
+// framework.js) default pendingLoopKey to null -- seed this cinematic's one
+// starting (and only) loop key explicitly (was the implicit always-
+// 'fallback' behavior of this file's old single-boolean currentLoopOn
+// design before this round's reconciliation; see shared/framework.js's
+// header, reconciliation 3).
+setBeatMusic('fallback');
 
-let currentLoopSource = null, currentLoopNodeGain = null, currentLoopOn = false;
-const LOOP_CROSSFADE = 0.4;
-function startLoopNow(){
-  const rec = loopLoader.bank.fallback;
-  if(!actx || rec.state!=='ready' || !rec.buffer || currentLoopSource) return;
-  const now = actx.currentTime;
-  const src = actx.createBufferSource();
-  src.buffer = rec.buffer; src.loop = true;
-  const g = actx.createGain();
-  g.gain.setValueAtTime(0, now);
-  g.gain.linearRampToValueAtTime(1, now+LOOP_CROSSFADE);
-  src.connect(g); g.connect(loopGain);
-  src.start(now);
-  currentLoopSource = src; currentLoopNodeGain = g; currentLoopOn = true;
-}
-function stopLoopNow(){
-  if(!actx || !currentLoopSource) return;
-  const now = actx.currentTime;
-  const oldGain = currentLoopNodeGain, oldSrc = currentLoopSource;
-  oldGain.gain.cancelScheduledValues(now);
-  oldGain.gain.setValueAtTime(oldGain.gain.value, now);
-  oldGain.gain.linearRampToValueAtTime(0, now+LOOP_CROSSFADE);
-  oldSrc.stop(now+LOOP_CROSSFADE+0.05);
-  currentLoopSource = null; currentLoopNodeGain = null; currentLoopOn = false;
-}
-/* called every frame (see frame()); same quiet-understudy/grace-window
-   gating game/index.html's updateBeatMusic() uses */
-function updateBeatMusic(){
-  if(!actx) return;
-  if(USE_CUSTOM_SONG && useMp3Music){
-    if(currentLoopOn) stopLoopNow();
-    return;
-  }
-  if(USE_CUSTOM_SONG && bgmFetchState!=='failed' && performance.now() < bgmGraceUntil) return;
-  if(!currentLoopOn) startLoopNow();
-}
-
-/* ---- Karplus-Strong jaw-harp twang -- the one synthesized voice that
-   stays; it's a signature sound, not a placeholder. Noise burst -> feedback
-   delay loop (~D2) -> formant bandpass sweep -> gain 0.5 ---- */
-function playTwang(t, gainMul){
-  gainMul = gainMul===undefined ? 1 : gainMul;
-  const dur = 1.1;
-  const burst = actx.createBufferSource(); burst.buffer = noiseBuffer;
-  const burstGain = actx.createGain();
-  burstGain.gain.setValueAtTime(1, t);
-  burstGain.gain.setValueAtTime(0, t+0.006);
-  const loopSum = actx.createGain(); loopSum.gain.value = 1;
-  const delay = actx.createDelay(1.0); delay.delayTime.value = 1/73.42;
-  const lpf = actx.createBiquadFilter(); lpf.type='lowpass'; lpf.frequency.value=4200; lpf.Q.value=0.5;
-  const comp = actx.createGain(); comp.gain.value = 0.83;
-  const fb = actx.createGain(); fb.gain.value = 0.985;
-  loopSum.connect(delay); delay.connect(lpf); lpf.connect(comp); comp.connect(fb); fb.connect(loopSum);
-  burst.connect(burstGain); burstGain.connect(loopSum);
-  const tap = actx.createGain(); tap.gain.value = 6.0;
-  comp.connect(tap);
-  const formant = actx.createBiquadFilter(); formant.type='bandpass'; formant.Q.value=6;
-  formant.frequency.setValueAtTime(400, t);
-  formant.frequency.linearRampToValueAtTime(1600, t+0.3);
-  const out = actx.createGain();
-  out.gain.setValueAtTime(0, t);
-  out.gain.linearRampToValueAtTime(0.5*gainMul, t+0.01);
-  out.gain.linearRampToValueAtTime(0, t+dur);
-  tap.connect(formant); formant.connect(out); out.connect(fxGain);
-  burst.start(t); burst.stop(t+dur+0.1);
-}
-function playBeep(t){
-  // typewriter beep removed by request -- the per-character chirp read as "loud beeping"
-}
+/* startLoopNow/stopLoopNow/setBeatMusic/updateBeatMusic/playTwang/playBeep/
+   duckDown/duckUp/setMusicLevel now live in shared/framework.js. */
 function playDing(t){ playSample('ding', t); }
 function playSlamBoom(t){ playSample('slamBoom', t); }
 function playFanfare(t){
   playSample('fanfare', t);
   playTwang(t+1.2, 0.9); // tail twang, same offset as game/index.html's fanfare
-}
-function duckDown(t){
-  const g = musicGain.gain;
-  g.cancelScheduledValues(t);
-  g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(0.02 * MUSIC_BASE_GAIN, t+0.08);
-}
-function duckUp(t, level){
-  level = level===undefined ? 1.0 : level;
-  const g = musicGain.gain;
-  g.cancelScheduledValues(t);
-  g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(level * MUSIC_BASE_GAIN, t+0.3);
-}
-function setMusicLevel(level, t){
-  const g = musicGain.gain;
-  g.cancelScheduledValues(t);
-  g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(level * MUSIC_BASE_GAIN, t+1.0);
 }
 
 let audioT0 = null; // actx.currentTime at boot-gate activation (music/scene "t=0") -- still the master scene clock
@@ -857,24 +536,7 @@ let audioT0 = null; // actx.currentTime at boot-gate activation (music/scene "t=
 /* ======================================================================
    scene drawing helpers
    ====================================================================== */
-function updateTypewriterAudio(tw, t, onLineDone){
-  const state = tw.getState(t);
-  for(let i=0;i<tw.lines.length;i++){
-    const prev = tw.prevRevealed[i];
-    const now = state[i];
-    if(now > prev){
-      for(let k=prev+1;k<=now;k++){
-        if(k%2===0 && actx) playBeep(actx.currentTime+0.001);
-      }
-      if(now === tw.lines[i].length && prev < tw.lines[i].length){
-        if(actx) playDing(actx.currentTime+0.001);
-        if(onLineDone) onLineDone(i);
-      }
-    }
-    tw.prevRevealed[i] = now;
-  }
-  return state;
-}
+/* updateTypewriterAudio now lives in shared/framework.js. */
 
 /* deterministic town-at-night skyline: two rows of hardcoded building rects
    (no Math.random at draw time) instead of tiled/tinted sprites, which
@@ -1029,14 +691,7 @@ function drawHostSilhouette(ctx, cx, feetY, t){
 function drawDiner(ctx, sheet, col, row, x, y, flip){
   drawTile(ctx, rawTile(sheetImage(sheet),col,row), x-32, y-64, 4, flip);
 }
-function drawSpeechBubble(ctx, x, y, w, h, growT){
-  const gw = Math.max(4,w*growT), gh = Math.max(4,h*growT);
-  const by = y + (h-gh);
-  ctx.fillStyle = PAL.wood; ctx.fillRect(x-4, by-4, gw+8, gh+8);
-  ctx.fillStyle = PAL.cream; ctx.fillRect(x, by, gw, gh);
-  ctx.fillStyle = PAL.cream; ctx.fillRect(x+20, by+gh, 14, 10);
-  ctx.fillStyle = PAL.wood; ctx.fillRect(x+18, by+gh+10, 18, 4);
-}
+/* drawSpeechBubble now lives in shared/framework.js. */
 function drawSpotlight(ctx, cx, cy){
   const bands = [[170,'rgba(243,233,210,0.06)'],[130,'rgba(243,233,210,0.10)'],
                  [95,'rgba(243,233,210,0.16)'],[62,'rgba(243,233,210,0.24)'],[34,'rgba(255,248,230,0.35)']];
@@ -1173,7 +828,7 @@ function drawScene3(ctx, localT, se){
       const now = actx.currentTime;
       playSlamBoom(now);
       playTwang(now);
-      playTwang(now+BEAT);
+      playTwang(now+BEAT_DEFAULT);
       duckUp(now, 1.0);
     }
     for(let i=0;i<18;i++){
@@ -1260,80 +915,10 @@ let lastFrame = performance.now();
 let recorder = null, recordChunks = [], isRecording = false;
 let gpPrevPressed = false;
 
-/* ---------------- volume settings UI ----------------
-   Speaker icon pinned to the top-right corner of the canvas, always visible
-   (boot gate, cinematic, title). Hidden/disabled during RECORD_MODE so an
-   exported video can't have its forced full volume undone mid-recording. */
-function screenToLogical(clientX, clientY){
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: (clientX-rect.left)/rect.width*CW,
-    y: (clientY-rect.top)/rect.height*CH
-  };
-}
-const VOL_ICON = { x: CW-44, y: 12, w: 28, h: 28 };
-const VOL_OPTIONS = [ {label:'OFF', value:0}, {label:'LOW', value:0.12}, {label:'MED', value:0.25}, {label:'HIGH', value:0.6} ];
-const VOL_POPUP_W = 208, VOL_POPUP_H = 34;
-let volPopupOpen = false;
-let volToastText = null, volToastUntil = 0;
-function volPopupRect(){ return { x: VOL_ICON.x+VOL_ICON.w-VOL_POPUP_W, y: VOL_ICON.y+VOL_ICON.h+8, w:VOL_POPUP_W, h:VOL_POPUP_H }; }
-function volOptionRect(i){ const p=volPopupRect(); const cellW=p.w/VOL_OPTIONS.length; return { x:p.x+i*cellW, y:p.y, w:cellW, h:p.h }; }
-function showVolToast(text){ volToastText = text; volToastUntil = performance.now() + 1400; }
-function toggleMute(){
-  if(RECORD_MODE) return;
-  volPopupOpen = false;
-  if(volumeSetting>0){ volumeBeforeMute = volumeSetting; setVolumeSetting(0); showVolToast('SOUND OFF'); }
-  else { setVolumeSetting(volumeBeforeMute>0?volumeBeforeMute:0.55); showVolToast('SOUND ON'); }
-}
-function handleVolumePointerdown(x, y){
-  if(RECORD_MODE) return false;
-  if(volPopupOpen){
-    for(let i=0;i<VOL_OPTIONS.length;i++){
-      const r = volOptionRect(i);
-      if(x>=r.x && x<=r.x+r.w && y>=r.y && y<=r.y+r.h){ setVolumeSetting(VOL_OPTIONS[i].value); break; }
-    }
-    volPopupOpen = false;
-    return true;
-  }
-  if(x>=VOL_ICON.x && x<=VOL_ICON.x+VOL_ICON.w && y>=VOL_ICON.y && y<=VOL_ICON.y+VOL_ICON.h){ volPopupOpen = true; return true; }
-  return false;
-}
-function drawSpeakerIcon(ctx, x, y, level){
-  ctx.save();
-  ctx.fillStyle = PAL.cream;
-  ctx.fillRect(x+2, y+10, 5, 8);
-  ctx.fillRect(x+7, y+8, 3, 12);
-  ctx.fillRect(x+10, y+5, 3, 18);
-  ctx.fillRect(x+13, y+2, 2, 24);
-  if(level<=0){
-    ctx.fillStyle = '#e0645a';
-    for(let i=0;i<8;i++){ ctx.fillRect(x+17+i, y+4+i, 2, 2); ctx.fillRect(x+17+i, y+18-i, 2, 2); }
-  } else {
-    ctx.fillStyle = PAL.gold;
-    const barX0 = x+18, barW=2, gap=3;
-    for(let i=0;i<3;i++){ if(i>=level) continue; const h = 6+i*5; ctx.fillRect(barX0+i*gap, y+14-h, barW, h); }
-  }
-  ctx.restore();
-}
-function drawVolumeUI(ctx){
-  if(RECORD_MODE) return;
-  const level = volumeSetting<=0 ? 0 : volumeSetting<0.4 ? 1 : volumeSetting<0.8 ? 2 : 3;
-  drawSpeakerIcon(ctx, VOL_ICON.x, VOL_ICON.y, level);
-  if(volPopupOpen){
-    const p = volPopupRect();
-    ctx.fillStyle = PAL.wood; ctx.fillRect(p.x-3, p.y-3, p.w+6, p.h+6);
-    ctx.fillStyle = '#1a1410'; ctx.fillRect(p.x, p.y, p.w, p.h);
-    for(let i=0;i<VOL_OPTIONS.length;i++){
-      const r = volOptionRect(i);
-      const selected = Math.abs(volumeSetting-VOL_OPTIONS[i].value)<0.01;
-      if(selected){ ctx.fillStyle='rgba(232,184,75,0.3)'; ctx.fillRect(r.x+2, r.y+2, r.w-4, r.h-4); }
-      drawReadingText(ctx, VOL_OPTIONS[i].label, r.x+r.w/2, r.y+7, 12, selected?PAL.gold:PAL.cream, 'center');
-    }
-  } else if(volToastText && performance.now() < volToastUntil){
-    const p = volPopupRect();
-    drawReadingTextOutlined(ctx, volToastText, p.x+p.w/2, p.y+8, 14, PAL.gold, '#000000', 'center');
-  }
-}
+/* screenToLogical (input layer) and the volume settings UI -- VOL_ICON/
+   drawVolumeUI/toggleMute/handleVolumePointerdown/etc. (grouped under audio
+   core) -- now live in shared/framework.js, RECONCILED there to this file's
+   RECORD_MODE-aware bodies (see its header, reconciliation 1). */
 
 function trueElapsed(){ return actx ? (actx.currentTime - audioT0) : 0; }
 function sceneElapsedNow(){ return trueElapsed() - sceneClockOffset; }

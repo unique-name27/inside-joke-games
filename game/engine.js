@@ -70,6 +70,10 @@ document.title = CONFIG.title.gamePageTitle;
 
 /* ---------------- constants & palette ---------------- */
 const CW = 960, CH = 540, TILE = 16;
+// fitCanvas() (shared/framework.js) reads CW/CH -- the one initial call has
+// to happen here, now that CW exists, rather than inside framework.js
+// itself (which loads before this declaration) -- see its own comment.
+fitCanvas();
 const PAL = {
   cream:'#f3e9d2', terracotta:'#c96f4a', wood:'#8a5a30',
   night:'#141428', gold:'#e8b84b', outline:'#6b2b1f', ink:'#2a1c12',
@@ -110,7 +114,9 @@ const SKEL_HELPERS = { PAL: PAL, drawPixelCircle: drawPixelCircle, drawBitmap: d
    display text in config is already a complete, final sentence (no
    generic templating beyond these two tokens). */
 const STORAGE_PREFIX = CFG_FRAGMENT ? ('frag_' + CFG_FRAGMENT.hash) : ((CONFIG && CONFIG.gameId) || 'game');
-function skey(name){ return STORAGE_PREFIX + '_' + name; }
+// skey() now lives in shared/framework.js -- see this file's header comment
+// for why it's safe as a function definition despite STORAGE_PREFIX being
+// declared here, after that script has already run.
 function fmt(s){
   if(typeof s !== 'string') return s;
   let out = s;
@@ -164,43 +170,9 @@ function castSprite(slot, fallbackCol, fallbackRow){
   return rosterResolveSprite(CAST[slot], fallbackCol, fallbackRow);
 }
 
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d', { alpha:false });
-
-/* DPR-aware backing store: size the canvas's actual pixel buffer to match its
-   displayed size in device pixels exactly, so the browser never has to
-   resample the canvas itself (that resample, at the non-integer ratios most
-   window sizes produce, is what was blurring text). All existing drawing
-   code still works in the 960x540 logical space -- one ctx transform maps it
-   onto the native-resolution backing store. Setting canvas.width/height
-   resets both the transform and imageSmoothingEnabled, so both are
-   (re)applied here, every time, after sizing. */
-function fitCanvas(){
-  // no floor of 1x -- phones are smaller than the 960x540 logical canvas, so
-  // it has to be allowed to scale DOWN to fit, not just up. But a hidden or
-  // just-restoring tab can report a 0-size viewport; a 0-scale canvas never
-  // recovers without a resize event, so fall back to 1x until real
-  // dimensions exist (frame() also self-heals, see the main loop).
-  const rawScale = Math.min(window.innerWidth / CW, window.innerHeight / CH);
-  const cssScale = (isFinite(rawScale) && rawScale > 0.01) ? rawScale : 1;
-  const cssW = Math.floor(CW*cssScale), cssH = Math.floor(CH*cssScale);
-  canvas.style.width = cssW + 'px';
-  canvas.style.height = cssH + 'px';
-  // cap the effective DPR at 2 once we're shrinking (cssScale<1) -- a 3x
-  // phone at sub-1x CSS scale doesn't need a full 3x backing store, that's
-  // pure wasted fill-rate/memory with no visible sharpness benefit
-  const dpr = cssScale < 1 ? Math.min(2, window.devicePixelRatio||1) : (window.devicePixelRatio || 1);
-  const bw = Math.max(1, Math.round(cssW*dpr));
-  const scale = bw / CW;
-  const bh = Math.max(1, Math.round(CH*scale));
-  canvas.width = bw;
-  canvas.height = bh;
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-}
-window.addEventListener('resize', fitCanvas);
-window.addEventListener('orientationchange', fitCanvas);
-fitCanvas();
+/* canvas/ctx/fitCanvas/isTouch/rotatePromptActive now live in
+   shared/framework.js (loaded before this script) -- see its header for the
+   full rationale. */
 /* opening a DIFFERENT #cfg= link while a game/intro tab from an OLDER link
    is still open only fires a hashchange (same path -> no real navigation,
    see cfgLoadFragmentOverride's own doc comment: CONFIG is resolved once at
@@ -291,97 +263,8 @@ function drawTile(ctx, tileCanvas, dx, dy, scale, flipY, flipX){
   }
 }
 
-/* ---------------- pixel text (half-res upscale trick) ---------------- */
-const textCache = new Map();
-function pixelText(text, px, color, weight){
-  weight = weight || 'bold';
-  const key = text+'|'+px+'|'+color+'|'+weight;
-  let hit = textCache.get(key);
-  if(hit) return hit;
-  const half = Math.max(5, Math.round(px/2));
-  let tmp = document.createElement('canvas');
-  let tctx = tmp.getContext('2d');
-  tctx.font = weight+' '+half+'px monospace';
-  const m = tctx.measureText(text);
-  const w = Math.max(1, Math.ceil(m.width)) + 4;
-  const h = half + 8;
-  tmp.width = w; tmp.height = h;
-  tctx = tmp.getContext('2d');
-  tctx.font = weight+' '+half+'px monospace';
-  tctx.fillStyle = color;
-  tctx.textBaseline = 'top';
-  tctx.imageSmoothingEnabled = false;
-  tctx.fillText(text, 2, 2);
-  const result = { canvas: tmp, w: w*2, h: h*2 };
-  textCache.set(key, result);
-  return result;
-}
-function drawPixelText(ctx, text, x, y, px, color, align, weight){
-  if(!text) return 0;
-  const pt = pixelText(text, px, color, weight);
-  let dx = x;
-  if(align === 'center') dx = x - pt.w/2;
-  else if(align === 'right') dx = x - pt.w;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(pt.canvas, Math.round(dx), Math.round(y), pt.w, pt.h);
-  return pt.w;
-}
-/* ---------------- "reading" text: crisp native fillText, no pixelation ----
-   Used for anything meant to be actually READ at a glance -- speech bubbles,
-   typewriter narration, tutorial card bodies, hints, critiques/insults,
-   end-card stats. The half-res-then-2x pixelation trick above doubles the
-   blur once the DPR-aware canvas gets its non-integer CSS display scale
-   applied, so this class of text skips that trick entirely and draws
-   straight at final size via the browser's own font rasterizer. Chunky
-   "display" text (logo, slams, card titles, DUCKED!, TRY AGAIN) keeps using
-   drawChunkyText/drawPixelText -- it's large enough to read fine and the
-   blocky look is intentional there. */
-function readingFont(px){ return 'bold '+px+'px monospace'; }
-function measureReadingText(ctx, text, px){
-  ctx.save();
-  ctx.font = readingFont(px);
-  const w = ctx.measureText(text).width;
-  ctx.restore();
-  return w;
-}
-function drawReadingText(ctx, text, x, y, px, color, align){
-  if(!text) return 0;
-  ctx.save();
-  ctx.font = readingFont(px);
-  ctx.textBaseline = 'top';
-  ctx.textAlign = align || 'left';
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
-  const w = ctx.measureText(text).width;
-  ctx.restore();
-  return w;
-}
-/* for reading text laid directly over busy scenery (not on a cream bubble):
-   a dark outline keeps it legible against any background. */
-function drawReadingTextOutlined(ctx, text, x, y, px, color, outlineColor, align){
-  if(!text) return 0;
-  ctx.save();
-  ctx.font = readingFont(px);
-  ctx.textBaseline = 'top';
-  ctx.textAlign = align || 'left';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = outlineColor;
-  ctx.strokeText(text, x, y);
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
-  const w = ctx.measureText(text).width;
-  ctx.restore();
-  return w;
-}
-function drawChunkyText(ctx, text, cx, cy, px, fill, outline, align){
-  align = align || 'center';
-  const offs = [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,-2],[-2,2],[2,2]];
-  for(const [ox,oy] of offs){
-    drawPixelText(ctx, text, cx+ox, cy+oy, px, outline, align);
-  }
-  return drawPixelText(ctx, text, cx, cy, px, fill, align);
-}
+/* pixelText/drawPixelText/readingFont/measureReadingText/drawReadingText/
+   drawReadingTextOutlined/drawChunkyText now live in shared/framework.js. */
 
 /* ---------------- pixel primitives ---------------- */
 function drawPixelCircle(ctx, cx, cy, r, color, px){
@@ -480,161 +363,25 @@ function drawShadow(ctx, x, y, r, alpha){
   ctx.restore();
 }
 
-/* ---------------- typewriter ---------------- */
-function makeTypewriter(lines, cps, gap){
-  cps = cps || 20;
-  gap = gap===undefined ? 0.4 : gap;
-  const starts = [];
-  let acc = 0;
-  for(let i=0;i<lines.length;i++){
-    starts.push(acc);
-    acc += lines[i].length/cps + gap;
-  }
-  const doneAt = starts[starts.length-1] + lines[lines.length-1].length/cps;
-  return {
-    lines, starts, cps, doneAt,
-    prevRevealed: lines.map(()=>0),
-    getState(t){
-      const out = [];
-      for(let i=0;i<lines.length;i++){
-        const rel = t - starts[i];
-        let n = 0;
-        if(rel > 0) n = Math.min(lines[i].length, Math.floor(rel*cps));
-        out.push(n);
-      }
-      return out;
-    },
-    // exposes the exact moment typing finishes (see `doneAt` above) so callers
-    // can add a genuine post-completion READ HOLD on top, rather than
-    // comparing elapsed time to a fixed threshold that can end up smaller
-    // than the typing duration itself (which silently produces a ~0s hold --
-    // this was the root cause of dialogue feeling like it "advances too fast")
-    allDone(t){ return t >= doneAt; }
-  };
-}
-function drawSpeechBubble(ctx, x, y, w, h, growT){
-  const gw = Math.max(4,w*growT), gh = Math.max(4,h*growT);
-  const by = y + (h-gh);
-  ctx.fillStyle = PAL.wood; ctx.fillRect(x-4, by-4, gw+8, gh+8);
-  ctx.fillStyle = PAL.cream; ctx.fillRect(x, by, gw, gh);
-  ctx.fillStyle = PAL.cream; ctx.fillRect(x+20, by+gh, 14, 10);
-  ctx.fillStyle = PAL.wood; ctx.fillRect(x+18, by+gh+10, 18, 4);
-}
-/* one-line auto-sized bubble anchored above (cx,bottomY), used for the many
-   short "over-the-head" lines in the game (prompts, critiques, unison finale).
-   Clamped to stay fully on-canvas -- several callers anchor near the right
-   wall (boss.x ~900) or top wall, where a wide line at the larger readability-
-   pass sizes could otherwise push the box off-screen. The text is drawn
-   centered within the (possibly re-centered) box, not at the original cx, so
-   it never ends up off-center inside its own bubble. */
-function drawAutoBubble(ctx, text, cx, bottomY, px, growT){
-  growT = growT===undefined ? 1 : growT;
-  const lines = Array.isArray(text) ? text : [text]; // array = pre-wrapped multi-line
-  const pad = 10, margin = 6, lineH = Math.round(px*1.35);
-  let maxW = 0;
-  for(const l of lines) maxW = Math.max(maxW, measureReadingText(ctx, l, px));
-  const w = maxW + pad*2, h = lineH*lines.length + pad*2;
-  const x = Math.max(margin, Math.min(CW-w-margin, cx-w/2));
-  const y = Math.max(margin, Math.min(CH-h-margin, bottomY-h));
-  drawSpeechBubble(ctx, x, y, w, h, growT);
-  if(growT >= 0.99){
-    for(let i=0;i<lines.length;i++){
-      drawReadingText(ctx, lines[i], x+w/2, y+pad+i*lineH, px, '#000000', 'center');
-    }
-  }
-}
+/* makeTypewriter/drawSpeechBubble/drawAutoBubble now live in
+   shared/framework.js. */
 
 /* ======================================================================
    AUDIO ENGINE -- real Kenney CC0 samples (one-shot SFX + a per-beat music
    loop score) over WebAudio, loaded through a generalized buffer-bank
    loader (fetch+decodeAudioData, the same proven pattern the theme.mp3
    track already used -- see assets/audio/CREDITS.txt for the source list).
-   The Karplus-Strong jaw-harp "twang" stays fully synthesized below -- it's
-   a signature sound, not a placeholder. Speech synthesis is untouched.
-   ====================================================================== */
-const BEAT_DEFAULT = 60/112;
-/* PHASE M (mix discipline): music sits clearly UNDER the SFX layer now --
-   the comedy reads through speech bubbles and SFX, music is bed, not lead.
-   SFX gains (SFX_DEFS below) run 0.4-0.9; this sits below even the
-   quietest of those. The ONE shared constant both engines use as their new
-   "full" music level -- musicGain's resting value at initAudio() AND the
-   ceiling duckUp()/setMusicLevel() ramp back up to. duckDown/duckUp/
-   setMusicLevel all still take their `target`/`level` argument as a 0..1
-   FRACTION of "full" exactly as before this phase (every existing call
-   site is untouched) -- each function just multiplies by this constant
-   internally, so the whole dip-and-recover ducking CURVE is unchanged,
-   only rescaled onto the lower ceiling. */
-const MUSIC_BASE_GAIN = 0.35;
-let actx = null, masterGain = null, compressor = null, musicGain = null, fxGain = null, loopGain = null;
-let noiseBuffer = null;
-
-/* ---------------- master volume ----------------
-   0..1, multiplied into masterGain (masterGain.gain = 0.8 * volumeSetting)
-   so every existing gain-staging/ducking downstream of it is untouched --
-   this just scales the final output. Persisted so the choice carries
-   between the intro and the game and across visits. */
-function loadVolumeSetting(){
-  try{
-    if(!window.localStorage) return 0.25;
-    const raw = localStorage.getItem(skey('volume'));
-    if(raw===null) return 0.25;
-    const v = parseFloat(raw);
-    if(!isFinite(v) || v<0 || v>1) return 0.25;
-    if(v===0.55 || v===1) return 0.25; // legacy louder-scale values from older builds remap to the new MED
-    return v;
-  }catch(e){ return 0.25; }
-}
-function saveVolumeSetting(v){
-  try{ if(window.localStorage) localStorage.setItem(skey('volume'), String(v)); }catch(e){}
-}
+   The generic loader/player, the music-set player (BEAT_DEFAULT/
+   MUSIC_BASE_GAIN/ducking), the Karplus-Strong "twang" synth, master
+   volume + the volume UI, and the SpeechSynthesis wrapper all now live in
+   shared/framework.js -- see its header for the full list and every
+   reconciliation made against intro/engine.js's drifted copy. What's left
+   here is CONFIG-dependent content: this game's own SFX list/wrappers, its
+   own music-loop defs, and the eager volume/song-prefetch bootstrapping
+   that has to run as part of THIS script (see shared/framework.js's header
+   for why). */
 let volumeSetting = loadVolumeSetting();
 let volumeBeforeMute = volumeSetting>0 ? volumeSetting : 0.25;
-/* ramps into masterGain over ~80ms to avoid clicks; `immediate` skips the
-   ramp (used once at initAudio() time, where there's nothing to click from) */
-function applyMasterVolume(immediate){
-  if(!actx || !masterGain) return;
-  const target = 0.8 * volumeSetting;
-  const now = actx.currentTime;
-  masterGain.gain.cancelScheduledValues(now);
-  masterGain.gain.setValueAtTime(masterGain.gain.value, now);
-  if(immediate) masterGain.gain.setValueAtTime(target, now);
-  else masterGain.gain.linearRampToValueAtTime(target, now+0.08);
-}
-function setVolumeSetting(v){
-  volumeSetting = Math.max(0, Math.min(1, v));
-  saveVolumeSetting(volumeSetting);
-  applyMasterVolume(false);
-}
-
-function initAudio(){
-  if(actx) return;
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  actx = new Ctx();
-  noiseBuffer = actx.createBuffer(1, actx.sampleRate*2, actx.sampleRate);
-  const nd = noiseBuffer.getChannelData(0);
-  for(let i=0;i<nd.length;i++) nd[i] = (Math.random()*2-1);
-  compressor = actx.createDynamicsCompressor();
-  masterGain = actx.createGain(); masterGain.gain.value = 0.8 * volumeSetting;
-  compressor.connect(masterGain);
-  masterGain.connect(actx.destination);
-  musicGain = actx.createGain(); musicGain.gain.value = MUSIC_BASE_GAIN;
-  musicGain.connect(compressor);
-  fxGain = actx.createGain(); fxGain.gain.value = 1.0;
-  fxGain.connect(compressor);
-  // the per-beat loop score is a quiet understudy while USE_CUSTOM_SONG's
-  // track is still downloading -- same cover-while-downloading role the old
-  // chiptune understudy played -- and is silenced entirely once the real
-  // track is confirmed playing (see updateBeatMusic()). Games that don't
-  // configure a custom song (USE_CUSTOM_SONG=false) run the loops at full
-  // level instead, since they ARE the score in that case.
-  loopGain = actx.createGain(); loopGain.gain.value = USE_CUSTOM_SONG ? 0.3 : 1.0;
-  loopGain.connect(musicGain);
-  // decode whatever's already finished fetching (started at page load,
-  // well before this first-gesture call in the overwhelming majority of
-  // real sessions); tryDecode() is a safe no-op for anything not fetched yet
-  tryDecodeAllSamples();
-  tryDecodeAllLoops();
-}
 
 /* ---------------- background music track (theme.mp3) ----------------
    FULLY BUFFERED playback: fetch the file (starts immediately at page load,
@@ -690,38 +437,8 @@ function tryStartMusic(){
 }
 if(USE_CUSTOM_SONG) prefetchMusic(); // kick the download off immediately -- it needs no gesture
 
-/* ---------------- generalized sample buffer bank ----------------
-   Fetches every SFX + music-loop file immediately at page load (fetch needs
-   no user gesture); once the AudioContext exists (first user gesture),
-   decodes whatever's already arrived and anything that finishes later.
-   Same proven fetch+decodeAudioData pattern as the theme.mp3 loader above,
-   generalized to a keyed bank. A 404 or decode failure just leaves that key
-   silent forever (playSample()/startLoopNow() no-op) -- no thrown errors. */
-function makeBufferBank(defs){
-  const bank = {};
-  for(const key in defs) bank[key] = { state:'idle', rawBytes:null, buffer:null };
-  function prefetch(key){
-    const rec = bank[key];
-    if(rec.state!=='idle') return;
-    rec.state = 'loading';
-    fetch(defs[key].src)
-      .then(r=>{ if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
-      .then(bytes=>{ rec.rawBytes = bytes; rec.state = 'fetched'; tryDecode(key); })
-      .catch(()=>{ rec.state = 'failed'; });
-  }
-  function tryDecode(key){
-    const rec = bank[key];
-    if(!actx || !rec.rawBytes || rec.state!=='fetched') return;
-    rec.state = 'decoding';
-    const bytes = rec.rawBytes; rec.rawBytes = null;
-    try{
-      actx.decodeAudioData(bytes, (decoded)=>{ rec.buffer=decoded; rec.state='ready'; }, ()=>{ rec.state='failed'; });
-    }catch(e){ rec.state = 'failed'; }
-  }
-  function prefetchAll(){ for(const key in defs) prefetch(key); }
-  function tryDecodeAll(){ for(const key in defs) tryDecode(key); }
-  return { bank, prefetchAll, tryDecodeAll };
-}
+/* makeBufferBank/playSample (the generic loader factory/player) now live in
+   shared/framework.js. */
 
 /* ---- one-shot SFX (real samples, routed into fxGain like the old synth
    one-shots were; gain values tuned to roughly match their old synthesized
@@ -747,16 +464,6 @@ const SFX_DEFS = {
 const sfxLoader = makeBufferBank(SFX_DEFS);
 function tryDecodeAllSamples(){ sfxLoader.tryDecodeAll(); }
 sfxLoader.prefetchAll(); // kick off immediately -- no gesture needed for fetch
-function playSample(key, t, gainMul){
-  const rec = sfxLoader.bank[key];
-  if(!actx || !rec || rec.state!=='ready' || !rec.buffer) return;
-  const src = actx.createBufferSource();
-  src.buffer = rec.buffer;
-  const g = actx.createGain();
-  g.gain.value = (SFX_DEFS[key].gain!==undefined?SFX_DEFS[key].gain:1) * (gainMul===undefined?1:gainMul);
-  src.connect(g); g.connect(fxGain);
-  src.start(t===undefined?actx.currentTime:t);
-}
 
 /* ---- per-beat music loops (the fallback/quiet-understudy score; a config's
    own custom song always wins while USE_CUSTOM_SONG is true -- see
@@ -767,88 +474,15 @@ for(const key in CONFIG.music.loops) MUSIC_LOOP_DEFS[key] = { src: CONFIG.music.
 const loopLoader = makeBufferBank(MUSIC_LOOP_DEFS);
 function tryDecodeAllLoops(){ loopLoader.tryDecodeAll(); }
 loopLoader.prefetchAll();
+// currentLoopKey/startLoopNow/stopLoopNow/updateBeatMusic (shared/
+// framework.js) default pendingLoopKey to null -- seed this game's own
+// starting beat-loop key explicitly (was the implicit `let pendingLoopKey =
+// 'dinner'` default before this round's reconciliation; see
+// shared/framework.js's header, reconciliation 3).
+setBeatMusic('dinner');
 
-let currentLoopKey = null, currentLoopSource = null, currentLoopNodeGain = null;
-let pendingLoopKey = 'dinner';
-const LOOP_CROSSFADE = 0.4; // ~400ms clean crossfade on beat changes, per spec
-function startLoopNow(key){
-  const rec = loopLoader.bank[key];
-  if(!actx || !rec || rec.state!=='ready' || !rec.buffer) return; // retried every frame by updateBeatMusic
-  const now = actx.currentTime;
-  if(currentLoopSource){
-    const oldGain = currentLoopNodeGain, oldSrc = currentLoopSource;
-    oldGain.gain.cancelScheduledValues(now);
-    oldGain.gain.setValueAtTime(oldGain.gain.value, now);
-    oldGain.gain.linearRampToValueAtTime(0, now+LOOP_CROSSFADE);
-    oldSrc.stop(now+LOOP_CROSSFADE+0.05);
-  }
-  const src = actx.createBufferSource();
-  src.buffer = rec.buffer; src.loop = true;
-  const g = actx.createGain();
-  g.gain.setValueAtTime(0, now);
-  g.gain.linearRampToValueAtTime(1, now+LOOP_CROSSFADE);
-  src.connect(g); g.connect(loopGain);
-  src.start(now);
-  currentLoopSource = src; currentLoopNodeGain = g; currentLoopKey = key;
-}
-function stopLoopNow(){
-  if(!actx || !currentLoopSource){ currentLoopKey = null; return; }
-  const now = actx.currentTime;
-  const oldGain = currentLoopNodeGain, oldSrc = currentLoopSource;
-  oldGain.gain.cancelScheduledValues(now);
-  oldGain.gain.setValueAtTime(oldGain.gain.value, now);
-  oldGain.gain.linearRampToValueAtTime(0, now+LOOP_CROSSFADE);
-  oldSrc.stop(now+LOOP_CROSSFADE+0.05);
-  currentLoopSource = null; currentLoopNodeGain = null; currentLoopKey = null;
-}
-/* sets the DESIRED beat-loop key; the actual crossfaded start happens lazily
-   from updateBeatMusic() (called every frame from frame()) once the
-   AudioContext exists and -- if USE_CUSTOM_SONG -- the grace window has
-   lapsed or the custom track is already known to have failed. Same "quiet
-   understudy" gating the old chiptune scheduler applied per-note, applied
-   here once per loop start instead. */
-function setBeatMusic(key){ pendingLoopKey = key; }
-function updateBeatMusic(){
-  if(!actx) return;
-  if(USE_CUSTOM_SONG && useMp3Music){
-    if(currentLoopKey) stopLoopNow();
-    return;
-  }
-  if(USE_CUSTOM_SONG && bgmFetchState!=='failed' && performance.now() < bgmGraceUntil) return; // still covering silently
-  if(currentLoopKey !== pendingLoopKey) startLoopNow(pendingLoopKey);
-}
-
-/* ---- Karplus-Strong jaw-harp twang -- the one synthesized voice that
-   stays, by request; it's a signature sound, not a placeholder ---- */
-function playTwang(t, gainMul){
-  gainMul = gainMul===undefined ? 1 : gainMul;
-  const dur = 1.1;
-  const burst = actx.createBufferSource(); burst.buffer = noiseBuffer;
-  const burstGain = actx.createGain();
-  burstGain.gain.setValueAtTime(1, t);
-  burstGain.gain.setValueAtTime(0, t+0.006);
-  const loopSum = actx.createGain(); loopSum.gain.value = 1;
-  const delay = actx.createDelay(1.0); delay.delayTime.value = 1/73.42;
-  const lpf = actx.createBiquadFilter(); lpf.type='lowpass'; lpf.frequency.value=4200; lpf.Q.value=0.5;
-  const comp = actx.createGain(); comp.gain.value = 0.83;
-  const fb = actx.createGain(); fb.gain.value = 0.985;
-  loopSum.connect(delay); delay.connect(lpf); lpf.connect(comp); comp.connect(fb); fb.connect(loopSum);
-  burst.connect(burstGain); burstGain.connect(loopSum);
-  const tap = actx.createGain(); tap.gain.value = 6.0;
-  comp.connect(tap);
-  const formant = actx.createBiquadFilter(); formant.type='bandpass'; formant.Q.value=6;
-  formant.frequency.setValueAtTime(400, t);
-  formant.frequency.linearRampToValueAtTime(1600, t+0.3);
-  const out = actx.createGain();
-  out.gain.setValueAtTime(0, t);
-  out.gain.linearRampToValueAtTime(0.5*gainMul, t+0.01);
-  out.gain.linearRampToValueAtTime(0, t+dur);
-  tap.connect(formant); formant.connect(out); out.connect(fxGain);
-  burst.start(t); burst.stop(t+dur+0.1);
-}
-function playBeep(t){
-  // typewriter beep removed by request -- the per-character chirp read as "loud beeping"
-}
+/* startLoopNow/stopLoopNow/setBeatMusic/updateBeatMusic/playTwang/playBeep/
+   duckDown/duckUp/setMusicLevel now live in shared/framework.js. */
 function playDing(t){ playSample('ding', t); }
 function playSlamBoom(t){ playSample('slamBoom', t); }
 function playFanfare(t){
@@ -880,25 +514,6 @@ function playKeyBlip(t){ playSample('keyBlip', t); }
 function playSoftChime(t){ playSample('softChime', t); }
 /* the critic's transformation moment */
 function playRumble(t){ playSample('rumble', t); }
-function duckDown(t, target){
-  const g = musicGain.gain;
-  g.cancelScheduledValues(t);
-  g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime((target===undefined?0.02:target) * MUSIC_BASE_GAIN, t+0.08);
-}
-function duckUp(t, level){
-  level = level===undefined ? 1.0 : level;
-  const g = musicGain.gain;
-  g.cancelScheduledValues(t);
-  g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(level * MUSIC_BASE_GAIN, t+0.3);
-}
-function setMusicLevel(level, t, rampTime){
-  const g = musicGain.gain;
-  g.cancelScheduledValues(t);
-  g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(level * MUSIC_BASE_GAIN, t+(rampTime===undefined?1.0:rampTime));
-}
 
 /* ======================================================================
    ARENA -- one room, the dinner party (coordinates snapped to an 8px grid)
@@ -1300,23 +915,8 @@ function getMiniTitleCanvas(){
   return miniTitleCanvasCache;
 }
 
-/* speech synthesis -- feature-detected, silent fallback per spec */
-let speechWorked = null;
-function speakLine(text, rate, pitch){
-  // speechSynthesis doesn't route through WebAudio/masterGain at all -- mute
-  // means mute, so skip speaking entirely rather than speak silently
-  if(volumeSetting<=0) return false;
-  if(!('speechSynthesis' in window)){ if(speechWorked===null) speechWorked=false; return false; }
-  try{
-    const voices = window.speechSynthesis.getVoices();
-    if(!voices || voices.length===0){ if(speechWorked===null) speechWorked=false; return false; }
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = rate; u.pitch = pitch; u.voice = voices[0]; u.volume = volumeSetting;
-    window.speechSynthesis.speak(u);
-    speechWorked = true;
-    return true;
-  }catch(e){ if(speechWorked===null) speechWorked=false; return false; }
-}
+/* speechWorked/speakLine (the SpeechSynthesis wrapper) now live in
+   shared/framework.js. */
 function speakForFree(){ speakLine(CONFIG.punchline, 0.85, 0.7); }
 function speakCritique(text){ if(speechWorked===true) speakLine(text, 1.0, 0.6); }
 
@@ -1364,7 +964,9 @@ function moveAndCollide(entity, dx, dy, solids, r){
    for -- the player can read the landing spot the instant it's thrown.
    ====================================================================== */
 const GRAVITY = 900;
-let napkins = [], bottles = [], particles = [], heartPickups = [];
+let napkins = [], bottles = [], heartPickups = [];
+// `particles` (shared with shared/framework.js's spawn*/updateAndDrawParticles) --
+// see shared/framework.js.
 
 function spawnNapkin(fromX, fromY, toX, toY, duration){
   const vz = 0.5*GRAVITY*duration;
@@ -1548,63 +1150,10 @@ function drawHeartPickups(ctx, gameT){
   }
 }
 
-/* ---------------- particles: HA-HA bursts, sparkles, splashes, glass shards ---------------- */
-function spawnHaBurst(cx, cy, gameT){
-  for(let i=0;i<10;i++){
-    particles.push({type:'ha', x:cx+(Math.random()*160-80), y:cy+Math.random()*40, vy:-(30+Math.random()*30), born:gameT, life:1.8});
-  }
-}
-function spawnSparkleBurst(cx, cy, n, gameT){
-  for(let i=0;i<n;i++){
-    const ang = (i/n)*Math.PI*2;
-    particles.push({type:'sparkle', x:cx, y:cy, vx:Math.cos(ang)*40, vy:Math.sin(ang)*40, born:gameT, life:0.7});
-  }
-}
-function spawnGlassShards(cx, cy, gameT){
-  for(let i=0;i<10;i++){
-    const ang = Math.random()*Math.PI*2;
-    particles.push({type:'shard', x:cx, y:cy, vx:Math.cos(ang)*(60+Math.random()*90), vy:Math.sin(ang)*(60+Math.random()*90)-40, born:gameT, life:0.5});
-  }
-}
-/* Beat 4: a completed review -- 5 small gold stars rising/fading in a staggered row */
-function spawnStarRow(cx, cy, gameT){
-  for(let i=0;i<5;i++){
-    particles.push({type:'starrow', x:cx+(i-2)*14, y:cy, vy:-30-Math.random()*10, born:gameT+i*0.05, life:1.0});
-  }
-}
-function updateAndDrawParticles(ctx, dt, gameT){
-  for(const p of particles){
-    const age = gameT-p.born;
-    if(age > p.life) continue;
-    const a = 1-age/p.life;
-    if(p.type==='ha'){
-      const py = p.y + (p.vy||0)*age;
-      ctx.save(); ctx.globalAlpha=a;
-      drawPixelText(ctx, 'HA', p.x, py, 13, PAL.cream, 'center');
-      ctx.restore();
-    } else if(p.type==='sparkle'){
-      const px=p.x+p.vx*age, py=p.y+p.vy*age;
-      drawSparkle(ctx, px, py, sparkleFrameSize(age,0.3), a, PAL.gold);
-    } else if(p.type==='splash'){
-      const px=p.x+p.vx*age, py=p.y+p.vy*age+120*age*age;
-      ctx.save(); ctx.globalAlpha=a; ctx.fillStyle=p.color||PAL.napkin;
-      ctx.fillRect(Math.round(px-1),Math.round(py-1),3,3);
-      ctx.restore();
-    } else if(p.type==='shard'){
-      const px=p.x+p.vx*age, py=p.y+p.vy*age+260*age*age;
-      ctx.save(); ctx.globalAlpha=a; ctx.fillStyle='#dff0e8';
-      ctx.fillRect(Math.round(px-1),Math.round(py-1),2,2);
-      ctx.restore();
-    } else if(p.type==='starrow'){
-      if(age<0) continue; // staggered born time -- not risen yet
-      const py = p.y + (p.vy||0)*age;
-      ctx.save(); ctx.globalAlpha=a;
-      drawStarIcon(ctx, p.x-10, py-10, true, 4);
-      ctx.restore();
-    }
-  }
-  particles = particles.filter(p=> (gameT-p.born) <= p.life);
-}
+/* particle helpers (spawnHaBurst/spawnSparkleBurst/spawnGlassShards/
+   spawnStarRow/updateAndDrawParticles) now live in shared/framework.js --
+   its 'starrow' branch calls drawStarIcon (below, game content) as an
+   ordinary global at draw time. */
 
 /* ======================================================================
    GAME STATE
@@ -1845,28 +1394,10 @@ function controlsHintText(){ return isTouch ? CONTROLS_HINT_TEXT_TOUCH : CONTROL
 let hasMovedOnce = false, hasActionedOnce = false;
 let controlsHintAlpha = 1;
 
-/* ---------------- mobile / touch ---------------- */
-// initial hint from feature detection; confirmed (and locked in) the moment
-// a real touch pointerdown fires -- see the pointerdown listener below
-let isTouch = ('ontouchstart' in window);
-let rotatePromptActive = false;
-
-function updateTypewriterAudio(tw, t, onLineDone){
-  const state = tw.getState(t);
-  for(let i=0;i<tw.lines.length;i++){
-    const prev = tw.prevRevealed[i];
-    const now = state[i];
-    if(now > prev){
-      for(let k=prev+1;k<=now;k++){ if(k%2===0 && actx) playBeep(actx.currentTime+0.001); }
-      if(now === tw.lines[i].length && prev < tw.lines[i].length){
-        if(actx) playDing(actx.currentTime+0.001);
-        if(onLineDone) onLineDone(i);
-      }
-    }
-    tw.prevRevealed[i] = now;
-  }
-  return state;
-}
+/* isTouch/rotatePromptActive (fitCanvas/DPR/mobile bucket) and
+   updateTypewriterAudio (typewriter speech bubbles bucket) now live in
+   shared/framework.js. isTouch is confirmed (and locked in) the moment a
+   real touch pointerdown fires -- see the pointerdown listener below. */
 function triggerShake(mag, dur){ screenShakeUntil = gameT+dur; screenShakeMag = mag; }
 
 function enterPhase(name){
@@ -2365,54 +1896,14 @@ function bossIsFighting(){ return boss.state==='active' || boss.state==='phase2a
    PER-FRAME UPDATE
    ====================================================================== */
 const PLAYER_SPEED = 220;
-const keys = Object.create(null);
 let gpAPrev = false, gpDpadPrev = false;
 
-/* ---------------- floating joystick (touch, left half of screen) ----------------
-   pointerdown on the left half anchors the base at the touch point; drag
-   offset (in LOGICAL 960x540 coords, same space everything else draws in)
-   becomes a move vector once past the deadzone, saturating at JOY_SATURATION.
-   touchMoveVector() always returns a properly-normalized direction (dividing
-   by the raw drag distance first, then scaling by magnitude) so diagonal
-   drags come out unit-length just like keyboard/gamepad diagonals do. */
-let touchJoystick = { active:false, pointerId:null, baseX:0, baseY:0, curX:0, curY:0 };
-const JOY_DEADZONE = 10, JOY_SATURATION = 48;
-function touchMoveVector(){
-  if(!touchJoystick.active) return {dx:0, dy:0};
-  const dx = touchJoystick.curX-touchJoystick.baseX, dy = touchJoystick.curY-touchJoystick.baseY;
-  const dist = Math.hypot(dx,dy);
-  if(dist < JOY_DEADZONE) return {dx:0, dy:0};
-  const eff = Math.min(dist, JOY_SATURATION) - JOY_DEADZONE;
-  const mag = eff / (JOY_SATURATION-JOY_DEADZONE); // 0..1
-  return { dx:(dx/dist)*mag, dy:(dy/dist)*mag };
-}
-
-function getMoveVector(){
-  let dx=0, dy=0;
-  if(keys['KeyW']||keys['ArrowUp']) dy -= 1;
-  if(keys['KeyS']||keys['ArrowDown']) dy += 1;
-  if(keys['KeyA']||keys['ArrowLeft']) dx -= 1;
-  if(keys['KeyD']||keys['ArrowRight']) dx += 1;
-  if(navigator.getGamepads){
-    let pads = [];
-    try{ pads = navigator.getGamepads(); }catch(e){}
-    for(const gp of pads){
-      if(!gp) continue;
-      const ax = gp.axes[0]||0, ay = gp.axes[1]||0;
-      if(Math.abs(ax)>0.3) dx += ax>0?1:-1;
-      if(Math.abs(ay)>0.3) dy += ay>0?1:-1;
-      if(gp.buttons[12] && gp.buttons[12].pressed) dy -= 1;
-      if(gp.buttons[13] && gp.buttons[13].pressed) dy += 1;
-      if(gp.buttons[14] && gp.buttons[14].pressed) dx -= 1;
-      if(gp.buttons[15] && gp.buttons[15].pressed) dx += 1;
-    }
-  }
-  const tv = touchMoveVector();
-  dx += tv.dx; dy += tv.dy;
-  const len = Math.hypot(dx,dy);
-  if(len>1){ dx/=len; dy/=len; }
-  return {dx,dy};
-}
+/* keys/touchJoystick/JOY_DEADZONE/JOY_SATURATION/touchMoveVector/
+   getMoveVector/drawJoystick (input layer) now live in
+   shared/framework.js. pollGamepadAction below stays local -- it wires the
+   shared gamepad-button read into this game's own mode-select/handleAction
+   logic, genuinely different from intro's pollGamepad (see
+   shared/framework.js's header). */
 function pollGamepadAction(){
   if(rotatePromptActive) return;
   if(!navigator.getGamepads) return;
@@ -4084,37 +3575,10 @@ const CARDS = {
 if(JUDGE_CAST) CARDS.boss = { key:'boss', title:CONFIG.judge.title, body:CONFIG.judge.cardBody };
 if(AUTHORITY_CAST) CARDS.finalboss = { key:'finalboss', title:CONFIG.authority.cardTitle, body:fmtLines(CONFIG.authority.cardBody) };
 if(BUILDER_CAST) CARDS.beat5 = { key:'beat5', title:CONFIG.builder.cardTitle, body:CONFIG.builder.cardBody };
-let activeCard = null;
-let pendingCard = null, pendingCardAt = 0;
-let cardT = 0;
-const cardsShown = {};
-function maybeShowCard(key){
-  if(cardsShown[key]) return false;
-  cardsShown[key] = true;
-  activeCard = CARDS[key];
-  cardT = 0;
-  return true;
-}
-function drawCardOverlay(ctx){
-  ctx.save();
-  ctx.globalAlpha = 0.55;
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0,0,CW,CH);
-  ctx.restore();
-  const w = 580, h = 230;
-  const x = CW/2-w/2, y = CH/2-h/2;
-  ctx.fillStyle = PAL.cream; ctx.fillRect(x-4,y-4,w+8,h+8); // cream border
-  ctx.fillStyle = '#1a1410'; ctx.fillRect(x,y,w,h); // dark fill
-  drawChunkyText(ctx, activeCard.title, CW/2, y+24, 23, PAL.gold, PAL.outline, 'center');
-  let ly = y+82;
-  for(const line of activeCard.body){
-    drawReadingText(ctx, line, CW/2, ly, 17, PAL.cream, 'center');
-    ly += 30;
-  }
-  if(Math.floor(cardT*2)%2===0){
-    drawReadingText(ctx, 'SPACE TO CONTINUE', CW/2, y+h-36, 15, PAL.gold, 'center');
-  }
-}
+/* activeCard/pendingCard/pendingCardAt/cardT/cardsShown/maybeShowCard/
+   drawCardOverlay (card/tutorial system) now live in shared/framework.js --
+   they resolve this CARDS content object as an ordinary global at call
+   time. */
 /* mode-select ("CHOOSE YOUR SEATING") -- only ever shown once at boot, and
    only if the player has beaten the game before (hasBeatenBefore). Reuses
    cardT for its own highlight blink, same freeze-the-game mechanism as the
@@ -4167,107 +3631,17 @@ function handleModeSelectTouch(p){
   }
 }
 
-/* ======================================================================
-   VOLUME UI -- a small pixel speaker icon pinned top-right, always drawn
-   last (on top of every other overlay, including the rotate prompt) so
-   it's reachable from literally any screen. Tap it for a 4-option popup
-   (OFF/LOW/MED/HIGH); tap anywhere while the popup is open picks an option
-   if hit, or just closes it either way -- both are swallowed so a popup
-   interaction never also fires a game action underneath it.
-   ====================================================================== */
-const VOL_ICON = { x: CW-44, y: 12, w: 28, h: 28 };
-const VOL_OPTIONS = [ {label:'OFF', value:0}, {label:'LOW', value:0.12}, {label:'MED', value:0.25}, {label:'HIGH', value:0.6} ];
-const VOL_POPUP_W = 208, VOL_POPUP_H = 34;
-let volPopupOpen = false;
-let volToastText = null, volToastUntil = 0;
-function volPopupRect(){
-  return { x: VOL_ICON.x+VOL_ICON.w-VOL_POPUP_W, y: VOL_ICON.y+VOL_ICON.h+8, w:VOL_POPUP_W, h:VOL_POPUP_H };
-}
-function volOptionRect(i){
-  const p = volPopupRect();
-  const cellW = p.w/VOL_OPTIONS.length;
-  return { x:p.x+i*cellW, y:p.y, w:cellW, h:p.h };
-}
-function showVolToast(text){
-  volToastText = text;
-  volToastUntil = performance.now() + 1400;
-}
-function toggleMute(){
-  volPopupOpen = false;
-  if(volumeSetting>0){
-    volumeBeforeMute = volumeSetting;
-    setVolumeSetting(0);
-    showVolToast('SOUND OFF');
-  } else {
-    setVolumeSetting(volumeBeforeMute>0 ? volumeBeforeMute : 0.55);
-    showVolToast('SOUND ON');
-  }
-}
-/* returns true if the tap was consumed by the icon/popup -- callers must
-   check this FIRST, before any other pointerdown handling */
-function handleVolumePointerdown(x, y){
-  if(volPopupOpen){
-    for(let i=0;i<VOL_OPTIONS.length;i++){
-      const r = volOptionRect(i);
-      if(x>=r.x && x<=r.x+r.w && y>=r.y && y<=r.y+r.h){
-        setVolumeSetting(VOL_OPTIONS[i].value);
-        break;
-      }
-    }
-    volPopupOpen = false; // any tap while open closes it, hit or not
-    return true;
-  }
-  if(x>=VOL_ICON.x && x<=VOL_ICON.x+VOL_ICON.w && y>=VOL_ICON.y && y<=VOL_ICON.y+VOL_ICON.h){
-    volPopupOpen = true;
-    return true;
-  }
-  return false;
-}
-function drawSpeakerIcon(ctx, x, y, level){
-  ctx.save();
-  ctx.fillStyle = PAL.cream;
-  ctx.fillRect(x+2, y+10, 5, 8);   // speaker body
-  ctx.fillRect(x+7, y+8, 3, 12);   // cone, stepped trapezoid (no ctx.rotate -- stays crisp)
-  ctx.fillRect(x+10, y+5, 3, 18);
-  ctx.fillRect(x+13, y+2, 2, 24);
-  if(level<=0){
-    ctx.fillStyle = '#e0645a';
-    for(let i=0;i<8;i++){ // stepped diagonal X, same crisp-diagonal trick as the intro's knife
-      ctx.fillRect(x+17+i, y+4+i, 2, 2);
-      ctx.fillRect(x+17+i, y+18-i, 2, 2);
-    }
-  } else {
-    ctx.fillStyle = PAL.gold;
-    const barX0 = x+18, barW=2, gap=3;
-    for(let i=0;i<3;i++){
-      if(i>=level) continue;
-      const h = 6+i*5;
-      ctx.fillRect(barX0+i*gap, y+14-h, barW, h);
-    }
-  }
-  ctx.restore();
-}
-function drawVolumeUI(ctx){
-  const level = volumeSetting<=0 ? 0 : volumeSetting<0.4 ? 1 : volumeSetting<0.8 ? 2 : 3;
-  drawSpeakerIcon(ctx, VOL_ICON.x, VOL_ICON.y, level);
-  if(volPopupOpen){
-    const p = volPopupRect();
-    ctx.fillStyle = PAL.wood; ctx.fillRect(p.x-3, p.y-3, p.w+6, p.h+6);
-    ctx.fillStyle = '#1a1410'; ctx.fillRect(p.x, p.y, p.w, p.h);
-    for(let i=0;i<VOL_OPTIONS.length;i++){
-      const r = volOptionRect(i);
-      const selected = Math.abs(volumeSetting-VOL_OPTIONS[i].value)<0.01;
-      if(selected){ ctx.fillStyle = 'rgba(232,184,75,0.3)'; ctx.fillRect(r.x+2, r.y+2, r.w-4, r.h-4); }
-      drawReadingText(ctx, VOL_OPTIONS[i].label, r.x+r.w/2, r.y+7, 12, selected?PAL.gold:PAL.cream, 'center');
-    }
-  } else if(volToastText && performance.now() < volToastUntil){
-    const p = volPopupRect();
-    drawReadingTextOutlined(ctx, volToastText, p.x+p.w/2, p.y+8, 14, PAL.gold, '#000000', 'center');
-  }
-}
+/* VOL_ICON/VOL_OPTIONS/volPopupOpen/volToastText/showVolToast/toggleMute/
+   handleVolumePointerdown/drawSpeakerIcon/drawVolumeUI (volume UI, grouped
+   under audio core) and drawJoystick (input layer) now live in
+   shared/framework.js. */
 /* full-screen "turn your phone" gate -- same visual language as the card
    overlays, blocks all input (see handleAction/pollGamepadAction/pointerdown)
-   until the device goes back to landscape */
+   until the device goes back to landscape. Deliberately NOT reconciled with
+   intro/engine.js's own drawRotatePrompt -- see shared/framework.js's
+   header for the real behavioral differences (box height, text-render
+   function, blink-clock source) that make forcing one version onto both
+   engines a real behavior change. */
 function drawRotatePrompt(ctx){
   ctx.save();
   ctx.globalAlpha = 0.85;
@@ -4282,21 +3656,6 @@ function drawRotatePrompt(ctx){
   if(Math.floor(cardT*2)%2===0){
     drawReadingText(ctx, 'TURN TO LANDSCAPE TO PLAY', CW/2, y+150, 16, PAL.cream, 'center');
   }
-}
-/* ---------------- floating joystick visual (touch only) ---------------- */
-function drawJoystick(ctx){
-  if(!touchJoystick.active) return;
-  ctx.save();
-  ctx.globalAlpha = 0.35;
-  drawPixelCircle(ctx, touchJoystick.baseX, touchJoystick.baseY, JOY_SATURATION, PAL.cream, 3);
-  ctx.restore();
-  const v = touchMoveVector();
-  const nubX = touchJoystick.baseX + v.dx*JOY_SATURATION;
-  const nubY = touchJoystick.baseY + v.dy*JOY_SATURATION;
-  ctx.save();
-  ctx.globalAlpha = 0.55;
-  drawPixelCircle(ctx, nubX, nubY, 16, PAL.gold, 3);
-  ctx.restore();
 }
 
 /* ======================================================================
@@ -4320,16 +3679,8 @@ window.addEventListener('keydown', (e)=>{
 });
 window.addEventListener('keyup', (e)=>{ keys[e.code] = false; });
 
-/* maps a pointer event's viewport coordinates into the same 960x540 logical
-   space fitCanvas() draws into, via the canvas's own layout box -- stays
-   correct regardless of the exact CSS scale/centering fitCanvas computed. */
-function screenToLogical(clientX, clientY){
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: (clientX-rect.left)/rect.width*CW,
-    y: (clientY-rect.top)/rect.height*CH
-  };
-}
+/* screenToLogical/releaseTouchPointer/touchActionPointerId now live in
+   shared/framework.js. */
 /* pointer-type-aware routing: mouse keeps today's "any click = action"
    behavior; touch is zoned (left half = floating joystick, right half =
    action) during actual gameplay, but ANY tap dismisses cards / lose / end
@@ -4373,17 +3724,9 @@ window.addEventListener('pointermove', (e)=>{
     touchJoystick.curX = p.x; touchJoystick.curY = p.y;
   }
 });
-function releaseTouchPointer(e){
-  if(touchJoystick.active && e.pointerId===touchJoystick.pointerId){
-    touchJoystick.active = false; touchJoystick.pointerId = null;
-  }
-  if(touchActionPointerId===e.pointerId) touchActionPointerId = null;
-}
 window.addEventListener('pointerup', releaseTouchPointer);
 window.addEventListener('pointercancel', releaseTouchPointer);
 window.addEventListener('load', ()=>{ try{ ensureAudioStarted(); }catch(e){} });
-
-let touchActionPointerId = null;
 
 /* ======================================================================
    URL ENTRY POINTS -- ?start=<dinner|boss|finalBoss|ending|techsupport>
