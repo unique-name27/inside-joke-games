@@ -1,0 +1,47 @@
+Gallery asset credits — The Gallery template
+=============================================
+
+Every PNG in this folder is a subset of Kenney's "Shooting Gallery" pack
+(www.kenney.nl), released under Creative Commons Zero (CC0 1.0):
+https://creativecommons.org/publicdomain/zero/1.0/ -- see License.txt
+(copied verbatim from the pack). CC0 means these files are free to use in
+personal, educational, and commercial projects with no attribution
+required; this credit is included anyway.
+
+Only the pieces gallery/engine.js actually draws were copied over (16 of
+the pack's ~90 files) -- everything else in the source pack (spritesheets/
+XML, the Vector originals, HUD bitmap-digit glyphs, the second/third duck
+recolors' outline variants, shot sprites, icon_duck/icon_target, the second
+rifle color, bg_blue/bg_green/bg_red, curtain_straight, grass2, water1/2)
+went unused: the HUD digits/score text stayed on this project's own
+procedural chunky/reading text renderers (shared/framework.js) for visual
+consistency with game/engine.js and intro/engine.js, and the extra
+backdrop/color variants weren't needed for a single stall scene.
+
+  bg_wood.png             stall backdrop panel
+  curtain_top.png         curtain valance across the top of the stall
+  curtain.png             draped curtain at the stall's sides
+  curtain_rope.png        THE FIRST BOSS's swing rope
+  cloud1.png, cloud2.png  sky decoration behind the stall
+  tree_oak.png            background tree (left)
+  tree_pine.png           background tree (right)
+  grass1.png              foreground grass strip along the stall's base
+  duck_yellow.png         roastable target base, near row
+  duck_brown.png          roastable target base, mid row
+  duck_white.png          roastable target base, far row
+  stick_wood.png          friend / butterfingers target mount pole
+  target_white.png        THE FINAL BOSS's per-slot face backing (also
+                           doubles as the volley rounds' generic target ring)
+  rifle.png               the stall rifle -- HUD element that follows aim
+  crosshair_red_large.png aiming reticle
+
+Not from this pack, drawn procedurally instead (matching this project's
+existing convention for small custom props -- see game/engine.js's
+STEAK_ROWS/CHIP_ROWS drawBitmap props): the butterfingers plate stack (no
+plate prop exists in Shooting Gallery) and the carnival prize plush handed
+over when THE FINAL BOSS turns good (the pack's Objects/ folder has no
+prize/plush asset at all -- see gallery/engine.js's PLUSH_ROWS/PLATE_ROWS).
+
+Audio: The Gallery reuses this project's existing assets/audio/sfx/ and
+assets/audio/music/ files verbatim (see assets/audio/CREDITS.txt) -- no new
+audio assets were added for this template.
