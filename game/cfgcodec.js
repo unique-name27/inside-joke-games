@@ -298,7 +298,7 @@ var CFG_SCENE_DEFAULTS = {
    reference now, examples/test-group.config.js the degraded one. Every
    role's content bucket is fully written out with generic-but-complete
    placeholder text so a fragment that supplies e.g. only `cast.judge.name`
-   still gets a complete, playable Widowmaker beat for free via merge.
+   still gets a complete, playable comeback beat for free via merge.
    Every optional role in `cast` defaults to null (uncast) -- the safest,
    always-works minimum is "just the host, straight through to
    celebration" -- a fragment opts INTO a role by supplying a real object
@@ -578,7 +578,7 @@ var CFG_FRAGMENT_SCHEMA = {
   // sprite-vs-spriteCol/Row precedence -- game/roster.js's
   // rosterResolveSprite is the one place that resolves it, for host and
   // cast alike). Absent (every pre-Phase-C config/fragment) resolves to
-  // today's hardcoded chef tile -- see game/engine.js's drawChef.
+  // today's hardcoded host tile -- see game/engine.js's drawHost.
   host: cfgObj({ name: cfgStr(40), spriteCol: cfgNum(0, 15), spriteRow: cfgNum(0, 15), sprite: cfgEnum(CFG_ROSTER_KEYS) }),
   forbiddenWords: cfgArr(10, cfgStr(30)),
   stories: cfgArr(4, cfgObj({ lines: cfgArr(2, cfgStr(80)) })),

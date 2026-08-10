@@ -457,33 +457,20 @@ function drawBottle(ctx, x, y, cell){
 function drawNapkin(ctx, x, y, r){
   SKEL.projectile.draw(ctx, x, y, r, SKEL_HELPERS);
 }
-/* THE WIDOWMAKER -- a small black widow spider (Beat 3's thrown item):
-   black cephalothorax + larger abdomen (two pixel-circles), a red hourglass
-   mark on the abdomen, 8 short splayed legs. Built from primitives (not a
-   drawBitmap grid) since thin radiating legs don't read well on a blocky
-   ASCII grid at this scale. `spin` (radians) rotates the whole sprite for
-   the tumbling arc-throw -- a little softening on the rotated pixel edges
-   is expected/fine here, same tradeoff already accepted for other rotating
-   props in this game. Centered at (x,y). Not config-driven -- the sprite
-   itself doesn't change per order, only the item's name/lines do. */
-function drawWidowmaker(ctx, x, y, scale, spin){
+/* THE COMEBACK -- Beat 3's thrown item is just the scene's own throwable
+   (SKEL.throwable -- the same bottle/thermos/stapler/bouquet the player's
+   been throwing all game, see drawBottle above), tumbling through the
+   same spin+scale the old bespoke sprite used -- the room throws the same
+   object the player's been throwing. `spin` (radians) rotates the whole
+   sprite for the tumbling arc-throw. Every skeleton's throwable.draw is
+   roughly a 4-6 col x 8 row grid anchored at (x,y) as its top-left corner
+   (see game/skeletons.js) -- centering by half that footprint before
+   rotating keeps the spin centered on the object itself, not its corner. */
+function drawComebackItem(ctx, x, y, scale, spin){
   ctx.save();
   ctx.translate(x, y);
   if(spin) ctx.rotate(spin);
-  ctx.fillStyle = '#0a0a0a';
-  const legLen = 5*scale, legW = Math.max(1, 1.4*scale);
-  const legAngles = [-2.0,-1.4,1.4,2.0, -0.8,-0.4,0.4,0.8];
-  for(const a of legAngles){
-    ctx.save();
-    ctx.rotate(a);
-    ctx.fillRect(-legW/2, -legLen-2*scale, legW, legLen);
-    ctx.restore();
-  }
-  drawPixelCircle(ctx, 0, -2*scale, 2.2*scale, '#0a0a0a', Math.max(1,scale*0.5));
-  drawPixelCircle(ctx, 0, 2*scale, 3.4*scale, '#0a0a0a', Math.max(1,scale*0.5));
-  ctx.fillStyle = '#c9394a';
-  ctx.fillRect(Math.round(-1*scale), Math.round(0.5*scale), Math.round(2*scale), Math.round(1*scale));
-  ctx.fillRect(Math.round(-0.5*scale), Math.round(1.5*scale), Math.round(1*scale), Math.round(2.5*scale));
+  SKEL.throwable.draw(ctx, -2*scale, -4*scale, scale, SKEL_HELPERS);
   ctx.restore();
 }
 function drawShadow(ctx, x, y, r, alpha){
@@ -1023,22 +1010,22 @@ function drawSeatedDiners(ctx, diners){
   }
 }
 
-/* ---------------- chef (player/host) ---------------- */
+/* ---------------- host (player) ---------------- */
 // PHASE C: the host gets the same optional sprite pick a cast role does --
 // resolved ONCE at load (CONFIG.host never changes at runtime), the
 // roster's own 'plain' entry (dungeon 2,7) as the default, so an unpicked
 // host renders BYTE-IDENTICAL to before this phase existed. No overlay on
-// top (no toque/hat) -- the host renders as exactly their roster sprite,
+// top (no hat) -- the host renders as exactly their roster sprite,
 // same as every other seat.
 const HOST_SPRITE = rosterResolveSprite(CONFIG.host, 2, 7);
-function drawChef(ctx, x, y, facing, bobT){
+function drawHost(ctx, x, y, facing, bobT){
   const bob = Math.sin(bobT*10) * (bobT>0?1:0);
   const flipY = facing==='up';
   const flipX = facing==='left';
   drawTile(ctx, rawTile(sheetImage(HOST_SPRITE.sheet),HOST_SPRITE.col,HOST_SPRITE.row), x-32, y-64+bob, 4, flipY, flipX);
 }
 /* held out at his side, in addition to the HUD corner icon -- obvious at a
-   glance that he's armed. Same bob formula as drawChef so it moves with him. */
+   glance that he's armed. Same bob formula as drawHost so it moves with him. */
 function drawHeldBottle(ctx, x, y, facing, bobT){
   const bob = Math.sin(bobT*10) * (bobT>0?1:0);
   const side = facing==='left' ? -1 : 1;
@@ -1113,14 +1100,8 @@ function drawCriticAura(ctx, cx, topY, size, phase2, t){
   drawPixelCircle(ctx, cx, topY+size*0.5, r, phase2?'#8c141e':'#140a1e', 4);
   ctx.restore();
 }
-function drawGlassesGlint(ctx, cx, topY, size, phase2, t){
-  const cyc = ((t%2.5)+2.5)%2.5;
-  if(cyc < 0.15){
-    drawSparkle(ctx, cx, topY+size*0.3, 3, 1, phase2?'#ff4a4a':'#ffffff');
-  }
-}
 /* looms out of the doorframe at ~1.8x (phase 2: ~2.1x) the seated-diner
-   scale, darker palette, pulsing aura, periodic glasses glint. `growT` (0..1)
+   scale, darker palette, pulsing aura. `growT` (0..1)
    interpolates from normal (1x) size up to targetScale for the 0.6s
    transformation beat; afterward growT is always 1 so effScale===targetScale.
    Bottom-anchored (feet stay at x,y) so he grows upward out of the frame
@@ -1138,7 +1119,6 @@ function drawCritic(ctx, x, y, poseT, slumped, growT, targetScale, phase2){
   ctx.imageSmoothingEnabled = false;
   drawCriticAura(ctx, 0, drawY, size, phase2, poseT);
   ctx.drawImage(getCriticSprite(phase2), -size/2, drawY, size, size);
-  drawGlassesGlint(ctx, 0, drawY, size, phase2, poseT);
   ctx.restore();
 }
 // PHASE C: the savior currently renders a PLAIN reuse of butterfingers'
@@ -1154,15 +1134,15 @@ function drawWoman(ctx, x, y, walkT, flip){
   drawTile(ctx, rawTile(sheetImage(SAVIOR_SPRITE.sheet),SAVIOR_SPRITE.col,SAVIOR_SPRITE.row), x-32, y-64+bob, 4, false, !!flip);
 }
 
-/* ---------------- the final boss, the chef's boss (Beat 4) ----------------
+/* ---------------- the final boss, the host's boss (Beat 4) ----------------
    Same isolated-offscreen tint trick as the critic (buildCriticSprite),
-   reusing the chef's own base sprite tile so there's no risk of picking an
+   reusing the host's own base sprite tile so there's no risk of picking an
    unintended tile from the sheet -- just a darker, angrier recolor at ~2x
    diner scale. A second warm/no-brows tint covers the "turned good" beat.
 
    PHASE C: this generic angry-monster recolor is the OTHER bespoke look
    the spec calls out -- CAST.authority has never fed this rendering at
-   all (always the chef's own tile, tinted, no matter who's cast). A
+   all (always the host's own tile, tinted, no matter who's cast). A
    roster pick on CAST.authority now OVERRIDES it outright: draw that
    person's plain tile (no tint, no angry brows -- a real likeness isn't
    recolored/defaced) at the same size/position/bob. No pick keeps
@@ -1637,15 +1617,15 @@ function easeInOut(t){ t = clamp01(t); return t*t*(3-2*t); }
    stories, 'full' plays every one CONFIG.stories supplies */
 function roundsCount(){ return LENGTH_PRESET==='five_min' ? Math.min(2, CONFIG.stories.length) : CONFIG.stories.length; }
 const ROUNDS = CONFIG.stories.slice(0, roundsCount()).map(r=>({ lines: fmtLines(r.lines) }));
-/* each entry is a pre-wrapped 1-2 line bubble (array-of-arrays so a long line
-   like the baseball callback can wrap without any runtime text-measuring) */
+/* each entry is a pre-wrapped 1-2 line bubble (array-of-arrays so a long
+   callback line can wrap without any runtime text-measuring) */
 const CRITIQUE_LINES = (JUDGE_CAST ? CONFIG.judge.critiqueLines : []).map(fmtLines);
 /* the CRITIC's throw-reaction insults, aimed at the host -- he snarks whether
    he ducks the bottle or eats it. Cycled in order. */
 const CRITIC_DUCK_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.duckLines) : [];
 const CRITIC_HIT_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.hitLines) : [];
 let criticDuckIndex = 0, criticHitIndex = 0;
-let playerBubble = null; // {text, born} -- small bubble over the chef's head
+let playerBubble = null; // {text, born} -- small bubble over the host's head
 
 let player = { x:PLAYER_SPAWN.x, y:PLAYER_SPAWN.y, facing:'down', walkAnimT:0, hearts:6, maxHearts:12, hasBottle:false, iframes:0, canMove:true, vx:0, vy:0 };
 let diners = DINER_DEFS.map(d=>({...d, walking:false, retired:false, bounceT:0, shakeT:0}));
@@ -1654,14 +1634,14 @@ let boss = {
   napkinTimer:1.4, critiqueTimer:6, duckT:0, bubble:null, recoilT:0,
   fakeDeathDone:false, phase2:false, fdT:0, walkX:560, walkY:248, deadT:0,
   transforming:false, transformT:0.6, targetScale:1.8,
-  // Beat 3's Widowmaker beat -- the reverse of the transforming/transformT
+  // Beat 3's comeback beat -- the reverse of the transforming/transformT
   // grow-up, shrinking him back down to normal diner size before he walks
   // back to his seat. state becomes 'restored' (not 'revived') once this
-  // finishes -- see beat3_windowmaker.
+  // finishes -- see beat3_comeback.
   shrinking:false, shrinkT:0
 };
 let woman = { x:24, y:300, active:false, arrived:false };
-/* the final boss (Beat 4) -- the chef's boss. state: 'idle' | 'walkin' | 'chase' | 'frozen'.
+/* the final boss (Beat 4) -- the host's boss. state: 'idle' | 'walkin' | 'chase' | 'frozen'.
    Reuses the same "reused fields on a shared entity" convention as everything
    else here (x/y drive both movement and drawing). */
 let finalBoss = { active:false, x:24, y:300, state:'idle', turnedGood:false, contactCooldown:0, facing:'right', walkAnimT:0 };
@@ -1674,7 +1654,7 @@ let lastTooSoonAt = -999;
    text was advancing before a relaxed reader could finish it). Typing SPEED
    itself is unchanged everywhere; only these post-completion holds grew. */
 const TOO_SOON_HOLD = 1.4;       // "HE WASN'T DONE." reaction bubble (was 0.8)
-const PLAYER_BUBBLE_HOLD = 2.0;  // chef's own insult/beg bubble (was 1.2)
+const PLAYER_BUBBLE_HOLD = 2.0;  // host's own insult/beg bubble (was 1.2)
 const CRITIQUE_BUBBLE_HOLD = 3.8; // critic's critique bubble (was 2.2)
 const GAMEOVER_HOLD = 2.7;       // gameover bubble before the retry card (was 1.6)
 const DIALOGUE_GAP = 0.9;        // pause between two sequential staged bubble lines
@@ -1683,24 +1663,24 @@ const BEAT3_WALK_DUR = 3.5;      // the woman's walk-in (was 2.2s)
 const BEAT3_LINE1_HOLD = 2.2;    // hold on "EXCUSE ME..."
 const BEAT3_LINE2_HOLD = 2.4;    // hold on "I BROUGHT THE {ITEM}."
 const BEAT3_LINE3_HOLD = 2.6;    // hold on the sincere line (now beat3_tribute)
-/* the Widowmaker beat -- inserted between the critic's revival spring-up
+/* the comeback beat -- inserted between the critic's revival spring-up
    (beat3_revive) and the woman's tribute line (beat3_tribute). Only ever
    reached when BEAT3_ENABLED (JUDGE_CAST && SAVIOR_CAST), so CONFIG.judge
    is guaranteed to exist by the time these are actually read -- still
    guarded by JUDGE_CAST here (not read unconditionally at module-eval
    time) plus a `||` fallback per field, matching this file's established
    "never crash on an uncast role's missing content bucket" convention. */
-const WIDOWMAKER_MOCK_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.mockLine || ['I LIVE.', '...NICE SHIRT.']) : ['I LIVE.', '...NICE SHIRT.'];
-const WIDOWMAKER_RETORT_LINE = JUDGE_CAST ? fmt(CONFIG.judge.retortLine || 'IT WAS A GIFT.') : 'IT WAS A GIFT.';
-const WIDOWMAKER_ITEM_LABEL = JUDGE_CAST ? fmt(CONFIG.judge.itemLabel || 'THE WIDOWMAKER!') : 'THE WIDOWMAKER!';
-const WIDOWMAKER_REDEMPTION_LINE = JUDGE_CAST ? fmt(CONFIG.judge.redemptionLine || 'THE SOUP IS ACTUALLY FINE.') : 'THE SOUP IS ACTUALLY FINE.';
-const WIDOWMAKER_MOCK1_HOLD = 0.9;       // hold on the first mock line
-const WIDOWMAKER_MOCK2_HOLD = 1.3;       // hold on the second mock line -- the beat before the retort
-const WIDOWMAKER_RETORT_HOLD = 0.6;      // hold on the retort before the throw
-const WIDOWMAKER_THROW_DUR = 0.7;        // the spider's flight time
-const WIDOWMAKER_SHRINK_DUR = 0.6;       // mirrors the 0.6s grow-up transform, reversed
-const WIDOWMAKER_WALK_DUR = 1.3;         // walk back to his seat
-const WIDOWMAKER_REDEMPTION_HOLD = 1.0;  // hold on the redemption line
+const COMEBACK_MOCK_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.mockLine || ['I LIVE.', '...NICE SHIRT.']) : ['I LIVE.', '...NICE SHIRT.'];
+const COMEBACK_RETORT_LINE = JUDGE_CAST ? fmt(CONFIG.judge.retortLine || 'IT WAS A GIFT.') : 'IT WAS A GIFT.';
+const COMEBACK_ITEM_LABEL = JUDGE_CAST ? fmt(CONFIG.judge.itemLabel || 'THE COMEBACK!') : 'THE COMEBACK!';
+const COMEBACK_REDEMPTION_LINE = JUDGE_CAST ? fmt(CONFIG.judge.redemptionLine || 'FINE. IT WAS GOOD.') : 'FINE. IT WAS GOOD.';
+const COMEBACK_MOCK1_HOLD = 0.9;       // hold on the first mock line
+const COMEBACK_MOCK2_HOLD = 1.3;       // hold on the second mock line -- the beat before the retort
+const COMEBACK_RETORT_HOLD = 0.6;      // hold on the retort before the throw
+const COMEBACK_THROW_DUR = 0.7;        // the spider's flight time
+const COMEBACK_SHRINK_DUR = 0.6;       // mirrors the 0.6s grow-up transform, reversed
+const COMEBACK_WALK_DUR = 1.3;         // walk back to his seat
+const COMEBACK_REDEMPTION_HOLD = 1.0;  // hold on the redemption line
 /* which "you lost" flavor to show on the gameover/retry screens -- set at each
    trigger site right before enterPhase('gameover') */
 let gameOverReason = 'boss';
@@ -1929,8 +1909,8 @@ function enterPhase(name){
     // renders again. 'revived' (not 'active') on purpose: 'active'/
     // 'phase2active' are what bossIsFighting() and the HP-bar HUD check
     // for, and neither should come back once he's out of the fight for
-    // good. Just the spring-up + a beat to let it land -- the Widowmaker
-    // beat (beat3_windowmaker) follows immediately, then the woman's
+    // good. Just the spring-up + a beat to let it land -- the comeback
+    // beat (beat3_comeback) follows immediately, then the woman's
     // tribute line (beat3_tribute).
     boss.state = 'revived';
     spawnSparkleBurst(boss.x, boss.y, 14, gameT);
@@ -1939,20 +1919,20 @@ function enterPhase(name){
     // sincere line -- beat3_silence deepens this further into the true
     // silence beat that follows
     if(actx) duckDown(actx.currentTime, 0.35);
-  } else if(name==='beat3_windowmaker'){
-    // THE WIDOWMAKER: still-giant critic immediately resumes being a
+  } else if(name==='beat3_comeback'){
+    // THE COMEBACK: still-giant critic immediately resumes being a
     // critic (mocks diner0's shirt) -- diner0 retorts and throws THE
-    // WIDOWMAKER at him -- impact shatters the wall door and shrinks him
+    // COMEBACK at him -- impact shatters the wall door and shrinks him
     // back down to size -- he walks back to his own seat and sits, one of
     // the 4 friends again. Stages: 0/1 the critic's two mock bubbles, 2
     // diner0's retort, 3 the throw, 4 impact+shrink, 5 walk back to seat,
     // 6 seated redemption bubble -> enterPhase('beat3_tribute').
     phaseData.stage = 0;
-    phaseData.bubbleTw = makeTypewriter([WIDOWMAKER_MOCK_LINES[0]], 15, 0.4);
+    phaseData.bubbleTw = makeTypewriter([COMEBACK_MOCK_LINES[0]], 15, 0.4);
     phaseData.bubbleStart = 0;
   } else if(name==='beat3_tribute'){
     // just the woman's sincere line -- split out of the old beat3_revive so
-    // the Widowmaker beat can sit between the spring-up and this
+    // the comeback beat can sit between the spring-up and this
     phaseData.bubbleTw = makeTypewriter([fmt(CONFIG.savior.sincereLine)], 14, 0.5);
     phaseData.bubbleStart = 0;
   } else if(name==='beat3_silence'){
@@ -1961,7 +1941,7 @@ function enterPhase(name){
     triggerShake(8, 0.4);
     flashAlpha = 0.85;
     // everyone laughs at once -- all 4 seated diners (the restored critic
-    // participates as his seat now, no more window special-casing) + woman
+    // participates as his seat now, no more beat3_comeback special-casing) + woman
     for(const d of diners){ if(!d.walking && !d.retired) d.bounceT = 0.001; }
     spawnHaBurst(diners[0].x, diners[0].y-40, gameT);
     spawnHaBurst(diners[CRITIC_INDEX].x, diners[CRITIC_INDEX].y-40, gameT);
@@ -2000,7 +1980,7 @@ function enterPhase(name){
     phaseData.stage = 0;
     if(actx) duckDown(actx.currentTime);
   } else if(name==='celebration'){
-    // everyone converges loosely around the chef and celebrates for a
+    // everyone converges loosely around the host and celebrates for a
     // sustained beat before the freeze/end card. Participants = the 3 still-
     // seated diners + the woman + the (revived) critic + the final boss -- same
     // "4 guys" headcount convention as the Beat 3 finale's unison bubbles,
@@ -2535,8 +2515,8 @@ function updateBottlePickup(){
    ====================================================================== */
 /* only ever called when BEAT4_ENABLED, i.e. judge+savior+authority are all
    cast -- by that point woman is guaranteed properly present (arrived), and
-   the Windowmaker beat has already restored diners[CRITIC_INDEX] to his
-   seat (the former "boss" here, no more window-critic special-casing), so
+   the comeback beat has already restored diners[CRITIC_INDEX] to his
+   seat (the former "boss" here, no more critic-boss special-casing), so
    this list needs no additional filtering */
 function getReviewerList(){ return [diners[0], diners[CRITIC_INDEX], diners[2], diners[3], woman]; }
 /* the win-celebration crowd: everyone who can plausibly be on their feet by
@@ -2545,7 +2525,7 @@ function getReviewerList(){ return [diners[0], diners[CRITIC_INDEX], diners[2], 
    if she ever arrived (savior cast), the critic only if he's not
    retired (uncast judge: never retires, always present as a plain diner;
    judge-cast-but-savior-uncast: retired forever after the real kill, no
-   Windowmaker to undo it, correctly excluded; full cast: the Windowmaker
+   comeback beat to undo it, correctly excluded; full cast: the comeback beat
    flips retired back to false before celebration is ever reached), the final boss
    only if he actually turned good (beat 4 completed) -- the 2 non-role
    diners (diner0, and whichever of judge/butterfingers/builder didn't get
@@ -2900,33 +2880,33 @@ function updatePhase(dt){
       break;
     }
     case 'beat3_revive': {
-      // beat, then straight into the Widowmaker
-      if(phaseData.stage===0 && phaseElapsed>0.8) enterPhase('beat3_windowmaker');
+      // beat, then straight into the comeback
+      if(phaseData.stage===0 && phaseElapsed>0.8) enterPhase('beat3_comeback');
       break;
     }
-    case 'beat3_windowmaker': {
+    case 'beat3_comeback': {
       const d0 = diners[0];
       if(phaseData.stage===0){
         const local = phaseElapsed - phaseData.bubbleStart;
         updateTypewriterAudio(phaseData.bubbleTw, local);
-        if(local > phaseData.bubbleTw.doneAt + WIDOWMAKER_MOCK1_HOLD){
+        if(local > phaseData.bubbleTw.doneAt + COMEBACK_MOCK1_HOLD){
           phaseData.stage = 1;
-          phaseData.bubbleTw = makeTypewriter([WIDOWMAKER_MOCK_LINES[1]], 15, 0.4);
+          phaseData.bubbleTw = makeTypewriter([COMEBACK_MOCK_LINES[1]], 15, 0.4);
           phaseData.bubbleStart = phaseElapsed;
         }
       } else if(phaseData.stage===1){
         const local = phaseElapsed - phaseData.bubbleStart;
         updateTypewriterAudio(phaseData.bubbleTw, local);
-        if(local > phaseData.bubbleTw.doneAt + WIDOWMAKER_MOCK2_HOLD){
+        if(local > phaseData.bubbleTw.doneAt + COMEBACK_MOCK2_HOLD){
           phaseData.stage = 2;
           d0.bounceT = 0.001; // "stands" -- a reaction bounce, no repositioning
-          phaseData.bubbleTw = makeTypewriter([WIDOWMAKER_RETORT_LINE], 15, 0.4);
+          phaseData.bubbleTw = makeTypewriter([COMEBACK_RETORT_LINE], 15, 0.4);
           phaseData.bubbleStart = phaseElapsed;
         }
       } else if(phaseData.stage===2){
         const local = phaseElapsed - phaseData.bubbleStart;
         updateTypewriterAudio(phaseData.bubbleTw, local);
-        if(local > phaseData.bubbleTw.doneAt + WIDOWMAKER_RETORT_HOLD){
+        if(local > phaseData.bubbleTw.doneAt + COMEBACK_RETORT_HOLD){
           phaseData.stage = 3;
           phaseData.throwStart = phaseElapsed;
           phaseData.throwFromX = d0.x; phaseData.throwFromY = d0.y-16;
@@ -2935,7 +2915,7 @@ function updatePhase(dt){
         }
       } else if(phaseData.stage===3){
         const local = phaseElapsed - phaseData.throwStart;
-        if(local >= WIDOWMAKER_THROW_DUR){
+        if(local >= COMEBACK_THROW_DUR){
           phaseData.stage = 4;
           phaseData.impactAt = phaseElapsed;
           triggerShake(7, 0.4);
@@ -2949,7 +2929,7 @@ function updatePhase(dt){
         }
       } else if(phaseData.stage===4){
         boss.shrinkT = phaseElapsed - phaseData.impactAt;
-        if(boss.shrinkT >= WIDOWMAKER_SHRINK_DUR){
+        if(boss.shrinkT >= COMEBACK_SHRINK_DUR){
           phaseData.stage = 5;
           boss.shrinking = false;
           boss.visible = false;
@@ -2963,7 +2943,7 @@ function updatePhase(dt){
           diners[CRITIC_INDEX].x = boss.x; diners[CRITIC_INDEX].y = boss.y;
         }
       } else if(phaseData.stage===5){
-        const t = clamp01((phaseElapsed-phaseData.walkStart)/WIDOWMAKER_WALK_DUR);
+        const t = clamp01((phaseElapsed-phaseData.walkStart)/COMEBACK_WALK_DUR);
         const cd = diners[CRITIC_INDEX];
         cd.x = lerp(boss.x, 560, t);
         cd.y = lerp(boss.y, 248, t);
@@ -2972,13 +2952,13 @@ function updatePhase(dt){
           cd.walking = false;
           cd.bounceT = 0.001; // settle/sit cue
           phaseData.stage = 6;
-          phaseData.bubbleTw = makeTypewriter([WIDOWMAKER_REDEMPTION_LINE], 15, 0.4);
+          phaseData.bubbleTw = makeTypewriter([COMEBACK_REDEMPTION_LINE], 15, 0.4);
           phaseData.bubbleStart = phaseElapsed;
         }
       } else if(phaseData.stage===6){
         const local = phaseElapsed - phaseData.bubbleStart;
         updateTypewriterAudio(phaseData.bubbleTw, local);
-        if(local > phaseData.bubbleTw.doneAt + WIDOWMAKER_REDEMPTION_HOLD) enterPhase('beat3_tribute');
+        if(local > phaseData.bubbleTw.doneAt + COMEBACK_REDEMPTION_HOLD) enterPhase('beat3_tribute');
       }
       break;
     }
@@ -3462,7 +3442,7 @@ function drawBaseScene(ctx){
     // (fully hidden, not just slumped) so a dodged throw reads unmistakably.
     const slumped = boss.state==='fakedeath' && boss.fdT<1.1;
     const growT = boss.transforming ? clamp01(boss.transformT/0.6)
-      : (boss.shrinking ? 1-clamp01(boss.shrinkT/WIDOWMAKER_SHRINK_DUR) : 1);
+      : (boss.shrinking ? 1-clamp01(boss.shrinkT/COMEBACK_SHRINK_DUR) : 1);
     drawCritic(ctx, boss.x, boss.y, gameT, slumped, growT, boss.targetScale, boss.phase2);
   }
   if(boss.duckT>0){
@@ -3476,8 +3456,8 @@ function drawBaseScene(ctx){
   }
   if(boss.state==='dead') drawBossSagged(ctx, Math.max(0, 1-boss.deadT/1.2));
   if(assetsReady && woman.active){
-    // she turns toward the chef for her sincere Beat 3 tribute line (moved
-    // out of beat3_revive when the Widowmaker beat was inserted between them)
+    // she turns toward the host for her sincere Beat 3 tribute line (moved
+    // out of beat3_revive when the comeback beat was inserted between them)
     const facingPlayer = phase==='beat3_tribute' && player.x < woman.x;
     drawWoman(ctx, woman.x, woman.y, gameT, facingPlayer);
   }
@@ -3485,7 +3465,7 @@ function drawBaseScene(ctx){
   if(phase==='beat4_chase' || phase==='beat4_turngood') drawReviewerOverlays(ctx);
   drawShadow(ctx, player.x, player.y, 10, 0.3);
   const blinking = player.iframes>0 && Math.floor(gameT*12)%2===0;
-  if(assetsReady && !blinking) drawChef(ctx, player.x, player.y, player.facing, player.walkAnimT);
+  if(assetsReady && !blinking) drawHost(ctx, player.x, player.y, player.facing, player.walkAnimT);
   if(player.hasBottle) drawHeldBottle(ctx, player.x, player.y, player.facing, player.walkAnimT);
   drawHeartPickups(ctx, gameT);
   updateAndDrawParticles(ctx, 0, gameT);
@@ -3494,7 +3474,7 @@ function drawBaseScene(ctx){
   // so it renders identically during both the boss fight and Beat 4.
   if(playerBubble && (gameT-playerBubble.born)<PLAYER_BUBBLE_HOLD){
     // clamp so it can't climb into the HP bar / review counter even if the
-    // chef hugs the top wall
+    // host hugs the top wall
     const by = Math.max(70, player.y-64);
     drawAutoBubble(ctx, playerBubble.text, player.x, by, 16, 1);
   }
@@ -3627,15 +3607,15 @@ function drawPhaseBeat3Intro(ctx){
   }
 }
 function drawPhaseBeat3Revive(ctx){ drawBaseScene(ctx); }
-/* THE WIDOWMAKER -- see updatePhase's 'beat3_windowmaker' case for the
+/* THE COMEBACK -- see updatePhase's 'beat3_comeback' case for the
    stage machine. Stages 0/1: the critic's mock bubbles (drawn at his own
-   position). Stage 2: diner0's retort bubble. Stage 3: the spider arcs
-   from diner0 to the (about-to-be-former) boss door, with an item-get pop
-   label. Stages 4-5 (impact/shrink, walk back) are presentation purely via
+   position). Stage 2: diner0's retort bubble. Stage 3: the scene's own
+   throwable arcs from diner0 to the (about-to-be-former) boss door, with
+   an item-get pop label. Stages 4-5 (impact/shrink, walk back) are presentation purely via
    boss.shrinking/diners[CRITIC_INDEX].walking -- drawBaseScene already
    renders both cases, nothing extra to draw here. Stage 6: the seated
    redemption bubble, at his own (now-restored) seat. */
-function drawPhaseBeat3Windowmaker(ctx){
+function drawPhaseBeat3Comeback(ctx){
   drawBaseScene(ctx);
   if(phaseData.stage<=1 && phaseData.bubbleTw){
     const local = phaseElapsed-phaseData.bubbleStart;
@@ -3647,20 +3627,20 @@ function drawPhaseBeat3Windowmaker(ctx){
     drawAutoBubble(ctx, phaseData.bubbleTw.lines[0].slice(0,state[0]), diners[0].x, diners[0].y-64, 16, 1);
   } else if(phaseData.stage===3){
     const local = phaseElapsed - phaseData.throwStart;
-    const t = clamp01(local/WIDOWMAKER_THROW_DUR);
+    const t = clamp01(local/COMEBACK_THROW_DUR);
     const x = lerp(phaseData.throwFromX, phaseData.throwToX, t);
     const y = lerp(phaseData.throwFromY, phaseData.throwToY, t);
-    const vz = 0.5*GRAVITY*WIDOWMAKER_THROW_DUR;
+    const vz = 0.5*GRAVITY*COMEBACK_THROW_DUR;
     const z = vz*local - 0.5*GRAVITY*local*local;
     drawShadow(ctx, phaseData.throwToX, phaseData.throwToY, 6, 0.3);
-    drawWidowmaker(ctx, x, y-Math.max(0,z), 2, local*Math.PI*4);
-    const banner = bannerAnim(local, 0.12, Math.max(0.1,WIDOWMAKER_THROW_DUR-0.24), 0.5);
+    drawComebackItem(ctx, x, y-Math.max(0,z), 2, local*Math.PI*4);
+    const banner = bannerAnim(local, 0.12, Math.max(0.1,COMEBACK_THROW_DUR-0.24), 0.5);
     if(banner){
       ctx.save();
       ctx.globalAlpha = banner.alpha;
       ctx.translate(CW/2, CH*0.2);
       ctx.scale(banner.scale, banner.scale);
-      drawChunkyText(ctx, WIDOWMAKER_ITEM_LABEL, 0, 0, 24, PAL.gold, PAL.outline, 'center');
+      drawChunkyText(ctx, COMEBACK_ITEM_LABEL, 0, 0, 24, PAL.gold, PAL.outline, 'center');
       ctx.restore();
     }
   } else if(phaseData.stage===6 && phaseData.bubbleTw){
@@ -4055,7 +4035,7 @@ function draw(){
     case 'boss': drawPhaseBoss(ctx); break;
     case 'beat3_intro': drawPhaseBeat3Intro(ctx); break;
     case 'beat3_revive': drawPhaseBeat3Revive(ctx); break;
-    case 'beat3_windowmaker': drawPhaseBeat3Windowmaker(ctx); break;
+    case 'beat3_comeback': drawPhaseBeat3Comeback(ctx); break;
     case 'beat3_tribute': drawPhaseBeat3Tribute(ctx); break;
     case 'beat3_silence': drawPhaseBeat3Silence(ctx); break;
     case 'beat3_finale': drawPhaseBeat3Finale(ctx); break;
@@ -4428,10 +4408,10 @@ const START_PARAM = (function(){
 function resetStatsForEntryPoint(){
   stats.heartsCaptured=0; stats.hitsTaken=0; stats.bottlesLanded=0; stats.tooSoon=0; stats.reviews=0; stats.resets=0;
 }
-/* shared "the boss fight (and the Widowmaker beat) already happened" setup
+/* shared "the boss fight (and the comeback beat) already happened" setup
    for the finalBoss/ending/techsupport entries: critic restored and back in his
-   own seat (not revived-in-the-window -- the Widowmaker already un-made
-   that window by this point in every one of these entry points), the wall
+   own seat (not mid-revival -- the comeback beat has already run its course
+   by this point in every one of these entry points), the wall
    door gone, the woman already arrived and delivered her lines. */
 function setupPostFightState(){
   diners[CRITIC_INDEX].retired = false;

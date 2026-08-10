@@ -180,7 +180,7 @@ node tools/verify-config.js games/<slug>/config.js
 This is the real, checked-in tool (not a from-scratch harness per round
 anymore) — it runs, in order: a syntax check; a full headless playthrough
 (Node `vm`, no browser) that follows whatever degradation path this
-config's own cast implies (full cast → boss fight → Widowmaker →
+config's own cast implies (full cast → boss fight → comeback beat →
 final-boss chase; uncast JUDGE → straight to celebration; etc.) all the way to
 the end card; and the tone gate (this config's own `forbiddenWords` list,
 whole-word case-sensitive, and nothing else — there's no baseline/

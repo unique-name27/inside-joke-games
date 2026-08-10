@@ -200,14 +200,14 @@ function driveBeat5(sb, maxIter){
    enterPhase(...) shortcut this project's own verification harnesses
    have used all along -- the point is exercising every CONFIG string
    actually getting read (intro lines, critique/duck/hit lines, the
-   Widowmaker beat, entrance/turn-good lines, epilogue captions, rank
+   comeback beat, entrance/turn-good lines, epilogue captions, rank
    names), not re-simulating combat this round didn't touch. */
 function drivePlaythrough(sb){
   driveBeat1(sb);
   const flags = sb.__flags();
   if(flags.JUDGE_CAST){
     tickUntilPhase(sb, 'boss', 4000);
-    sb.__enterPhase('beat3_revive'); // exercises the Widowmaker beat + the savior's tribute line
+    sb.__enterPhase('beat3_revive'); // exercises the comeback beat + the savior's tribute line
     tickUntilPhase(sb, ['beat4_intro', 'celebration'], 8000);
     if(flags.BEAT4_ENABLED){
       tickUntilPhase(sb, 'beat4_chase', 4000); // exercises authority.entranceLine1/2

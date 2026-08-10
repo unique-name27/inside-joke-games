@@ -338,7 +338,7 @@ function sparkleFrameSize(t, period){
   return SPARKLE_SIZES[frame];
 }
 
-/* diagonal chef knife -- swept as axis-aligned vertical column stamps along a
+/* diagonal kitchen knife -- swept as axis-aligned vertical column stamps along a
    fixed tip->handle line (no ctx.rotate, since rotated fills anti-alias even
    with smoothing off). Endpoints are hardcoded for Scene 5's exact layout:
    the tip pokes out above-right of the title lockup, the handle+rivets poke
@@ -984,14 +984,14 @@ function drawDoorwayGlow(ctx){
   ctx.lineWidth = 6;
   ctx.strokeRect(760,50,160,350);
 }
-/* hand-built standing silhouette (12x20 grid): toque, head, shoulders, torso, legs.
+/* hand-built standing silhouette (12x20 grid): hat, head, shoulders, torso, legs.
    The 16px dungeon sprite only fills a fraction of its own tile once tinted flat,
    which read as a small unreadable blob -- this bitmap is sized and posed on
    purpose so the backlit silhouette in the doorway is legible. */
-const CHEF_SIL_ROWS = [
-  '....1111....', // toque top
-  '...111111...', // toque puff
-  '..11111111..', // toque brim
+const HOST_SIL_ROWS = [
+  '....1111....', // hat top
+  '...111111...', // hat puff
+  '..11111111..', // hat brim
   '...111111...', // head
   '...111111...', // head
   '...111111...', // jaw
@@ -1010,15 +1010,15 @@ const CHEF_SIL_ROWS = [
   '..111..111..', // legs
   '..111..111..'  // feet
 ];
-function drawChefSilhouette(ctx, cx, feetY, t){
+function drawHostSilhouette(ctx, cx, feetY, t){
   const bob = (Math.floor(t/0.4)%2===0) ? 0 : -2;
   const cell = 5;
-  const w = 12*cell, h = CHEF_SIL_ROWS.length*cell;
+  const w = 12*cell, h = HOST_SIL_ROWS.length*cell;
   const x = cx - w/2;
   const y = feetY - h + bob;
   ctx.fillStyle = PAL.silhouette;
-  for(let r=0;r<CHEF_SIL_ROWS.length;r++){
-    const row = CHEF_SIL_ROWS[r];
+  for(let r=0;r<HOST_SIL_ROWS.length;r++){
+    const row = HOST_SIL_ROWS[r];
     for(let c=0;c<row.length;c++){
       if(row[c] === '1') ctx.fillRect(Math.round(x+c*cell), Math.round(y+r*cell), cell, cell);
     }
@@ -1046,10 +1046,10 @@ function drawSpotlight(ctx, cx, cy){
 // resolved once (CONFIG never changes at runtime), the roster's own
 // 'plain' entry ({dungeon,2,7}) as the default, so an unpicked host
 // renders byte-identical to before this phase. No overlay on top (no
-// toque/hat) -- the host renders as exactly their roster sprite, same as
+// hat) -- the host renders as exactly their roster sprite, same as
 // every other seat.
 const HOST_SPRITE = rosterResolveSprite(CONFIG.host, 2, 7);
-function drawItemGetChef(ctx, cx, feetY, t){
+function drawItemGetHost(ctx, cx, feetY, t){
   drawTile(ctx, rawTile(sheetImage(HOST_SPRITE.sheet),HOST_SPRITE.col,HOST_SPRITE.row), cx-32, feetY-64, 4, false);
   const steakY = feetY-112 + Math.sin(t*2)*3;
   drawSteak(ctx, cx-16, steakY, 4);
@@ -1111,7 +1111,7 @@ function drawScene2(ctx, localT, se){
     drawInterior(ctx);
     drawDiningHint(ctx);
     drawDoorwayGlow(ctx);
-    drawChefSilhouette(ctx, 840, 400, se);
+    drawHostSilhouette(ctx, 840, 400, se);
   }
   const state = updateTypewriterAudio(sceneData.tw, localT, (lineIdx)=>{
     if(lineIdx===1 && actx) playTwang(actx.currentTime+0.02);
@@ -1197,7 +1197,7 @@ function drawScene3(ctx, localT, se){
 function drawScene4(ctx, localT, se){
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,CW,CH);
   drawSpotlight(ctx, CW/2, 300);
-  if(assetsReady) drawItemGetChef(ctx, CW/2, 400, se);
+  if(assetsReady) drawItemGetHost(ctx, CW/2, 400, se);
   if(!sceneData.fanfareFired && localT>=0.3){
     sceneData.fanfareFired = true;
     if(actx){

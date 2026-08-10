@@ -89,7 +89,7 @@ const CONFIG = {
     fakeDeathLine2: 'ALSO: WE ARE STILL LOST.',
     mockLine: ['I LIVE.', '...NICE PLAYLIST.'],
     retortLine: 'IT HAS RANGE.',
-    itemLabel: 'THE WIDOWMAKER!',
+    itemLabel: 'THE COMEBACK!',
     redemptionLine: 'THE ROUTE IS ACTUALLY FINE.',
   },
 
