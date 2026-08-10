@@ -318,7 +318,74 @@ var CFG_SCENE_DEFAULTS = {
    plus CFG_SCENE_DEFAULTS' text overlay, deep-merged on top of the same
    otherwise-standard base.
    ---------------------------------------------------------------------- */
-function cfgBuildDefaultConfig(engineRoot, sceneKey){
+/* THE GALLERY (template #2, see SPEC-gallery.md) -- its own neutral default
+   base, dispatched to by cfgBuildDefaultConfig below when templateKey is
+   'gallery'. Deliberately a SEPARATE, smaller object rather than the
+   hangout base plus overlay: gallery/engine.js never reads stories/
+   introStory/judge/authority/savior/butterfingers/builder content blocks
+   or `scene` at all (see gallery/engine.js's header) -- those fields would
+   just be inert clutter on a gallery config. firstBossHeckle/finalBossQuirk
+   are deliberately ABSENT here (not even empty strings): gallery/engine.js
+   already has its own neutral fallback pools for exactly this case (see
+   its FIRST_BOSS_HECKLE_FALLBACKS/FINAL_BOSS_QUIRK_FALLBACKS), so a sparse
+   gallery fragment/order that skips those two optional lines still plays
+   complete without this default needing to duplicate that pool. `targets`
+   still needs *something* whenever nobody supplies any (gallery/engine.js
+   also defends against an empty array, but a real 4-neutral-placeholder
+   list reads far better than its own last-resort single-item fallback). */
+function cfgBuildGalleryDefaultConfig(engineRoot){
+  var root = engineRoot || '';
+  return {
+    gameId: 'shared',
+    template: 'gallery',
+    title: {
+      lockupLines: ['YOUR', 'GROUP'],
+      introPageTitle: 'A Tiny Game',
+      gamePageTitle: 'A Tiny Game -- Playable Demo',
+    },
+    punchline: 'CLASSIC.',
+    host: { name: 'HOST' },
+    music: {
+      customSongPath: null,
+      loops: {
+        dinner: root + 'assets/audio/music/wacky-waiting.ogg',
+        boss: root + 'assets/audio/music/mission-plausible.ogg',
+        chase: root + 'assets/audio/music/time-driving.ogg',
+        celebration: root + 'assets/audio/music/farm-frolics.ogg',
+        sad: root + 'assets/audio/music/sad-descent.ogg',
+        gameover: root + 'assets/audio/music/game-over.ogg',
+      },
+      introFallback: root + 'assets/audio/music/night-at-the-beach.ogg', // unused (no separate intro) -- kept for schema parity with the shared music block
+    },
+    forbiddenWords: [],
+    gallery: {
+      targets: ['THE USUAL THING', 'THAT ONE STORY', 'THE RUNNING BIT', 'YOU KNOW WHY'],
+    },
+    cast: {
+      diner0: { name: 'THE FOURTH FRIEND', spriteCol: 1, spriteRow: 7, anecdote: 'Always up for anything.' },
+      judge: null,
+      authority: null,
+      savior: null,
+      butterfingers: null,
+      builder: null,
+    },
+    rankNames: {
+      immaculate: 'IMMACULATE',
+      comicTiming: 'COMIC TIMING',
+      worst: 'COULD USE MORE PRACTICE',
+    },
+  };
+}
+
+/* `templateKey` is the THIRD, OPTIONAL argument -- default `'hangout'`. Any
+   value other than the literal string `'gallery'` (absent, `'hangout'`,
+   or anything an already-sanitized fragment/order could never produce
+   since the enum whitelist below drops anything else first) returns
+   exactly what this function has always returned -- see cfgBuildGallery
+   DefaultConfig's own header for why 'gallery' dispatches to a wholly
+   separate object instead of an overlay on the hangout base. */
+function cfgBuildDefaultConfig(engineRoot, sceneKey, templateKey){
+  if(templateKey === 'gallery') return cfgBuildGalleryDefaultConfig(engineRoot);
   var root = engineRoot || '';
   var scene = (sceneKey && sceneKey !== 'dinner' && Object.prototype.hasOwnProperty.call(CFG_SCENE_DEFAULTS, sceneKey)) ? sceneKey : null;
   var cfg = {
@@ -556,7 +623,31 @@ function cfgApplyMusicVibe(mergedConfig, vibeKey, engineRoot, hashSeed){
   return mergedConfig;
 }
 
+/* THE GALLERY (template #2) -- `template` is the top-level template pick,
+   same "fixed enum, never a free string" shape as `scene`/`musicVibe`.
+   Absent (every pre-Gallery config/fragment) or any unrecognized value
+   sanitizes away entirely -- cfgBuildDefaultConfig's own templateKey
+   default ('hangout') is what an absent key actually resolves to, so old
+   links/orders keep playing the Hangout, byte-identically, forever. */
+var CFG_TEMPLATE_KEYS = ['hangout', 'gallery'];
+/* gallery.targets: 4-8 short labels is the WIZARD/authoring-time guideline
+   (mirrors `stories`' own "2-4" guideline just below, also not enforced
+   here) -- this schema only caps the CEILING (8) and per-string length
+   (24), the same "structural safety net, not the UX guidance" split every
+   other array field in this schema already draws. firstBossHeckle/
+   finalBossQuirk are optional (cfgObj's `fields` entries are only ever
+   copied when the raw payload actually has the key -- see
+   cfgSanitizeValue's object branch) -- gallery/engine.js's own neutral
+   fallback pools cover their absence, see that file's header. */
+var CFG_GALLERY_SCHEMA = {
+  targets: cfgArr(8, cfgStr(24)),
+  firstBossHeckle: cfgStr(60),
+  finalBossQuirk: cfgStr(60),
+};
+
 var CFG_FRAGMENT_SCHEMA = {
+  template: cfgEnum(CFG_TEMPLATE_KEYS),
+  gallery: cfgObj(CFG_GALLERY_SCHEMA),
   lengthPreset: cfgEnum(['full', 'five_min']),
   // STORY SKELETONS: enum-only, same "pick a fixed built-in by key, never a
   // path/URL/free string" shape as musicVibe just below -- see
@@ -776,7 +867,7 @@ function cfgLoadFragmentOverride(engineRoot){
     // itself, same as always) so a roadtrip/office/wedding link gets that
     // scene's CFG_SCENE_DEFAULTS text for free -- the fragment's own
     // explicit fields (sanitized, merged on next) still win over it either way.
-    var base = cfgBuildDefaultConfig(engineRoot, sanitized.scene);
+    var base = cfgBuildDefaultConfig(engineRoot, sanitized.scene, sanitized.template);
     var merged = cfgDeepMerge(base, sanitized);
     // hash seed = the sanitized override's own JSON (NOT `raw`, the
     // compressed fragment string) -- the /build/ wizard's assembleConfig
@@ -807,6 +898,9 @@ if(typeof module !== 'undefined' && module.exports){
     cfgDecompress: cfgDecompress,
     cfgHashString: cfgHashString,
     cfgBuildDefaultConfig: cfgBuildDefaultConfig,
+    cfgBuildGalleryDefaultConfig: cfgBuildGalleryDefaultConfig,
+    CFG_TEMPLATE_KEYS: CFG_TEMPLATE_KEYS,
+    CFG_GALLERY_SCHEMA: CFG_GALLERY_SCHEMA,
     CFG_FRAGMENT_SCHEMA: CFG_FRAGMENT_SCHEMA,
     cfgSanitizeConfig: cfgSanitizeConfig,
     cfgDeepMerge: cfgDeepMerge,

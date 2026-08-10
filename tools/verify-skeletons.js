@@ -49,9 +49,11 @@ const { ROSTER, ROSTER_SHEETS, ROSTER_BY_KEY } = require(path.join(REPO_ROOT, 'g
 const {
   verifyConfigFile, verifyConfigSource, loadEngineWithConfig, drivePlaythrough,
 } = require('./verify-config.js');
+const { verifyGalleryFile, verifyGallerySource } = require('./verify-gallery.js');
 
 const TEST_GROUP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'test-group.config.js');
 const ROADTRIP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'roadtrip.config.js');
+const GALLERY_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'gallery-sample.config.js');
 
 const results = []; // { ok, label, detail }
 function record(label, ok, detail){
@@ -244,6 +246,59 @@ function checkRosterDefaults(){
   }
 }
 
+/* ----------------------------------------------------------------------
+   8. THE GALLERY (template #2, see SPEC-gallery.md "Verification") --
+   fully-cast + host-only-degraded playthroughs (tools/verify-gallery.js's
+   own driver, same methodology as every playthrough above) plus a
+   fragment round-trip: `template` + `gallery.targets` survive encode/
+   decode, and an unrecognized `template` sanitizes away entirely (falls
+   back to cfgBuildDefaultConfig's own 'hangout' default, exactly like an
+   absent one always has).
+   ---------------------------------------------------------------------- */
+function checkGalleryPlaythroughs(){
+  try{
+    const result = verifyGalleryFile(GALLERY_SAMPLE_EXAMPLE_PATH, {});
+    record('examples/gallery-sample.config.js (full cast)', result.ok, result.ok ? ('reached ' + result.phaseReached + ', cast=' + JSON.stringify(result.flags)) : result.errors.join('; '));
+  }catch(e){
+    record('examples/gallery-sample.config.js (full cast)', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    // host-only: every optional role stripped -- both boss rounds degrade
+    // to their volley substitutes, no savior/butterfingers/named barker
+    // (see SPEC-gallery.md's degradation map).
+    const fullSrc = fs.readFileSync(GALLERY_SAMPLE_EXAMPLE_PATH, 'utf8');
+    const hostOnlySrc = fullSrc.replace(/cast: \{[\s\S]*?\n  \},/, 'cast: {},');
+    if(hostOnlySrc === fullSrc) throw new Error('cast block not found/replaced -- example file shape changed');
+    const result = verifyGallerySource(hostOnlySrc, {});
+    record('gallery-sample, host-only (every optional role uncast)', result.ok, result.ok ? ('reached ' + result.phaseReached + ', cast=' + JSON.stringify(result.flags)) : result.errors.join('; '));
+  }catch(e){
+    record('gallery-sample, host-only', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+}
+function checkGalleryRoundTrip(){
+  try{
+    const encoded = cfgEncodeConfigFragment({
+      template: 'gallery',
+      gallery: { targets: ['THE KAYAK', 'MARCOS SIX TEN', 'THE GROUP CHAT', 'THAT ONE TEXT'], firstBossHeckle: 'CALL THAT AIM' },
+      host: { name: 'ROUNDTRIP' },
+    });
+    const decoded = JSON.parse(cfgDecompress(encoded));
+    const targetsOk = Array.isArray(decoded.gallery && decoded.gallery.targets) && decoded.gallery.targets.length === 4;
+    record('round-trip: template "gallery" + gallery.targets survive encode/decode', decoded.template === 'gallery' && targetsOk,
+      'got template=' + JSON.stringify(decoded.template) + ', targets=' + JSON.stringify(decoded.gallery && decoded.gallery.targets));
+  }catch(e){
+    record('round-trip: template "gallery" survives encode/decode', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    const encodedUnknown = cfgEncodeConfigFragment({ template: 'not-a-real-template' });
+    const decodedUnknown = JSON.parse(cfgDecompress(encodedUnknown));
+    const fallsBackToHangout = decodedUnknown.template === undefined && !('gallery' in cfgBuildDefaultConfig('../', undefined, decodedUnknown.template));
+    record('round-trip: unknown template sanitizes away -> hangout default', fallsBackToHangout, 'got template=' + JSON.stringify(decodedUnknown.template));
+  }catch(e){
+    record('round-trip: unknown template sanitizes away', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+}
+
 function main(){
   checkExamples();
   checkSceneMatrix();
@@ -251,6 +306,8 @@ function main(){
   checkRoundTrip();
   checkRosterAssets();
   checkRosterDefaults();
+  checkGalleryPlaythroughs();
+  checkGalleryRoundTrip();
 
   const failed = results.filter(r => !r.ok);
   console.log('');
@@ -260,4 +317,7 @@ function main(){
 
 if(require.main === module) main();
 
-module.exports = { checkExamples, checkSceneMatrix, checkHardModePlaythrough, checkRoundTrip, checkRosterAssets, checkRosterDefaults };
+module.exports = {
+  checkExamples, checkSceneMatrix, checkHardModePlaythrough, checkRoundTrip, checkRosterAssets, checkRosterDefaults,
+  checkGalleryPlaythroughs, checkGalleryRoundTrip,
+};

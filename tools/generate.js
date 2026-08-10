@@ -5,7 +5,7 @@
    games/<slug>/ folder, automatically. Zero dependencies (only Node
    builtins: fs, path, crypto).
 
-     node tools/generate.js <answers.json> [--out=games] [--base-url=https://example.github.io/inside-joke-games]
+     node tools/generate.js <answers.json> [--out=games] [--base-url=https://example.github.io/inside-joke-games] [--slug=<name>]
 
    What it does, in order:
    1. Reads and structurally validates the answers file (see
@@ -48,6 +48,7 @@ const {
   cfgBuildDefaultConfig, cfgDeepMerge, cfgEncodeConfigFragment, cfgApplyMusicVibe, CFG_VIBE_KEYS, CFG_SCENE_KEYS, CFG_ROSTER_KEYS,
 } = require(path.join(REPO_ROOT, 'game', 'cfgcodec.js'));
 const { verifyConfigSource } = require('./verify-config.js');
+const { verifyGallerySource } = require('./verify-gallery.js');
 
 /* ---------------------------------------------------------------------
    CLI args
@@ -143,30 +144,27 @@ function randomSuffix(){
    cfgSanitizeConfig's fragment whitelist (that schema deliberately
    excludes gameId/music, which a FILE-based deployment legitimately
    needs to set) -- answers.json is trusted local/operator input, not an
-   untrusted URL. */
+   untrusted URL.
+
+   THE GALLERY (template #2): `answers.template === 'gallery'` switches
+   the whole content shape -- `answers.targets` (4-8 short labels) instead
+   of `answers.stories`, no `answers.scene` (gallery has no scene
+   skeleton), and the two optional boss lines (`answers.firstBossHeckle`/
+   `finalBossQuirk`) instead of judge.title/authority.cardTitle content
+   blocks (gallery/engine.js builds its own boss-card titles straight from
+   CAST.judge.name/CAST.authority.name -- see that file's header). Every
+   other answer (host/catchphrase/title/cast/anecdotes/offLimits/
+   spellings/music) is read identically either way -- same shared-fields
+   principle SPEC-gallery.md's config section states. */
 function buildOverrides(answers, slug){
   const host = requireField(answers, 'host', 'Q5: who is the host?');
   const catchphrase = requireField(answers, 'catchphrase', 'Q2: what\'s your group\'s catchphrase?');
   const title = requireField(answers, 'title', 'Q4: what should we call your game?');
-  const storiesIn = requireField(answers, 'stories', 'Q3: 2-4 real, boring stories, as an array of strings');
-  if(!Array.isArray(storiesIn) || storiesIn.length === 0) throw new GenerateError('answers.stories must be a non-empty array of strings');
+  const isGallery = answers.template === 'gallery';
 
-  // STORY SKELETONS: optional, defaults to 'dinner' -- see SPEC-skeletons.md
-  // / game/skeletons.js. CFG_SCENE_KEYS (game/cfgcodec.js) is the single
-  // source of truth for the four valid keys, shared with the fragment
-  // schema and the /build/ wizard, so this can never drift out of sync
-  // with what the engine actually knows how to resolve.
-  const scene = answers.scene === undefined || answers.scene === null || answers.scene === '' ? 'dinner' : answers.scene;
-  if(CFG_SCENE_KEYS.indexOf(scene) === -1){
-    throw new GenerateError('answers.scene must be one of: ' + CFG_SCENE_KEYS.join(', ') + ' (got "' + scene + '")');
-  }
-
-  const cast = answers.cast || {};
-  const anecdotes = answers.anecdotes || {};
   const overrides = {
     gameId: slug,
-    scene: scene,
-    lengthPreset: answers.lengthPreset === 'full' ? 'full' : 'five_min',
+    template: isGallery ? 'gallery' : undefined, // absent -> cfgBuildDefaultConfig's own 'hangout' default
     title: {
       lockupLines: wrapTitleLines(title, 14, 2),
       introPageTitle: String(title),
@@ -174,9 +172,31 @@ function buildOverrides(answers, slug){
     },
     punchline: String(catchphrase).toUpperCase().slice(0, 40),
     host: { name: String(host).toUpperCase().slice(0, 40) },
-    stories: storiesIn.slice(0, 4).map(s => ({ lines: wrapStoryLine(s) })),
     cast: { diner0: Object.assign({ name: 'THE FOURTH FRIEND', anecdote: 'Always up for anything.' }, DEFAULT_SPRITE.diner0) },
   };
+
+  if(isGallery){
+    const targetsIn = requireField(answers, 'targets', 'Gallery Q3: 4-8 things your group can\'t stop roasting, as an array of strings');
+    if(!Array.isArray(targetsIn) || targetsIn.length < 4) throw new GenerateError('answers.targets must be an array of at least 4 strings (gallery.targets wants 4-8)');
+    overrides.gallery = { targets: targetsIn.slice(0, 8).map(t => String(t).toUpperCase().trim().replace(/\s+/g,' ').slice(0, 24)) };
+    if(answers.firstBossHeckle) overrides.gallery.firstBossHeckle = String(answers.firstBossHeckle).toUpperCase().trim().slice(0, 60);
+    if(answers.finalBossQuirk) overrides.gallery.finalBossQuirk = String(answers.finalBossQuirk).toUpperCase().trim().slice(0, 60);
+  } else {
+    const storiesIn = requireField(answers, 'stories', 'Q3: 2-4 real, boring stories, as an array of strings');
+    if(!Array.isArray(storiesIn) || storiesIn.length === 0) throw new GenerateError('answers.stories must be a non-empty array of strings');
+    // STORY SKELETONS: optional, defaults to 'dinner' -- see SPEC-skeletons.md
+    // / game/skeletons.js. CFG_SCENE_KEYS (game/cfgcodec.js) is the single
+    // source of truth for the four valid keys, shared with the fragment
+    // schema and the /build/ wizard, so this can never drift out of sync
+    // with what the engine actually knows how to resolve.
+    const scene = answers.scene === undefined || answers.scene === null || answers.scene === '' ? 'dinner' : answers.scene;
+    if(CFG_SCENE_KEYS.indexOf(scene) === -1){
+      throw new GenerateError('answers.scene must be one of: ' + CFG_SCENE_KEYS.join(', ') + ' (got "' + scene + '")');
+    }
+    overrides.scene = scene;
+    overrides.lengthPreset = answers.lengthPreset === 'full' ? 'full' : 'five_min';
+    overrides.stories = storiesIn.slice(0, 4).map(s => ({ lines: wrapStoryLine(s) }));
+  }
 
   // PHASE C (characters are their people) -- OPTIONAL: answers.hostSprite is
   // a game/roster.js key ("which tile is the host?"); unset/unrecognized
@@ -196,6 +216,8 @@ function buildOverrides(answers, slug){
   const offLimits = Array.isArray(answers.offLimits) ? answers.offLimits.map(String) : [];
   overrides.forbiddenWords = offLimits.map(w => w.toUpperCase());
 
+  const cast = answers.cast || {};
+  const anecdotes = answers.anecdotes || {};
   for(const introKey in ROLE_KEY){
     const cfgKey = ROLE_KEY[introKey];
     const name = cast[introKey];
@@ -212,21 +234,23 @@ function buildOverrides(answers, slug){
         entry.sprite = spriteCast[introKey];
       }
       overrides.cast[cfgKey] = entry;
-      // BOSS SLOTS: the boss HP bar / entrance card reads the actual
-      // person's name, not cfgBuildDefaultConfig's generic "THE CRITIC"/
-      // "THE BOSS HAS ARRIVED" fallback text -- entry.name is already
-      // uppercase above, matching the "'<NAME> HAS ARRIVED'" pattern
-      // (see FULFILLMENT.md's "Boss slots read as real people"). This
-      // written-to-file config.js path
-      // doesn't run through cfgSanitizeConfig (see this function's own doc
-      // comment -- answers.json is trusted operator input), so a name at
-      // the full 40-char cap plus " HAS ARRIVED" can run long here; the
-      // instant #cfg= link built from the same overrides further below
-      // does go through cfgEncodeConfigFragment -> cfgSanitizeConfig, whose
-      // cfgStr(40) on judge.title/authority.cardTitle truncates that copy
-      // safely.
-      if(cfgKey === 'judge') overrides.judge = { title: entry.name };
-      if(cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
+      if(!isGallery){
+        // BOSS SLOTS (Hangout only -- see this function's own header): the
+        // boss HP bar / entrance card reads the actual person's name, not
+        // cfgBuildDefaultConfig's generic "THE CRITIC"/"THE BOSS HAS
+        // ARRIVED" fallback text -- entry.name is already uppercase above,
+        // matching the "'<NAME> HAS ARRIVED'" pattern (see FULFILLMENT.md's
+        // "Boss slots read as real people"). This written-to-file config.js
+        // path doesn't run through cfgSanitizeConfig (see this function's
+        // own doc comment -- answers.json is trusted operator input), so a
+        // name at the full 40-char cap plus " HAS ARRIVED" can run long
+        // here; the instant #cfg= link built from the same overrides
+        // further below does go through cfgEncodeConfigFragment ->
+        // cfgSanitizeConfig, whose cfgStr(40) on judge.title/authority.
+        // cardTitle truncates that copy safely.
+        if(cfgKey === 'judge') overrides.judge = { title: entry.name };
+        if(cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
+      }
     } else {
       overrides.cast[cfgKey] = null;
     }
@@ -290,7 +314,7 @@ function main(){
   const args = parseArgs(process.argv.slice(2));
   const answersPath = args._[0];
   if(!answersPath){
-    console.error('Usage: node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-domain>]');
+    console.error('Usage: node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-domain>] [--slug=<name>]');
     process.exit(2);
   }
   const outDir = args.out || 'games';
@@ -308,15 +332,26 @@ function main(){
   try{
     requireField(answers, 'email', 'Q11: delivery email');
     const titleForSlug = requireField(answers, 'title', 'Q4');
-    slug = slugify(titleForSlug) + '-' + randomSuffix();
+    // --slug=<name> overrides the default random-suffixed slug -- real
+    // orders always take the default (a stable, guessable folder name is
+    // undesirable for someone else's game); this exists for reproducible
+    // checked-in examples like games/gallery-sample/ (see tools/gallery-
+    // sample-answers.json), the same deterministic-naming spirit as
+    // games/test-group/'s own hand-picked slug.
+    slug = args.slug || (slugify(titleForSlug) + '-' + randomSuffix());
     overrides = buildOverrides(answers, slug);
     const spellings = overrides.__spellings; delete overrides.__spellings;
-    // page-relative root matching games/<slug>/{game,intro}/'s nesting depth
-    // (see games/test-group/config.js for the identical convention) --
-    // `overrides.scene` picks up CFG_SCENE_DEFAULTS' text overlay here, same
-    // as the wizard's own assembleConfig/cfgLoadFragmentOverride; overrides
+    const isGallery = overrides.template === 'gallery';
+    // page-relative root matching this template's own shell nesting depth:
+    // the Hangout writes games/<slug>/{game,intro}/ (3 levels deep -- see
+    // games/test-group/config.js for the identical convention); THE
+    // GALLERY writes a single games/<slug>/index.html (2 levels deep,
+    // mirroring gallery/index.html's own page -- see below). `overrides.
+    // scene` picks up CFG_SCENE_DEFAULTS' text overlay here, same as the
+    // wizard's own assembleConfig/cfgLoadFragmentOverride; overrides
     // (below) still wins over it for anything answers.json specifies itself.
-    const base = cfgBuildDefaultConfig('../../../', overrides.scene);
+    const engineRoot = isGallery ? '../../' : '../../../';
+    const base = cfgBuildDefaultConfig(engineRoot, overrides.scene, overrides.template);
     merged = cfgDeepMerge(base, overrides);
     merged = applySpellings(merged, spellings);
 
@@ -328,7 +363,7 @@ function main(){
     // seed here is the real gameId (`slug`) this file is about to be
     // written under, so it's stable for this order specifically.
     const pickedVibe = (answers.music || {}).vibe;
-    cfgApplyMusicVibe(merged, pickedVibe, '../../../', slug);
+    cfgApplyMusicVibe(merged, pickedVibe, engineRoot, slug);
 
     // The instant #cfg= link carries the OVERRIDE DELTA, not `merged`.
     // `music` is deliberately not fragment-settable (see CFG_FRAGMENT_SCHEMA
@@ -357,10 +392,15 @@ function main(){
     '   ====================================================================== */';
   const configSource = serializeConfig(merged, header);
 
-  console.log('Verifying generated config for "' + merged.title.introPageTitle + '" (slug: ' + slug + ')...');
+  const isGallery = merged.template === 'gallery';
+  console.log('Verifying generated config for "' + merged.title.introPageTitle + '" (slug: ' + slug + ', template: ' + (isGallery ? 'gallery' : 'hangout') + ')...');
+  // THE GALLERY: verify-gallery.js's driver (tick/fireAt through the
+  // seeded rounds/boss/finale) in place of verify-config.js's beat-by-beat
+  // one -- see that file's own header for why gallery needs its own.
+  const verifyFn = isGallery ? verifyGallerySource : verifyConfigSource;
   let result;
   try{
-    result = verifyConfigSource(configSource, { extraForbidden: merged.forbiddenWords });
+    result = verifyFn(configSource, { extraForbidden: merged.forbiddenWords });
   }catch(e){
     console.error('REFUSING TO EMIT -- generated config.js has a syntax error:');
     console.error(e.stack || e);
@@ -375,24 +415,42 @@ function main(){
   console.log('Verification passed (reached "' + result.phaseReached + '"). Cast: ' + JSON.stringify(result.flags));
 
   const gameDir = path.join(REPO_ROOT, outDir, slug);
-  const gameSubDir = path.join(gameDir, 'game');
-  const introSubDir = path.join(gameDir, 'intro');
-  fs.mkdirSync(gameSubDir, { recursive: true });
-  fs.mkdirSync(introSubDir, { recursive: true });
-
+  fs.mkdirSync(gameDir, { recursive: true });
   fs.writeFileSync(path.join(gameDir, 'config.js'), configSource);
 
-  // per FULFILLMENT.md step 4: copy games/test-group/'s CURRENT shell files
-  // verbatim -- read fresh off disk (not a hardcoded template string) so a
-  // future change to the shell pattern (e.g. an added <script> tag) is
-  // picked up automatically the next time this CLI runs.
-  const templateDir = path.join(REPO_ROOT, 'games', 'test-group');
-  fs.writeFileSync(path.join(gameDir, 'index.html'),
-    fs.readFileSync(path.join(templateDir, 'index.html'), 'utf8').replace(/The Test Group/g, merged.title.introPageTitle));
-  fs.writeFileSync(path.join(gameSubDir, 'index.html'),
-    fs.readFileSync(path.join(templateDir, 'game', 'index.html'), 'utf8').replace(/The Test Group -- Playable Demo/g, merged.title.gamePageTitle));
-  fs.writeFileSync(path.join(introSubDir, 'index.html'),
-    fs.readFileSync(path.join(templateDir, 'intro', 'index.html'), 'utf8').replace(/The Test Group/g, merged.title.introPageTitle));
+  if(isGallery){
+    // THE GALLERY writes ONE page (no separate intro) -- mirror gallery/
+    // index.html's own current script tags verbatim (read fresh off disk,
+    // same "never a stale hardcoded template" principle FULFILLMENT.md's
+    // step 4 already established for the Hangout copy below), just
+    // shifted one directory level deeper (games/<slug>/ vs. gallery/
+    // itself) and pointed at the ONE shared gallery/engine.js rather than
+    // a per-game copy -- same "shared engine, only config.js is per-game"
+    // shape the Hangout path already uses.
+    const galleryShell = fs.readFileSync(path.join(REPO_ROOT, 'gallery', 'index.html'), 'utf8')
+      .replace('<title>The Gallery -- Playable Demo</title>', '<title>' + merged.title.gamePageTitle + '</title>')
+      .replace('<script src="../game/roster.js"></script>', '<script src="../../game/roster.js"></script>')
+      .replace('<script src="../game/cfgcodec.js"></script>', '<script src="../../game/cfgcodec.js"></script>')
+      .replace('<script src="../shared/framework.js"></script>', '<script src="../../shared/framework.js"></script>')
+      .replace('<script src="engine.js"></script>', '<script src="../../gallery/engine.js"></script>');
+    fs.writeFileSync(path.join(gameDir, 'index.html'), galleryShell);
+  } else {
+    const gameSubDir = path.join(gameDir, 'game');
+    const introSubDir = path.join(gameDir, 'intro');
+    fs.mkdirSync(gameSubDir, { recursive: true });
+    fs.mkdirSync(introSubDir, { recursive: true });
+    // per FULFILLMENT.md step 4: copy games/test-group/'s CURRENT shell
+    // files verbatim -- read fresh off disk (not a hardcoded template
+    // string) so a future change to the shell pattern (e.g. an added
+    // <script> tag) is picked up automatically the next time this CLI runs.
+    const templateDir = path.join(REPO_ROOT, 'games', 'test-group');
+    fs.writeFileSync(path.join(gameDir, 'index.html'),
+      fs.readFileSync(path.join(templateDir, 'index.html'), 'utf8').replace(/The Test Group/g, merged.title.introPageTitle));
+    fs.writeFileSync(path.join(gameSubDir, 'index.html'),
+      fs.readFileSync(path.join(templateDir, 'game', 'index.html'), 'utf8').replace(/The Test Group -- Playable Demo/g, merged.title.gamePageTitle));
+    fs.writeFileSync(path.join(introSubDir, 'index.html'),
+      fs.readFileSync(path.join(templateDir, 'intro', 'index.html'), 'utf8').replace(/The Test Group/g, merged.title.introPageTitle));
+  }
 
   if(answers.music && answers.music.songFile){
     const assetsDir = path.join(gameDir, 'assets');
@@ -403,8 +461,12 @@ function main(){
 
   const fragment = cfgEncodeConfigFragment(fragmentPayload);
   const hostedUrl = baseUrl.replace(/\/$/, '') + '/' + outDir + '/' + slug + '/';
-  const instantIntroUrl = baseUrl.replace(/\/$/, '') + '/intro/#cfg=' + fragment;
-  const instantGameUrl = baseUrl.replace(/\/$/, '') + '/game/#cfg=' + fragment;
+  // THE GALLERY: one page, no separate intro -- the instant link goes
+  // straight at /gallery/#cfg=..., matching /build/'s own gallery-path
+  // preview link (see build/index.html's renderStepPreview).
+  const instantUrl = isGallery
+    ? baseUrl.replace(/\/$/, '') + '/gallery/#cfg=' + fragment
+    : baseUrl.replace(/\/$/, '') + '/intro/#cfg=' + fragment;
 
   console.log('');
   console.log('Wrote ' + path.relative(REPO_ROOT, gameDir));
@@ -413,7 +475,7 @@ function main(){
   console.log('  ' + hostedUrl);
   console.log('');
   console.log('INSTANT LINK (works right now, no deployment -- uses the repo\'s own shared engine):');
-  console.log('  ' + instantIntroUrl);
+  console.log('  ' + instantUrl);
   console.log('  (fragment length: ' + fragment.length + ' chars' + (baseUrl === '<PAGES_DOMAIN>' ? ' -- pass --base-url=https://<your-pages-domain> for a real link' : '') + ')');
   console.log('');
   console.log('Reminder: FULFILLMENT.md step 2 (content review) is a human judgment call');

@@ -1,0 +1,40 @@
+{
+  "template": "gallery",
+  "email": "gallery-sample@example.test",
+  "title": "The Weekend League",
+  "host": "Jordan",
+  "catchphrase": "That's so on brand.",
+  "targets": [
+    "Fantasy draft speeches",
+    "Spreadsheet at brunch",
+    "The parking incident",
+    "Socks with sandals",
+    "Artisanal mac n cheese",
+    "Narrates own cooking"
+  ],
+  "firstBossHeckle": "Your aim is as bad as your takes.",
+  "finalBossQuirk": "Always adjusts their glasses before lying.",
+  "cast": {
+    "critic": "The Commissioner",
+    "boss": "The Landlord",
+    "savior": "The Designated Driver",
+    "butterfingers": "The One Who Drops Everything",
+    "builder": "The Group's Tech Guy"
+  },
+  "anecdotes": {
+    "critic": "Runs the fantasy league like it is federal law.",
+    "boss": "Shows up personally over a noise complaint.",
+    "savior": "Always sober, always has snacks in the car.",
+    "butterfingers": "Has broken three different house rules, literally.",
+    "builder": "Built this exact game on a Tuesday night."
+  },
+  "spriteCast": {
+    "critic": "grandma",
+    "boss": "bandana",
+    "savior": "vest",
+    "butterfingers": "braid",
+    "builder": "mohawk"
+  },
+  "offLimits": [],
+  "music": { "vibe": "upbeat" }
+}

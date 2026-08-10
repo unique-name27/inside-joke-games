@@ -273,6 +273,37 @@ const SCENE_DEFS = [
   { key:'office', label:'THE OFFICE PARTY', desc:'The break room, after hours.' },
   { key:'wedding', label:'THE WEDDING WEEKEND', desc:'A reception hall, a DJ booth, and the toasts.' },
 ];
+// THE GALLERY (template #2, see SPEC-gallery.md) -- step 0, "What's the
+// joke?", picks CFG_TEMPLATE_KEYS (game/cfgcodec.js, loaded above this
+// script). `key` is exactly what CONFIG.template whitelists; `desc` is the
+// joke-shape framing that recommends the template, `label` the resulting
+// game style's name. Only the two BUILT templates get a card here --
+// SPEC-game-styles.md sketches a longer catalog, but this wizard only ever
+// offers what actually ships.
+const JOKE_DEFS = [
+  { key:'hangout', desc:'A place you always end up + the stories you retell', label:'The Hangout' },
+  { key:'gallery', desc:'The things your group can’t stop roasting', label:'The Gallery' },
+];
+// Per-template step SEQUENCES (keys into STEP_RENDERERS/STEP_LABELS below).
+// The joke step is always first and always shared; the setting step only
+// exists on the Hangout path (SPEC-gallery.md: "The setting step shows
+// only on the Hangout path"); the Gallery path gets `targets` instead of
+// `stories` as its content step. Every other step (group/punchline/cast/
+// vibe/preview) is shared verbatim between both sequences.
+const HANGOUT_STEP_KEYS = ['joke', 'setting', 'group', 'punchline', 'stories', 'cast', 'vibe', 'preview'];
+const GALLERY_STEP_KEYS = ['joke', 'group', 'punchline', 'targets', 'cast', 'vibe', 'preview'];
+function stepSequence(template){ return template === 'gallery' ? GALLERY_STEP_KEYS : HANGOUT_STEP_KEYS; }
+function stepCount(template){ return stepSequence(template).length; }
+const STEP_LABELS = {
+  joke: 'What’s the joke?', setting: 'The setting', group: 'Your group', punchline: 'The catchphrase',
+  stories: 'The stories', targets: 'The targets', cast: 'The cast', vibe: 'The vibe', preview: 'Preview & share',
+};
+// gallery.targets: 4-8 short labels -- the wizard's own UI guideline
+// (mirrors the stories step's "2-4" guideline just below it, also not a
+// hard codec limit -- see game/cfgcodec.js's CFG_GALLERY_SCHEMA, which
+// only caps the ceiling and per-string length, same "structural safety
+// net, not the UX guidance" split every array field there draws).
+const GALLERY_TARGETS_MIN = 4, GALLERY_TARGETS_MAX = 8;
 // Role framing: BOSS SLOTS, not personality archetypes -- the product's
 // promise is that every boss is a real person the group knows. `key`/
 // `cfgKey` (the underlying CONFIG.cast/answers-schema keys: judge,
@@ -282,15 +313,27 @@ const SCENE_DEFS = [
 // PERSON's name, not a generic label, once that slot is cast).
 const ROLE_DEFS = [
   { key:'critic', cfgKey:'judge', title:'THE FIRST BOSS',
-    desc:'Every game needs a boss fight. Pick a real person from your group -- they’ll heckle from on high and throw things, and the player throws them right back.' },
+    desc:'Every game needs a boss fight. Pick a real person from your group -- they’ll heckle from on high and throw things, and the player throws them right back.',
+    galleryDesc:'Every game needs a boss fight. Pick a real person from your group -- they’ll swing across the stall heckling in their own words while the player takes their shots.',
+    // gallery only -- the optional first-boss heckle line, shown on this
+    // card when template is gallery (see renderRoleCard). Absent/blank ->
+    // gallery/engine.js's own neutral fallback pool (FIRST_BOSS_HECKLE_
+    // FALLBACKS) covers it, same "optional, never blocking" spirit as the
+    // anecdote field every role already has.
+    galleryField: { key:'heckle', label:'What do they heckle with? (optional)', placeholder:'e.g. Call that aim?', maxLen:60 } },
   { key:'boss', cfgKey:'authority', title:'THE FINAL BOSS',
-    desc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who storms in mad about something small, then comes around.' },
+    desc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who storms in mad about something small, then comes around.',
+    galleryDesc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who takes over the whole stall, then comes around at the end.',
+    galleryField: { key:'quirk', label:'Their dead giveaway -- how do you always know it’s really them? (optional)', placeholder:'e.g. Always adjusts their glasses before lying.', maxLen:60 } },
   { key:'savior', cfgKey:'savior', title:'THE SAVIOR',
-    desc:'The sincere one who saves the day -- shows up right when things look bad.' },
+    desc:'The sincere one who saves the day -- shows up right when things look bad.',
+    galleryDesc:'The sincere one who saves the day -- shows up right when a round is about to be lost.' },
   { key:'butterfingers', cfgKey:'butterfingers', title:'BUTTERFINGERS',
-    desc:'The one tech/phone mishaps always happen to.' },
+    desc:'The one tech/phone mishaps always happen to.',
+    galleryDesc:'The one who always drops something -- literally, this time.' },
   { key:'builder', cfgKey:'builder', title:'THE BUILDER',
-    desc:'The one who’d actually go build something like this game.' },
+    desc:'The one who’d actually go build something like this game.',
+    galleryDesc:'The one who’d actually go build something like this game -- they run the stall if you cast them.' },
 ];
 const DEFAULT_SPRITE = {
   diner0:{spriteCol:1,spriteRow:7}, judge:{spriteCol:4,spriteRow:8},
@@ -330,13 +373,24 @@ const VIBE_DEFS = [
 /* the Preview step's "Your answers" review card -- one row per earlier
    step, `summary(state)` reads straight off the live wizard state (never
    a snapshot), so it's always accurate, including right after an Edit
-   round-trip. `step` is the index renderStep()/state.step jumps back to. */
+   round-trip. `stepKey` is looked up in the CURRENT template's own
+   sequence (stepSequence) to find the index renderStep()/state.step jumps
+   back to -- a raw numeric index would silently point at the wrong step
+   once the two paths' sequences diverge (see HANGOUT_STEP_KEYS/
+   GALLERY_STEP_KEYS above). `showFor`, when present, hides a row entirely
+   on the other path (THE GALLERY: no setting/stories rows; THE HANGOUT: no
+   targets row) -- the render loop below skips any row whose showFor
+   doesn't include state.template. */
 const REVIEW_ROWS = [
-  { label:'The setting', step:0, summary(state){
+  { stepKey:'joke', label:'The joke', summary(state){
+      const j = JOKE_DEFS.find(j => j.key === state.template);
+      return j ? j.label : 'Not chosen yet';
+    } },
+  { stepKey:'setting', showFor:['hangout'], label:'The setting', summary(state){
       const scene = SCENE_DEFS.find(s => s.key === state.scene);
       return scene ? scene.label : 'Not chosen yet';
     } },
-  { label:'Your group', step:1, summary(state){
+  { stepKey:'group', label:'Your group', summary(state){
       if(!state.host.trim()) return 'Not filled in yet';
       return state.host.trim() + (state.otherFriendName.trim() ? ' + ' + state.otherFriendName.trim() : '');
     },
@@ -350,17 +404,22 @@ const REVIEW_ROWS = [
       if(state.otherFriendName.trim()) keys.push(state.otherFriendSprite || DEFAULT_ROSTER_KEY.diner0);
       return keys;
     } },
-  { label:'The catchphrase', step:2, summary(state){
+  { stepKey:'punchline', label:'The catchphrase', summary(state){
       if(!state.catchphrase.trim() && !state.title.trim()) return 'Not filled in yet';
       return (state.catchphrase.trim() || '…') + ' · ' + (state.title.trim() || '…');
     } },
-  { label:'The stories', step:3, summary(state){
+  { stepKey:'stories', showFor:['hangout'], label:'The stories', summary(state){
       const filled = state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim()));
       if(!filled.length) return 'No stories yet';
       return filled.length + ' ' + (filled.length===1 ? 'story' : 'stories') + ': ' +
         filled.map(s => (s.l1 && s.l1.trim()) || '…').join(' / ');
     } },
-  { label:'The cast', step:4, summary(state){
+  { stepKey:'targets', showFor:['gallery'], label:'The targets', summary(state){
+      const filled = state.targets.filter(t => t && t.trim());
+      if(filled.length < GALLERY_TARGETS_MIN) return filled.length + ' of ' + GALLERY_TARGETS_MIN + ' minimum filled in';
+      return filled.length + ' targets: ' + filled.slice(0,3).map(t=>t.trim()).join(' / ') + (filled.length>3 ? '…' : '');
+    } },
+  { stepKey:'cast', label:'The cast', summary(state){
       const cast = ROLE_DEFS.filter(r => state.cast[r.key] && state.cast[r.key].cast && state.cast[r.key].name && state.cast[r.key].name.trim());
       if(!cast.length) return 'Nobody cast -- the game adapts.';
       return cast.map(r => r.title + ' — ' + state.cast[r.key].name.trim()).join(', ');
@@ -375,25 +434,29 @@ const REVIEW_ROWS = [
         .map(r => state.cast[r.key].sprite || DEFAULT_ROSTER_KEY[r.cfgKey] || null)
         .filter(Boolean);
     } },
-  { label:'The vibe', step:5, summary(state){
+  { stepKey:'vibe', label:'The vibe', summary(state){
       const vibe = VIBE_DEFS.find(v => v.key === state.vibe);
       return vibe ? vibe.label : 'Not chosen yet';
     } },
 ];
 
-const WIZARD_STEP_COUNT = 7;
 const WIZARD_STORAGE_KEY = 'ijg_build_wizard_v1';
 
 function defaultWizardState(){
   const cast = {};
-  for(const r of ROLE_DEFS) cast[r.key] = { cast:false, name:'', anecdote:'', sprite:null };
+  for(const r of ROLE_DEFS){
+    cast[r.key] = { cast:false, name:'', anecdote:'', sprite:null };
+    if(r.galleryField) cast[r.key][r.galleryField.key] = '';
+  }
   return {
     step: 0,
+    template: 'hangout', // THE GALLERY (template #2) -- carried by the draft; old (pre-Gallery) saved drafts normalize to this, see normalizeWizardState
     scene: 'dinner',
     host: '', otherFriendName: '',
     hostSprite: null, otherFriendSprite: null, // PHASE C: null == "use the default tile"
     catchphrase: '', title: '', offLimits: '',
     stories: [ {l1:'',l2:''}, {l1:'',l2:''} ],
+    targets: ['', '', '', ''], // gallery only -- see GALLERY_TARGETS_MIN
     cast: cast,
     vibe: null,
   };
@@ -407,18 +470,37 @@ function defaultWizardState(){
 function normalizeWizardState(saved){
   const base = defaultWizardState();
   if(!saved || typeof saved !== 'object') return base;
+  const isPreGalleryDraft = typeof saved.template === 'undefined';
   const out = Object.assign({}, base, saved);
+  // THE GALLERY (template #2) -- an old (pre-Gallery) saved draft has no
+  // `template` key at all; Object.assign above already left base's
+  // 'hangout' in place for that case. Anything else unrecognized also
+  // falls back to 'hangout', same "fail closed to the safe default"
+  // convention as scene/sprite picks just below.
+  if(out.template !== 'hangout' && out.template !== 'gallery') out.template = 'hangout';
+  // a pre-Gallery draft's saved `step` was an index into the OLD 7-step
+  // Hangout sequence (no joke step existed yet) -- reinterpreting that same
+  // number against today's 8-step HANGOUT_STEP_KEYS would silently land a
+  // returning visitor on the WRONG step (off by one, from "setting" onward).
+  // Their answers are all still intact (Object.assign above preserved
+  // every field) -- only the step position resets to 0, a mild "start the
+  // click-through again" rather than a subtly wrong landing step.
+  if(isPreGalleryDraft) out.step = 0;
   if(!Array.isArray(out.stories) || out.stories.length < 2) out.stories = base.stories;
   out.stories = out.stories.slice(0, 4).map(s => ({ l1: (s && typeof s.l1==='string') ? s.l1 : '', l2: (s && typeof s.l2==='string') ? s.l2 : '' }));
+  if(!Array.isArray(out.targets) || out.targets.length < GALLERY_TARGETS_MIN) out.targets = base.targets;
+  out.targets = out.targets.slice(0, GALLERY_TARGETS_MAX).map(t => (typeof t==='string') ? t.slice(0,24) : '');
+  while(out.targets.length < GALLERY_TARGETS_MIN) out.targets.push('');
   out.cast = Object.assign({}, base.cast, saved.cast || {});
   for(const r of ROLE_DEFS){
     out.cast[r.key] = Object.assign({}, base.cast[r.key], (saved.cast && saved.cast[r.key]) || {});
     if(!ROSTER_BY_KEY[out.cast[r.key].sprite]) out.cast[r.key].sprite = null;
+    if(r.galleryField && typeof out.cast[r.key][r.galleryField.key] !== 'string') out.cast[r.key][r.galleryField.key] = '';
   }
   if(!ROSTER_BY_KEY[out.hostSprite]) out.hostSprite = null;
   if(!ROSTER_BY_KEY[out.otherFriendSprite]) out.otherFriendSprite = null;
   if(!SCENE_DEFS.some(s => s.key === out.scene)) out.scene = base.scene;
-  if(typeof out.step !== 'number' || out.step < 0 || out.step >= WIZARD_STEP_COUNT) out.step = 0;
+  if(typeof out.step !== 'number' || out.step < 0 || out.step >= stepCount(out.template)) out.step = 0;
   return out;
 }
 
@@ -468,8 +550,18 @@ function checkForbidden(text, offLimitsWords){
 function checkStateForbidden(state){
   const words = parseOffLimits(state.offLimits);
   const fields = [state.host, state.otherFriendName, state.catchphrase, state.title];
-  for(const s of state.stories){ fields.push(s.l1); fields.push(s.l2); }
-  for(const r of ROLE_DEFS){ const c = state.cast[r.key]; if(c.cast){ fields.push(c.name); fields.push(c.anecdote); } }
+  if(state.template === 'gallery'){
+    for(const t of state.targets) fields.push(t);
+  } else {
+    for(const s of state.stories){ fields.push(s.l1); fields.push(s.l2); }
+  }
+  for(const r of ROLE_DEFS){
+    const c = state.cast[r.key];
+    if(c.cast){
+      fields.push(c.name); fields.push(c.anecdote);
+      if(state.template === 'gallery' && r.galleryField) fields.push(c[r.galleryField.key]);
+    }
+  }
   const all = [];
   for(const f of fields) all.push(...checkForbidden(f, words));
   return Array.from(new Set(all));
@@ -484,18 +576,26 @@ function wrapLine(raw, maxLen){
    defaults, reading from the wizard's own state object instead of an
    answers.json file. NOT run through cfgSanitizeConfig itself (that
    happens once, uniformly, in assembleConfig below) -- this function's
-   only job is "wizard state -> a CONFIG-shaped overrides object". */
+   only job is "wizard state -> a CONFIG-shaped overrides object".
+
+   THE GALLERY (template #2): branches on state.template. The shared
+   fields (title/punchline/host/forbiddenWords/cast) are built identically
+   either way; scene/stories/lengthPreset are Hangout-only (gallery/
+   engine.js never reads them), gallery.targets/firstBossHeckle/
+   finalBossQuirk are Gallery-only. Per-role judge.title/authority.
+   cardTitle CONTENT BLOCKS are also Hangout-only -- gallery/engine.js
+   builds its own boss-card titles straight from CAST.judge.name/CAST.
+   authority.name (see gallery/engine.js's CARDS.boss/CARDS.finale), it
+   never reads CONFIG.judge/CONFIG.authority at all. */
 function buildOverridesFromState(state){
   const host = wrapLine(state.host || 'HOST', 40);
   const title = String(state.title || 'My Game').trim();
+  const isGallery = state.template === 'gallery';
   const overrides = {
-    lengthPreset: 'five_min',
-    // STORY SKELETONS: which of the four settings (see SCENE_DEFS above) --
-    // an enum pick, same "fixed built-in key, never a free string" shape as
-    // musicVibe just below. Falls back to 'dinner' if state.scene is
-    // somehow missing/invalid (shouldn't happen -- normalizeWizardState
-    // already guards this -- but assembleConfig should never crash on it).
-    scene: SCENE_DEFS.some(s => s.key === state.scene) ? state.scene : 'dinner',
+    // absent -> 'hangout' (cfgBuildDefaultConfig's own default templateKey)
+    // -- same "no explicit default value on the wire" convention musicVibe
+    // just below already uses.
+    template: isGallery ? 'gallery' : undefined,
     // an ENUM pick among a fixed set of built-in stock tracks -- see
     // game/cfgcodec.js's cfgApplyMusicVibe for why this is the one
     // narrow exception to "no music from a fragment, ever" (never an
@@ -513,14 +613,27 @@ function buildOverridesFromState(state){
     // per-group tone gate -- see checkForbidden/parseOffLimits above; an
     // empty off-limits field is a valid, common answer (forbiddenWords: []).
     forbiddenWords: parseOffLimits(state.offLimits),
-    stories: state.stories
-      .filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim()))
-      .slice(0, 4)
-      .map(s => ({ lines: [s.l1, s.l2].map(l => wrapLine(l, 40)).filter(Boolean) })),
     cast: {
       diner0: Object.assign({ name: wrapLine(state.otherFriendName || 'THE FOURTH FRIEND', 40), anecdote: 'Always up for anything.' }, DEFAULT_SPRITE.diner0),
     },
   };
+  if(isGallery){
+    overrides.gallery = {
+      targets: state.targets.filter(t => t && t.trim()).slice(0, GALLERY_TARGETS_MAX).map(t => wrapLine(t, 24)),
+    };
+  } else {
+    overrides.lengthPreset = 'five_min';
+    // STORY SKELETONS: which of the four settings (see SCENE_DEFS above) --
+    // an enum pick, same "fixed built-in key, never a free string" shape as
+    // musicVibe. Falls back to 'dinner' if state.scene is somehow missing/
+    // invalid (shouldn't happen -- normalizeWizardState already guards
+    // this -- but assembleConfig should never crash on it).
+    overrides.scene = SCENE_DEFS.some(s => s.key === state.scene) ? state.scene : 'dinner';
+    overrides.stories = state.stories
+      .filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim()))
+      .slice(0, 4)
+      .map(s => ({ lines: [s.l1, s.l2].map(l => wrapLine(l, 40)).filter(Boolean) }));
+  }
   // PHASE C: an explicit pick wins outright (game/roster.js's
   // rosterResolveSprite -- sprite enum beats spriteCol/Row); skipping the
   // picker leaves spriteCol/Row as the only signal, i.e. today's tile, so
@@ -535,17 +648,26 @@ function buildOverridesFromState(state){
       if(DEFAULT_SPRITE[r.cfgKey]) Object.assign(entry, DEFAULT_SPRITE[r.cfgKey]);
       if(c.sprite && ROSTER_BY_KEY[c.sprite]) entry.sprite = c.sprite;
       overrides.cast[r.cfgKey] = entry;
-      // BOSS SLOTS: the boss HP bar / entrance card should read the actual
-      // person's name, not the generic "THE CRITIC"/"THE BOSS HAS ARRIVED"
-      // default text (see cfgBuildDefaultConfig, which those defaults still
-      // come from for anyone who leaves this slot uncast). entry.name is
-      // already uppercase (wrapLine), matching the "'<NAME> HAS ARRIVED'"
-      // pattern (see FULFILLMENT.md's "Boss slots read as real people") --
-      // cfgSanitizeConfig's own
-      // cfgStr(40) cap on judge.title/authority.cardTitle truncates safely
-      // if a long name pushes " HAS ARRIVED" past the limit.
-      if(r.cfgKey === 'judge') overrides.judge = { title: entry.name };
-      if(r.cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
+      if(!isGallery){
+        // BOSS SLOTS: the boss HP bar / entrance card should read the
+        // actual person's name, not the generic "THE CRITIC"/"THE BOSS HAS
+        // ARRIVED" default text (see cfgBuildDefaultConfig, which those
+        // defaults still come from for anyone who leaves this slot
+        // uncast). entry.name is already uppercase (wrapLine), matching
+        // the "'<NAME> HAS ARRIVED'" pattern (see FULFILLMENT.md's "Boss
+        // slots read as real people") -- cfgSanitizeConfig's own cfgStr(40)
+        // cap on judge.title/authority.cardTitle truncates safely if a
+        // long name pushes " HAS ARRIVED" past the limit.
+        if(r.cfgKey === 'judge') overrides.judge = { title: entry.name };
+        if(r.cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
+      } else if(r.galleryField && c[r.galleryField.key] && c[r.galleryField.key].trim()){
+        // THE GALLERY: the two optional boss lines live in gallery.
+        // firstBossHeckle/finalBossQuirk (CFG_GALLERY_SCHEMA), not a
+        // per-role content block -- blank/skipped falls back to gallery/
+        // engine.js's own neutral fallback pools (see that file's header).
+        overrides.gallery = overrides.gallery || {};
+        overrides.gallery[r.galleryField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(c[r.galleryField.key], r.galleryField.maxLen);
+      }
     } else {
       overrides.cast[r.cfgKey] = null;
     }
@@ -571,11 +693,13 @@ function wrapTitleLines(raw, maxLineLen, maxLines){
 function assembleConfig(state, engineRoot){
   const overrides = buildOverridesFromState(state);
   const sanitized = cfgSanitizeConfig(overrides);
-  // STORY SKELETONS: build the base off the picked scene, same as a real
-  // `#cfg=` link (cfgLoadFragmentOverride) does -- so the preview shown
-  // here matches exactly what opening the shared link produces, not just
-  // for dialogue/cast/music but for the scene's own flavor text too.
-  const base = cfgBuildDefaultConfig(engineRoot, sanitized.scene);
+  // STORY SKELETONS / THE GALLERY: build the base off the picked scene AND
+  // template, same as a real `#cfg=` link (cfgLoadFragmentOverride) does --
+  // so the preview shown here matches exactly what opening the shared link
+  // produces, not just for dialogue/cast/music but for the scene's own
+  // flavor text (Hangout) or the neutral gallery-section defaults (see
+  // cfgBuildGalleryDefaultConfig) too.
+  const base = cfgBuildDefaultConfig(engineRoot, sanitized.scene, sanitized.template);
   const merged = cfgDeepMerge(base, sanitized);
   // mirrors exactly what cfgLoadFragmentOverride does when a real link is
   // opened -- same hash seed too (JSON.stringify(sanitized), not yet a
@@ -614,19 +738,23 @@ function initWizard(){
   const stepsContainer = document.getElementById('stepsContainer');
   const progressRow = document.getElementById('progressRow');
   const stepLabelEl = document.getElementById('stepLabel');
-  const STEP_NAMES = ['The setting', 'Your group', 'The punchline', 'The stories', 'The cast', 'The vibe', 'Preview & share'];
 
   let currentAudio = null;
   function stopPreview(){ if(currentAudio){ try{ currentAudio.pause(); }catch(e){} currentAudio = null; } }
 
+  // THE GALLERY (template #2) -- the step count/progress segments/label
+  // all read the CURRENT template's own sequence (see stepSequence/
+  // STEP_LABELS above) -- the two paths have different step counts (8 vs
+  // 7), so this can never be a fixed constant anymore.
   function renderProgress(){
+    const seq = stepSequence(state.template);
     progressRow.innerHTML = '';
-    for(let i=0;i<WIZARD_STEP_COUNT;i++){
+    for(let i=0;i<seq.length;i++){
       const seg = document.createElement('div');
       seg.className = 'progress-seg' + (i < state.step ? ' done' : (i === state.step ? ' current' : ''));
       progressRow.appendChild(seg);
     }
-    stepLabelEl.textContent = 'Step ' + (state.step+1) + ' of ' + WIZARD_STEP_COUNT + ' -- ' + STEP_NAMES[state.step];
+    stepLabelEl.textContent = 'Step ' + (state.step+1) + ' of ' + seq.length + ' -- ' + STEP_LABELS[seq[state.step]];
   }
 
   // NOTE on field-level warnings/counters: each render*Step function below
@@ -751,11 +879,47 @@ function initWizard(){
     container.appendChild(field);
   }
 
-  /* THE SETTING -- step 1 of 7, picks CONFIG.scene (game/skeletons.js).
-     Same tap-to-select card pattern as renderStepVibe below (a div with
-     role="button", .selected/aria-pressed toggled on click, Enter/Space
-     bridged to the same click handler) -- default 'dinner', matching
-     game/config.js's own default scene. */
+  /* WHAT'S THE JOKE? -- always step 0, picks CONFIG.template (game/
+     cfgcodec.js's CFG_TEMPLATE_KEYS). Same tap-to-select card pattern as
+     renderStepSetting/renderStepVibe (reuses the .scene-card style
+     wholesale -- same interaction, just a different pick). Changing the
+     pick here is the ONLY thing that changes which steps come next (see
+     stepSequence) -- safe to do freely since this is always index 0 in
+     both sequences, so state.step itself never needs adjusting when the
+     template changes. */
+  function renderStepJoke(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2>What’s the joke?</h2>' +
+      '<p class="step-sub">Every inside joke has a shape. Pick the one that fits -- it picks the game.</p>';
+    stepsContainer.appendChild(el);
+    for(const joke of JOKE_DEFS){
+      const card = document.createElement('div');
+      card.className = 'card scene-card' + (state.template === joke.key ? ' selected' : '');
+      card.setAttribute('role', 'button');
+      card.tabIndex = 0;
+      card.setAttribute('aria-pressed', state.template === joke.key ? 'true' : 'false');
+      card.innerHTML =
+        '<div><div class="scene-label">'+joke.desc+'</div>' +
+        '<div class="scene-sub">→ '+joke.label+'</div></div>';
+      card.addEventListener('click', ()=>{
+        state.template = joke.key; persist();
+        stepsContainer.querySelectorAll('.scene-card').forEach(c2=>{ c2.classList.remove('selected'); c2.setAttribute('aria-pressed','false'); });
+        card.classList.add('selected');
+        card.setAttribute('aria-pressed', 'true');
+      });
+      card.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); card.click(); }
+      });
+      stepsContainer.appendChild(card);
+    }
+  }
+
+  /* THE SETTING -- Hangout-path only, picks CONFIG.scene (game/
+     skeletons.js). Same tap-to-select card pattern as renderStepVibe
+     below (a div with role="button", .selected/aria-pressed toggled on
+     click, Enter/Space bridged to the same click handler) -- default
+     'dinner', matching game/config.js's own default scene. */
   function renderStepSetting(){
     const el = document.createElement('div');
     el.innerHTML =
@@ -885,6 +1049,48 @@ function initWizard(){
     }
   }
 
+  /* THE TARGETS -- Gallery-path only, this template's content step (what
+     the stories step is to the Hangout). One short label per target
+     (game/cfgcodec.js's CFG_GALLERY_SCHEMA caps each at 24 chars, GALLERY_
+     TARGETS_MIN/MAX bound the list at 4-8 -- same "structural cap here,
+     UX guidance there" split renderStoryCard already uses for stories). */
+  function renderTargetCard(idx){
+    const card = document.createElement('div');
+    card.className = 'card story-card';
+    card.innerHTML =
+      (state.targets.length > GALLERY_TARGETS_MIN ? '<button type="button" class="story-remove" data-idx="'+idx+'" aria-label="Remove target '+(idx+1)+'">Remove</button>' : '') +
+      '<div class="field"><label for="t-'+idx+'">Target ' + (idx+1) + '</label><input type="text" id="t-'+idx+'" class="t-label" maxlength="24" placeholder="e.g. The Kayak Incident" value=""></div>';
+    const input = card.querySelector('.t-label');
+    input.value = state.targets[idx] || '';
+    const wrap = document.createElement('div'); input.after(wrap);
+    makeCharCounter(input, 24, wrap);
+    input.addEventListener('input', ()=>{
+      state.targets[idx] = input.value; persist();
+      fieldWarning(wrap, checkForbidden(input.value, parseOffLimits(state.offLimits))[0]||null);
+    });
+    const removeBtn = card.querySelector('.story-remove');
+    if(removeBtn) removeBtn.addEventListener('click', ()=>{ state.targets.splice(idx,1); persist(); renderStep(); });
+    return card;
+  }
+  function renderStepTargets(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2>The targets</h2>' +
+      '<p class="step-sub">4-8 things your group can’t stop roasting -- word for word, exactly how you’d say it. Each one becomes a target on the stall, plaque and all.</p>';
+    stepsContainer.appendChild(el);
+    const list = document.createElement('div');
+    list.id = 'targetList';
+    stepsContainer.appendChild(list);
+    for(let i=0;i<state.targets.length;i++) list.appendChild(renderTargetCard(i));
+    if(state.targets.length < GALLERY_TARGETS_MAX){
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button'; addBtn.className = 'btn btn-secondary btn-sm';
+      addBtn.textContent = '+ Add another target';
+      addBtn.addEventListener('click', ()=>{ state.targets.push(''); persist(); renderStep(); });
+      stepsContainer.appendChild(addBtn);
+    }
+  }
+
   function renderRoleCard(role){
     const c = state.cast[role.key];
     const card = document.createElement('div');
@@ -897,14 +1103,19 @@ function initWizard(){
     const body = document.createElement('div');
     body.className = 'role-body';
     const nameId = 'role-name-' + role.key, anecId = 'role-anec-' + role.key, skipId = 'role-skip-' + role.key;
+    const isGallery = state.template === 'gallery';
+    const descText = (isGallery && role.galleryDesc) ? role.galleryDesc : role.desc;
+    const gf = isGallery ? role.galleryField : null;
+    const gfId = gf ? 'role-gf-' + role.key : null;
     body.innerHTML =
       '<div class="role-title-row"><h2>'+role.title+'</h2>' +
       '<label class="skip-toggle" for="'+skipId+'"><input type="checkbox" class="skip-cb" id="'+skipId+'"> Skip this role</label></div>' +
-      '<p class="role-desc">'+role.desc+'</p>' +
+      '<p class="role-desc">'+descText+'</p>' +
       '<div class="role-fields">' +
       '<div class="field"><label for="'+nameId+'">Name</label><input type="text" class="role-name" id="'+nameId+'" maxlength="40" placeholder="e.g. their actual name or nickname"></div>' +
       '<div class="field"><label for="'+anecId+'">One quick memory or quirk <span class="opt">(optional -- flavor, not literal dialogue)</span></label>' +
       '<textarea class="role-anec" id="'+anecId+'" rows="2" maxlength="160" placeholder="e.g. Has an opinion about everything, whether or not anyone asked."></textarea></div>' +
+      (gf ? '<div class="field"><label for="'+gfId+'">'+gf.label+'</label><input type="text" class="role-gf" id="'+gfId+'" maxlength="'+gf.maxLen+'" placeholder="'+gf.placeholder+'"></div>' : '') +
       '</div>';
     card.appendChild(iconWrap);
     card.appendChild(body);
@@ -912,6 +1123,7 @@ function initWizard(){
     const fields = body.querySelector('.role-fields');
     const nameInput = body.querySelector('.role-name');
     const anecInput = body.querySelector('.role-anec');
+    const gfInput = body.querySelector('.role-gf');
     // PHASE C: "which one is them?" -- optional, skipping it changes nothing
     // (see buildOverridesFromState). DEFAULT_ROSTER_KEY[role.cfgKey] is
     // undefined for savior/authority (no bespoke tile to preselect -- see
@@ -921,6 +1133,20 @@ function initWizard(){
     });
     skipCb.checked = !c.cast;
     nameInput.value = c.name; anecInput.value = c.anecdote;
+    // THE GALLERY (template #2) -- the optional boss-line field (heckle/
+    // quirk) only exists in the markup at all when template is gallery AND
+    // this role defines one (see ROLE_DEFS); gfInput is null on the
+    // Hangout path or for roles with no such field, so every access below
+    // is guarded.
+    if(gfInput){
+      gfInput.value = c[gf.key] || '';
+      const gfWrap = document.createElement('div'); gfInput.parentElement.appendChild(gfWrap);
+      makeCharCounter(gfInput, gf.maxLen, gfWrap);
+      gfInput.addEventListener('input', ()=>{
+        c[gf.key] = gfInput.value; persist();
+        fieldWarning(gfInput.parentElement, checkForbidden(gfInput.value, parseOffLimits(state.offLimits))[0]||null);
+      });
+    }
     fields.classList.toggle('skipped', skipCb.checked);
     skipCb.addEventListener('change', ()=>{
       c.cast = !skipCb.checked;
@@ -1018,6 +1244,10 @@ function initWizard(){
     heading.style.cssText = 'font-size:1rem;margin:0 0 4px;';
     card.appendChild(heading);
     for(const row of REVIEW_ROWS){
+      // THE GALLERY (template #2): a row with showFor hides itself on the
+      // other path entirely (setting/stories are Hangout-only; targets is
+      // Gallery-only) -- see REVIEW_ROWS' own header comment.
+      if(row.showFor && row.showFor.indexOf(state.template) === -1) continue;
       const r = document.createElement('div');
       r.className = 'review-row';
       const label = document.createElement('span');
@@ -1045,7 +1275,12 @@ function initWizard(){
       editBtn.className = 'review-edit';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', ()=>{
-        state.step = row.step; persist(); renderStep(); window.scrollTo(0,0);
+        // look up the index in the CURRENT template's own sequence -- a raw
+        // numeric step would silently point at the wrong step once the two
+        // paths' sequences diverge (see REVIEW_ROWS' header comment).
+        const idx = stepSequence(state.template).indexOf(row.stepKey);
+        state.step = idx >= 0 ? idx : 0;
+        persist(); renderStep(); window.scrollTo(0,0);
       });
       r.appendChild(label); r.appendChild(value); r.appendChild(editBtn);
       card.appendChild(r);
@@ -1072,11 +1307,16 @@ function initWizard(){
       stepsContainer.appendChild(warnBanner);
     }
 
-    const storyCount = state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim())).length;
-    if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim() || storyCount < 1){
+    const isGallery = state.template === 'gallery';
+    const contentOk = isGallery
+      ? state.targets.filter(t => t && t.trim()).length >= GALLERY_TARGETS_MIN
+      : state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim())).length >= 1;
+    if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim() || !contentOk){
       const missing = document.createElement('div');
       missing.className = 'warning-banner show';
-      missing.textContent = 'Main character name, catchphrase, title, and at least one story are all required -- go back and fill those in.';
+      missing.textContent = isGallery
+        ? 'Main character name, catchphrase, title, and at least ' + GALLERY_TARGETS_MIN + ' targets are all required -- go back and fill those in.'
+        : 'Main character name, catchphrase, title, and at least one story are all required -- go back and fill those in.';
       stepsContainer.appendChild(missing);
       return;
     }
@@ -1101,8 +1341,17 @@ function initWizard(){
     // and is the semantically right payload (a fragment is the delta, not
     // the whole default-filled config -- also ~4x smaller).
     const fragment = cfgEncodeConfigFragment(assembled.sanitized);
-    const introUrl = new URL('../intro/#cfg=' + fragment, document.location.href).href;
-    const gameUrl = new URL('../game/#cfg=' + fragment, document.location.href).href;
+    // THE GALLERY (template #2): one page, no separate intro -- the play
+    // button AND the shared link both point straight at /gallery/#cfg=...
+    // (see gallery/index.html's own header comment). The Hangout keeps its
+    // existing two-page shape: play jumps straight into the game itself,
+    // the SHARED link goes through the intro/attract sequence first.
+    const playUrl = isGallery
+      ? new URL('../gallery/#cfg=' + fragment, document.location.href).href
+      : new URL('../game/#cfg=' + fragment, document.location.href).href;
+    const shareUrl = isGallery
+      ? playUrl
+      : new URL('../intro/#cfg=' + fragment, document.location.href).href;
 
     const playCard = document.createElement('div');
     playCard.className = 'card';
@@ -1114,10 +1363,10 @@ function initWizard(){
       '<div class="link-len" id="linkLen"></div>';
     stepsContainer.appendChild(playCard);
     const playBtn = playCard.querySelector('#playBtn');
-    playBtn.href = gameUrl;
+    playBtn.href = playUrl;
     if(violations.length){ playBtn.setAttribute('aria-disabled','true'); playBtn.removeAttribute('href'); playBtn.addEventListener('click', e=>e.preventDefault()); }
     const shareInput = playCard.querySelector('#shareLink');
-    shareInput.value = introUrl;
+    shareInput.value = shareUrl;
     playCard.querySelector('#linkLen').textContent = 'Link length: ' + fragment.length + ' characters';
     playCard.querySelector('#copyBtn').addEventListener('click', ()=>{
       shareInput.select();
@@ -1143,13 +1392,20 @@ function initWizard(){
     }
   }
 
-  const STEP_RENDERERS = [renderStepSetting, renderStepHost, renderStepPunchline, renderStepStories, renderStepCast, renderStepVibe, renderStepPreview];
+  // THE GALLERY (template #2): keyed by step KEY, not a fixed index --
+  // stepSequence(state.template) picks which keys apply and in what order
+  // (see that function's own header comment).
+  const STEP_RENDERERS = {
+    joke: renderStepJoke, setting: renderStepSetting, group: renderStepHost, punchline: renderStepPunchline,
+    stories: renderStepStories, targets: renderStepTargets, cast: renderStepCast, vibe: renderStepVibe, preview: renderStepPreview,
+  };
 
   function renderStep(){
     stopPreview();
     stepsContainer.innerHTML = '';
     renderProgress();
-    STEP_RENDERERS[state.step]();
+    const seq = stepSequence(state.template);
+    STEP_RENDERERS[seq[state.step]]();
     const nav = document.createElement('div');
     nav.className = 'btn-row';
     const backBtn = document.createElement('button');
@@ -1159,9 +1415,9 @@ function initWizard(){
     backBtn.addEventListener('click', ()=>{ if(state.step>0){ state.step--; persist(); renderStep(); window.scrollTo(0,0); } });
     const nextBtn = document.createElement('button');
     nextBtn.type = 'button'; nextBtn.className = 'btn btn-primary';
-    nextBtn.textContent = state.step === WIZARD_STEP_COUNT-1 ? 'Start over' : 'Next →';
+    nextBtn.textContent = state.step === seq.length-1 ? 'Start over' : 'Next →';
     nextBtn.addEventListener('click', ()=>{
-      if(state.step === WIZARD_STEP_COUNT-1){
+      if(state.step === seq.length-1){
         if(confirm('Clear everything and start a new game?')){
           state = defaultWizardState(); persist(); renderStep(); window.scrollTo(0,0);
         }
