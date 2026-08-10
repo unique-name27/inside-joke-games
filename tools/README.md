@@ -36,9 +36,9 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
    the generated config through: a syntax check, a full headless
    playthrough (Node `vm`, no browser — the same methodology every round
    of this project has used) that drives whatever roles ended up cast all
-   the way to the end card, and the tone gate (baseline safety words +
-   the config's own `forbiddenWords`, whole-word case-sensitive, plus the
-   "FREE" outside "FOR FREE?" rule). **A failing config is never written
+   the way to the end card, and the tone gate (this order's own
+   `forbiddenWords`, whole-word case-sensitive, and nothing else — no
+   baseline/universal word list). **A failing config is never written
    to disk** — the script prints the specific errors and exits non-zero.
 4. Writes `games/<slug>/config.js` plus the three shell HTML pages,
    copied fresh off `games/test-group/`'s own current files (not a
@@ -58,7 +58,7 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
 ```jsonc
 {
   "scene": "dinner",                        // Q1, optional, defaults to "dinner" -- "dinner" | "roadtrip" | "office" | "wedding" (see "Story skeletons" in README.md)
-  "catchphrase": "FOR FREE?",              // Q2, required
+  "catchphrase": "SO TRUE.",                // Q2, required
   "stories": ["...", "..."],                // Q3, required — array of 2-4 plain-English sentences, pre-split (one string per story); the generator uppercases + word-wraps each into up to 2 short lines itself
   "title": "The Test Group",                // Q4, required
   "host": "Jordan",                         // Q5, required — first name/nickname
@@ -77,11 +77,11 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
     "builder": "Builds something every time we hang out."
   },
   "music": {
-    "vibe": "surprise",                     // Q8 — "upbeat" | "spy" | "chase" | "warm" | "sincere" | "surprise" (anything else/omitted behaves like "surprise": no override, stock Wacky Waiting default)
+    "vibe": "warm",                         // Q8 — "upbeat" | "spy" | "chase" | "warm" | "sincere" | "surprise" (anything else/omitted behaves like "surprise": no override, deterministic per-gameId rotation)
     "songFile": null                        // Q8 — local path to an uploaded song file, or null
   },
   "spellings": [ { "from": "Catherine", "to": "Kathryn" } ], // Q9, optional — literal find/replace over every generated string
-  "offLimits": [],                          // Q10, optional — appended to forbiddenWords ON TOP OF the baseline (never replaces it)
+  "offLimits": [],                          // Q10, optional — becomes forbiddenWords directly; no baseline/universal list, nothing off-limits ships as forbiddenWords: []
   "email": "user@example.com",              // Q11, required — delivery contact only, not part of CONFIG
   "lengthPreset": "five_min"                // optional, defaults to 'five_min' per FULFILLMENT.md
 }
@@ -131,7 +131,7 @@ epilogue captions, etc.) reuses `cfgBuildDefaultConfig`'s generic-but-
 complete, already tone-gate-clean template text — the same content a
 `#cfg=` link falls back to for anything a user didn't specify. Real
 per-order wit remains `FULFILLMENT.md`'s hand-authored path (copy
-`game/config.js` as the schema reference, write every line by hand) —
+`examples/roadtrip.config.js` as the schema reference, write every line by hand) —
 this CLI automates getting a *complete, correct, deployed, verified*
 game with zero manual steps; making every line of dialogue funny for
 *this specific* group is still a person's job.

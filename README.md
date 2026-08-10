@@ -4,14 +4,17 @@ A tiny personalized-game studio: pick your friend group's roles, tell us
 your group's real (boring) stories, and get back a playable, shareable
 5–10 minute comedy game built around your own inside jokes.
 
-This repo is both the **template engine** (one shared game, entirely
-driven by a per-order config file — see "How games are added" below) and
-the **flagship game itself**: **Karks Cub Kingdom**, the original, is
-config #1 and lives at the repo root.
+This repo is the **template engine and builder** — one shared game,
+entirely driven by a per-order config file (see "How games are added"
+below). It ships no game of its own: the bare `/game/` and `/intro/`
+pages have no file config (`game/config.js` is a stub) and redirect to
+`/build/` unless a `#cfg=` link is present. Every actual game lives either
+as a deployed `games/<slug>/` folder or as an instant `#cfg=` link — see
+`games/test-group/` for a real, checked-in example.
 
-**▶ Play Karks Cub Kingdom (the flagship): `/intro/`** — once deployed,
-that's `https://<this-repo's-pages-domain>/intro/`. Locally, see "How to
-run" below.
+**▶ Build a game: `/build/`** — once deployed, that's
+`https://<this-repo's-pages-domain>/build/`. Locally, see "How to run"
+below.
 
 Plays on phones too — open in landscape (portrait shows a rotate prompt);
 movement is a floating joystick on the left half of the screen, tap the
@@ -25,9 +28,11 @@ right half for the action button.
   (title, punchline, cast, stories, dialogue, music, and which of six
   optional character roles are even present) comes from a `CONFIG` object,
   not from the engine code itself.
-- **`game/config.js`** — Karks Cub Kingdom's own config (config #1). The
-  engine plays byte-identically to the original hand-authored build when
-  loaded with it.
+- **`game/config.js`** — a stub (`let CONFIG = null`). The bare `/game/`
+  and `/intro/` pages ship no game of their own; see
+  `examples/roadtrip.config.js` (fully cast) and
+  `examples/test-group.config.js` (degraded) for the real schema
+  references instead.
 - **`game/skeletons.js`** — the four **story skeletons** (settings): THE
   DINNER PARTY, THE ROAD TRIP, THE OFFICE PARTY, THE WEDDING WEEKEND. See
   "Story skeletons" below.
@@ -58,9 +63,11 @@ no npm install:
 python -m http.server 8809
 ```
 
-then visit `http://localhost:8809/intro/` (Karks Cub Kingdom, config #1)
-or `http://localhost:8809/games/test-group/` (the second worked example,
-with three of six roles uncast and a shorter runtime).
+then visit `http://localhost:8809/build/` to build a game, or
+`http://localhost:8809/games/test-group/` (the checked-in worked example,
+with three of six roles uncast and a shorter runtime). Visiting
+`http://localhost:8809/intro/` or `/game/` directly, with no `#cfg=` link,
+redirects to `/build/` — there's no file config to play there.
 
 On load you'll see a black boot-gate screen — any key / click / tap /
 gamepad button unlocks audio and starts the cinematic. During the
@@ -68,9 +75,10 @@ cinematic, Enter / Escape / Space / click / gamepad button skips straight
 to the title screen, which attract-loops after 25 seconds idle. PRESS
 START launches the game.
 
-Jump straight to a later part of *any* game via `game/?start=<value>` —
-`dinner` (default), `boss` (skip to the critic fight — only meaningful if
-that role is cast), `aram` (skip to the chase), `ending` (skip to the
+Jump straight to a later part of *any real* game (a `games/<slug>/` page,
+or `/game/` with a `#cfg=` link already attached) via `game/?start=<value>`
+— `dinner` (default), `boss` (skip to the critic fight — only meaningful if
+that role is cast), `finalboss` (skip to the chase), `ending` (skip to the
 celebration/epilogues/Beat 5), or `techsupport` (skip straight to Beat 5);
 an invalid or missing value falls back to `dinner`. These are debug
 shortcuts and don't respect role-casting the way normal play does — if a
@@ -87,7 +95,7 @@ and its own `config.js`:
 ```
 games/<slug>/
   index.html        redirect to intro/ (same pattern as the repo root)
-  config.js          that order's CONFIG -- see game/config.js for the schema
+  config.js          that order's CONFIG -- see examples/roadtrip.config.js for the schema
   intro/index.html   <script src="../config.js"> + <script src="../../../intro/engine.js">
   game/index.html    <script src="../config.js"> + <script src="../../../game/engine.js">
 ```
@@ -146,11 +154,11 @@ the full design):
   bit-compatible with one — it only ever needs to round-trip with
   itself). Handles arbitrary Unicode (emoji included) via UTF-8.
 - **Default + merge**: the decoded fragment deep-merges onto
-  `cfgBuildDefaultConfig()` — a neutral, fully-populated template (NOT
-  Karks Cub Kingdom's own branding, which stays the *schema* reference in
-  `game/config.js`) — so a fragment can supply just a few fields (a host
-  name, a punchline) and still get a complete, playable game; anything it
-  doesn't specify falls back to generic-but-complete template content.
+  `cfgBuildDefaultConfig()` — a neutral, fully-populated template, deliberately
+  unbranded (see `examples/roadtrip.config.js` for the schema reference
+  instead) — so a fragment can supply just a few fields (a host name, a
+  punchline) and still get a complete, playable game; anything it doesn't
+  specify falls back to generic-but-complete template content.
 - **Whitelist validation**: the decoded object is sanitized against an
   explicit schema before it ever touches `CONFIG` — unknown keys are
   dropped, strings/arrays are length-capped, and `music`/`gameId` are
@@ -218,11 +226,14 @@ All sound effects and music are Kenney (kenney.nl) assets under CC0 — see
 became which in-game sound, which loop scores which beat). CC0 means no
 attribution is required; it's included anyway.
 
-Character/tile art is Kenney's **Tiny Dungeon** and **Tiny Town** packs
-(`intro/assets/`, CC0, license copy included) — everything else (the
-chef's toque, the wagyu steak prop, sparkles, the hand-built pixel title
-font) is drawn programmatically with `fillRect` pixel art, no external
-image files.
+Character/tile art is Kenney's **Tiny Dungeon**, **Tiny Town**, **Tiny
+Farm**, **Tiny Ski**, and **Tiny Battle** packs (`intro/assets/`, CC0,
+license copies included — see that folder's own `CREDITS.txt`) — a ~26-
+entry curated roster (`game/roster.js`) lets every cast slot and the host
+pick a tile that actually looks like the real person (or a non-human pick
+— a slime, a cow, a snowman). Everything else (the gift-steak prop,
+sparkles, the hand-built pixel title font) is drawn programmatically with
+`fillRect` pixel art, no external image files.
 
 The Karplus-Strong jaw-harp "twang" sound and the SpeechSynthesis-spoken
 punchline/critiques are the only things still fully synthesized/native —

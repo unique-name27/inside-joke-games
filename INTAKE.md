@@ -24,9 +24,9 @@ Not sure? Default to THE DINNER PARTY — it's the original.
 
 **Q2. What's your group's catchphrase?** *(Short answer, required)*
 
-Every group has one — the thing somebody always says. Ours is "FOR FREE?"
-(don't ask). Yours becomes the punchline of your game, the one line
-everybody shouts at the big finish. Type it exactly how your group says it.
+Every group has one — the thing somebody always says. It becomes the
+punchline of your game, the one line everybody shouts at the big finish.
+Type it exactly how your group says it.
 
 ---
 
@@ -41,9 +41,9 @@ sentences each. Give us 2 or 3.
 
 **Q4. What should we call your game?** *(Short answer, required)*
 
-A title in the spirit of "Karks Cub Kingdom" — your group's name, an inside
-joke, whatever fits. Keep it short; it has to render as blocky pixel
-lettering.
+Your group's name, an inside joke, whatever fits — see `examples/test-group.config.js`
+for a worked example ("The Test Group"). Keep it short; it has to render
+as blocky pixel lettering.
 
 ---
 
@@ -130,4 +130,5 @@ hours).
   a "Cast your group" section, rather than one big text box — makes the
   skip-by-leaving-blank behavior obvious.
 - Q10's answers map directly onto the deployed game's `forbiddenWords` list
-  (plus KCK's own COIN/BILL/COST/NOTHING baseline) — see `FULFILLMENT.md`.
+  — there's no baseline/universal list, this order's own answer is the
+  entire tone gate — see `FULFILLMENT.md`.

@@ -8,7 +8,7 @@
    copy it over game/config.js for a local check) to see a second scene
    played end to end.
 
-   Differences from CONFIG #1 (game/config.js) and examples/test-group.config.js:
+   Differences from examples/test-group.config.js:
    - `scene: 'roadtrip'` -- the arena, props, and mechanic-flavor strings
      (start card, mode-select) all come from SKELETONS.roadtrip instead of
      SKELETONS.dinner; the beat choreography and collision geometry are
@@ -36,7 +36,7 @@ const CONFIG = {
     gamePageTitle: 'The Road Trip Crew -- Playable Demo',
   },
 
-  punchline: 'FOR FREE?',
+  punchline: "WE'RE NOT LOST.",
 
   host: {
     name: 'TAYLOR',
@@ -55,7 +55,7 @@ const CONFIG = {
     introFallback: '../assets/audio/music/night-at-the-beach.ogg',
   },
 
-  forbiddenWords: ['COIN', 'BILL', 'COST', 'NOTHING'],
+  forbiddenWords: [], // no universal baseline anymore -- this group has nothing off-limits
 
   dismissiveLine: 'OKAY. WE GET IT.',
 

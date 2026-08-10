@@ -301,10 +301,10 @@ const DEFAULT_SPRITE = {
 // roster key instead of raw col/row) -- what the sprite strip preselects
 // as "today's tile" for a slot the user hasn't touched the picker for.
 // host isn't a cast entry (CONFIG.host directly) but gets the same
-// treatment -- 'plain' is the chef's own hardcoded tile (game/roster.js).
+// treatment -- 'plain' is the host's own default roster tile (game/roster.js).
 // authority/savior have NO entry here on purpose: they have no roster
 // tile today (bespoke tinted/plain rendering -- see game/engine.js's
-// drawAram/drawWoman) -- their strip starts with nothing selected, and
+// drawFinalBoss/drawWoman) -- their strip starts with nothing selected, and
 // picking one OVERRIDES that bespoke look (see buildOverridesFromState).
 const DEFAULT_ROSTER_KEY = {
   host: 'plain', diner0: 'villager', judge: 'grandma',
@@ -381,12 +381,6 @@ const REVIEW_ROWS = [
     } },
 ];
 
-// mirrors tools/verify-config.js's BASELINE_FORBIDDEN -- this is a
-// standalone static page with no shared module system with the Node CLI,
-// so this list is duplicated by the same established convention as
-// fmt()/skey() across game/engine.js and intro/engine.js. Keep in sync.
-const BASELINE_FORBIDDEN = ['COIN', 'BILL', 'COST', 'NOTHING'];
-
 const WIZARD_STEP_COUNT = 7;
 const WIZARD_STORAGE_KEY = 'ijg_build_wizard_v1';
 
@@ -398,7 +392,7 @@ function defaultWizardState(){
     scene: 'dinner',
     host: '', otherFriendName: '',
     hostSprite: null, otherFriendSprite: null, // PHASE C: null == "use the default tile"
-    catchphrase: '', title: '',
+    catchphrase: '', title: '', offLimits: '',
     stories: [ {l1:'',l2:''}, {l1:'',l2:''} ],
     cast: cast,
     vibe: null,
@@ -433,37 +427,51 @@ function deserializeWizardState(json){
   try{ return normalizeWizardState(JSON.parse(json)); }catch(e){ return defaultWizardState(); }
 }
 
-/* live content gate: baseline safety words (whole-word, case-insensitive
-   since this scans free-typed text, not a finished ALL-CAPS config file)
-   + the FREE-outside-FOR-FREE? rule. Best-effort/client-side, per the
-   round's own framing -- the paid path still gets FULFILLMENT.md's real
-   human content review. Returns an array of short, friendly messages
-   (empty = clean). */
-function checkForbidden(text){
-  if(!text) return [];
+/* live content gate: entirely per-group now -- there's no universal/
+   baseline word list and no FREE-outside-FOR-FREE? special case anymore
+   (see tools/verify-config.js's toneGateSource for the same rule on the
+   server/CLI side of this exact mechanism) -- the gate is just THIS
+   group's own off-limits words (state.offLimits, the punchline step's
+   "Anything your game must never say?" field), checked whole-word,
+   case-insensitive since this scans free-typed text, not a finished
+   ALL-CAPS config file. Best-effort/client-side, per this project's own
+   framing -- the paid path still gets FULFILLMENT.md's real human content
+   review. Returns an array of short, friendly messages (empty = clean). */
+function escapeRegexLite(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+/* raw comma-separated free text -> a capped, deduped, uppercased array --
+   10 entries x 40 chars each (cfgSanitizeConfig's own forbiddenWords cap,
+   game/cfgcodec.js's CFG_FRAGMENT_SCHEMA, additionally truncates any one
+   word to 30 chars at encode time -- this is just the wizard's own
+   friendlier pre-cap, never a second source of truth for the real limit). */
+function parseOffLimits(raw){
+  const seen = new Set();
+  const out = [];
+  for(const part of String(raw || '').split(',')){
+    const w = part.trim().toUpperCase().slice(0, 40);
+    if(!w || seen.has(w)) continue;
+    seen.add(w);
+    out.push(w);
+    if(out.length >= 10) break;
+  }
+  return out;
+}
+function checkForbidden(text, offLimitsWords){
+  if(!text || !offLimitsWords || !offLimitsWords.length) return [];
   const violations = [];
   const upper = String(text).toUpperCase();
-  for(const w of BASELINE_FORBIDDEN){
-    const re = new RegExp('\\b' + w + '\\b');
-    if(re.test(upper)) violations.push('Contains "' + w + '" -- this word can’t appear in the game text.');
-  }
-  const freeRe = /FREE/g;
-  let m;
-  while((m = freeRe.exec(upper))){
-    const window = upper.slice(Math.max(0, m.index-8), m.index+10);
-    if(window.indexOf('FOR FREE?') === -1){
-      violations.push('"FREE" can only appear as part of "FOR FREE?" -- try rewording.');
-      break;
-    }
+  for(const w of offLimitsWords){
+    const re = new RegExp('\\b' + escapeRegexLite(w) + '\\b');
+    if(re.test(upper)) violations.push('Contains "' + w + '" -- your own off-limits list says this can’t appear in the game text.');
   }
   return violations;
 }
 function checkStateForbidden(state){
+  const words = parseOffLimits(state.offLimits);
   const fields = [state.host, state.otherFriendName, state.catchphrase, state.title];
   for(const s of state.stories){ fields.push(s.l1); fields.push(s.l2); }
   for(const r of ROLE_DEFS){ const c = state.cast[r.key]; if(c.cast){ fields.push(c.name); fields.push(c.anecdote); } }
   const all = [];
-  for(const f of fields) all.push(...checkForbidden(f));
+  for(const f of fields) all.push(...checkForbidden(f, words));
   return Array.from(new Set(all));
 }
 
@@ -500,8 +508,11 @@ function buildOverridesFromState(state){
       introPageTitle: title,
       gamePageTitle: title + ' -- Playable Demo',
     },
-    punchline: wrapLine(state.catchphrase || 'FOR FREE?', 40),
+    punchline: wrapLine(state.catchphrase || 'CLASSIC.', 40),
     host: { name: host },
+    // per-group tone gate -- see checkForbidden/parseOffLimits above; an
+    // empty off-limits field is a valid, common answer (forbiddenWords: []).
+    forbiddenWords: parseOffLimits(state.offLimits),
     stories: state.stories
       .filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim()))
       .slice(0, 4)
@@ -528,8 +539,9 @@ function buildOverridesFromState(state){
       // person's name, not the generic "THE CRITIC"/"THE BOSS HAS ARRIVED"
       // default text (see cfgBuildDefaultConfig, which those defaults still
       // come from for anyone who leaves this slot uncast). entry.name is
-      // already uppercase (wrapLine), matching KCK's own hardcoded pattern
-      // ('ARAM HAS ARRIVED' in game/config.js) -- cfgSanitizeConfig's own
+      // already uppercase (wrapLine), matching the "'<NAME> HAS ARRIVED'"
+      // pattern (see FULFILLMENT.md's "Boss slots read as real people") --
+      // cfgSanitizeConfig's own
       // cfgStr(40) cap on judge.title/authority.cardTitle truncates safely
       // if a long name pushes " HAS ARRIVED" past the limit.
       if(r.cfgKey === 'judge') overrides.judge = { title: entry.name };
@@ -783,8 +795,8 @@ function initWizard(){
     const hostInput = el.querySelector('#fHost');
     hostInput.value = state.host;
     hostInput.addEventListener('input', ()=>{ state.host = hostInput.value; persist(); checkLive(hostInput); });
-    // PHASE C: main character's sprite pick -- default preselected ('plain',
-    // the chef's own today's tile), skipping it changes nothing.
+    // PHASE C: main character's sprite pick -- default preselected
+    // ('plain', the roster's own default host tile), skipping it changes nothing.
     renderSpriteStrip(el, 'Which one is them?', state.hostSprite, DEFAULT_ROSTER_KEY.host, (key)=>{
       state.hostSprite = key; persist();
     });
@@ -801,7 +813,7 @@ function initWizard(){
       state.otherFriendSprite = key; persist();
     });
     function checkLive(input){
-      const v = checkForbidden(input.value);
+      const v = checkForbidden(input.value, parseOffLimits(state.offLimits));
       fieldWarning(input.parentElement, v[0] || null);
     }
   }
@@ -812,16 +824,25 @@ function initWizard(){
       '<h2>The punchline</h2>' +
       '<p class="step-sub">The thing your group always says, and what to call your game.</p>' +
       '<div class="field"><label for="fCatch">Your group’s catchphrase</label>' +
-      '<input type="text" id="fCatch" maxlength="40" placeholder="e.g. For free?"></div>' +
+      '<input type="text" id="fCatch" maxlength="40" placeholder="e.g. So true."></div>' +
       '<div class="field"><label for="fTitle">What should we call your game?</label>' +
-      '<input type="text" id="fTitle" maxlength="40" placeholder="e.g. The Example Crew"></div>';
+      '<input type="text" id="fTitle" maxlength="40" placeholder="e.g. The Example Crew"></div>' +
+      '<div class="field"><label for="fOffLimits">Anything your game must never say? <span class="opt">(optional)</span></label>' +
+      '<input type="text" id="fOffLimits" placeholder="e.g. an old nickname, a sore subject">' +
+      '<p class="step-sub" style="margin:6px 0 0;">Comma-separated words or short phrases -- we block them from every screen of your game.</p></div>';
     stepsContainer.appendChild(el);
     const catchInput = el.querySelector('#fCatch');
     const titleInput = el.querySelector('#fTitle');
-    catchInput.value = state.catchphrase; titleInput.value = state.title;
+    const offLimitsInput = el.querySelector('#fOffLimits');
+    catchInput.value = state.catchphrase; titleInput.value = state.title; offLimitsInput.value = state.offLimits;
     makeCharCounter(catchInput, 40, catchInput.parentElement);
-    catchInput.addEventListener('input', ()=>{ state.catchphrase = catchInput.value; persist(); fieldWarning(catchInput.parentElement, checkForbidden(catchInput.value)[0] || null); });
+    function liveCheck(){
+      const words = parseOffLimits(state.offLimits);
+      fieldWarning(catchInput.parentElement, checkForbidden(catchInput.value, words)[0] || null);
+    }
+    catchInput.addEventListener('input', ()=>{ state.catchphrase = catchInput.value; persist(); liveCheck(); });
     titleInput.addEventListener('input', ()=>{ state.title = titleInput.value; persist(); });
+    offLimitsInput.addEventListener('input', ()=>{ state.offLimits = offLimitsInput.value; persist(); liveCheck(); });
   }
 
   function renderStoryCard(story, idx){
@@ -838,8 +859,8 @@ function initWizard(){
     const l2Wrap = document.createElement('div'); l2.after(l2Wrap);
     makeCharCounter(l1, 40, l1Wrap);
     makeCharCounter(l2, 40, l2Wrap);
-    l1.addEventListener('input', ()=>{ story.l1 = l1.value; persist(); fieldWarning(l1Wrap, checkForbidden(l1.value)[0]||null); });
-    l2.addEventListener('input', ()=>{ story.l2 = l2.value; persist(); fieldWarning(l2Wrap, checkForbidden(l2.value)[0]||null); });
+    l1.addEventListener('input', ()=>{ story.l1 = l1.value; persist(); fieldWarning(l1Wrap, checkForbidden(l1.value, parseOffLimits(state.offLimits))[0]||null); });
+    l2.addEventListener('input', ()=>{ story.l2 = l2.value; persist(); fieldWarning(l2Wrap, checkForbidden(l2.value, parseOffLimits(state.offLimits))[0]||null); });
     const removeBtn = card.querySelector('.story-remove');
     if(removeBtn) removeBtn.addEventListener('click', ()=>{ state.stories.splice(idx,1); persist(); renderStep(); });
     return card;
@@ -917,7 +938,7 @@ function initWizard(){
         fields.classList.remove('skipped');
       }
       persist();
-      fieldWarning(fields, checkForbidden(nameInput.value)[0]||null);
+      fieldWarning(fields, checkForbidden(nameInput.value, parseOffLimits(state.offLimits))[0]||null);
     });
     anecInput.addEventListener('input', ()=>{ c.anecdote = anecInput.value; persist(); });
     return card;

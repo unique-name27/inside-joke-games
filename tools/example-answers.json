@@ -1,6 +1,6 @@
 {
   "scene": "dinner",
-  "catchphrase": "FOR FREE?",
+  "catchphrase": "SO TRUE.",
   "stories": [
     "I missed my flight by four minutes.",
     "I alphabetized the spice rack while we were on hold."
@@ -19,7 +19,7 @@
     "builder": "Builds something every time we hang out."
   },
   "music": {
-    "vibe": "surprise",
+    "vibe": "warm",
     "songFile": null
   },
   "spellings": [],

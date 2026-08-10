@@ -92,9 +92,8 @@ class GenerateError extends Error {}
 
 /* naive uppercase word-wrap into at most 2 lines, each capped at ~36
    chars to stay comfortably inside the pixel-font layout the existing
-   configs use (KCK's own longest line, "GOOD THING HE BOUGHT ALL THE",
-   is 29 chars) -- long overflow is dropped rather than producing a
-   3rd/4th line no phase ever reads. */
+   configs use -- long overflow is dropped rather than producing a 3rd/4th
+   line no phase ever reads. */
 function wrapStoryLine(raw, maxLineLen, maxLines){
   maxLineLen = maxLineLen || 36;
   maxLines = maxLines || 2;
@@ -116,9 +115,9 @@ function wrapStoryLine(raw, maxLineLen, maxLines){
   return lines.length ? lines : ['...'];
 }
 
-/* title.lockupLines wants roughly-BALANCED short lines (KCK's own is
-   ['KARKS CUB','KINGDOM'], test-group's is ['THE TEST','GROUP']) rather
-   than greedily packing every word onto line 1 -- splits at the word-count
+/* title.lockupLines wants roughly-BALANCED short lines (e.g. test-group's
+   own ['THE TEST','GROUP']) rather than greedily packing every word onto
+   line 1 -- splits at the word-count
    midpoint when there's more than one word, each line still capped at
    maxLineLen as a hard backstop. */
 function wrapTitleLines(raw, maxLineLen, maxLines){
@@ -181,7 +180,7 @@ function buildOverrides(answers, slug){
 
   // PHASE C (characters are their people) -- OPTIONAL: answers.hostSprite is
   // a game/roster.js key ("which tile is the host?"); unset/unrecognized
-  // silently no-ops (host keeps its bespoke chef tile, same as always --
+  // silently no-ops (host keeps its default 'plain' roster tile, same as always --
   // see game/roster.js's rosterResolveSprite for the exact precedence).
   // Not part of tools/README.md's required schema -- this CLI's answers.json
   // predates the roster and every existing answers file keeps working
@@ -190,8 +189,12 @@ function buildOverrides(answers, slug){
     overrides.host.sprite = answers.hostSprite;
   }
 
+  // the tone gate is entirely per-group -- no baseline/universal word list
+  // (see tools/verify-config.js's toneGateSource) -- so this order's own
+  // Q10 answer IS the whole forbiddenWords list. Nothing off-limits ->
+  // forbiddenWords: [], by design.
   const offLimits = Array.isArray(answers.offLimits) ? answers.offLimits.map(String) : [];
-  overrides.forbiddenWords = ['COIN', 'BILL', 'COST', 'NOTHING'].concat(offLimits.map(w => w.toUpperCase()));
+  overrides.forbiddenWords = offLimits.map(w => w.toUpperCase());
 
   for(const introKey in ROLE_KEY){
     const cfgKey = ROLE_KEY[introKey];
@@ -212,8 +215,9 @@ function buildOverrides(answers, slug){
       // BOSS SLOTS: the boss HP bar / entrance card reads the actual
       // person's name, not cfgBuildDefaultConfig's generic "THE CRITIC"/
       // "THE BOSS HAS ARRIVED" fallback text -- entry.name is already
-      // uppercase above, matching KCK's own hardcoded pattern ('ARAM HAS
-      // ARRIVED' in game/config.js). This written-to-file config.js path
+      // uppercase above, matching the "'<NAME> HAS ARRIVED'" pattern
+      // (see FULFILLMENT.md's "Boss slots read as real people"). This
+      // written-to-file config.js path
       // doesn't run through cfgSanitizeConfig (see this function's own doc
       // comment -- answers.json is trusted operator input), so a name at
       // the full 40-char cap plus " HAS ARRIVED" can run long here; the
@@ -252,11 +256,11 @@ function applySpellings(obj, spellings){
   let out = json;
   for(const { from, to } of spellings){
     // most in-game text is ALL CAPS by this project's established style
-    // (see game/config.js's own header comment) -- Q9's answers come in as
-    // a user would naturally type them ("Kathryn not Catherine"), so an
-    // uppercased pass catches that majority; title.introPageTitle/
-    // gamePageTitle are the one deliberately mixed-case exception (rendered
-    // as literal <title> text, e.g. KCK's own 'Karks Cub Kingdom'), so an
+    // (see examples/roadtrip.config.js's own header comment) -- Q9's
+    // answers come in as a user would naturally type them ("Kathryn not
+    // Catherine"), so an uppercased pass catches that majority;
+    // title.introPageTitle/gamePageTitle are the one deliberately
+    // mixed-case exception (rendered as literal <title> text), so an
     // exact-case pass runs too, covering both without double-processing
     // (an already-uppercase `from` makes both passes identical, harmless).
     out = out.split(String(from).toUpperCase()).join(String(to).toUpperCase());

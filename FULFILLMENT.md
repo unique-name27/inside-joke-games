@@ -72,7 +72,7 @@ short, URL-safe, hard-to-guess identifier for the order (first names +
 a few random characters is enough — see "Privacy" below; not the user's
 literal name or email).
 
-Use `game/config.js` (KCK, config #1) as the schema reference and
+Use `examples/roadtrip.config.js` (fully cast) as the schema reference and
 `examples/test-group.config.js` as a second worked example of an
 intentionally-degraded config — copy whichever is the closer starting
 point, then fill in every field from the intake answers:
@@ -88,7 +88,7 @@ point, then fill in every field from the intake answers:
 | Q7 anecdotes | each cast role's `anecdote` field, and inform the flavor of that role's written lines (see below) |
 | Q8 music | `music.customSongPath` (user's uploaded file, copied into `games/<slug>/assets/` — see "Assets" below) **or** `null` + pick one `music.loops` entry to lean on (see the vibe → loop-key mapping below) |
 | Q9 spellings | apply throughout — every name that appears in any line |
-| Q10 off-limits | append to `forbiddenWords` (in addition to the baseline `['COIN','BILL','COST','NOTHING']` — KCK's own instance of the rule; keep that baseline unless an order specifically needs it changed) |
+| Q10 off-limits | becomes `forbiddenWords` directly — this order's own list, no baseline/universal words at all. Nothing off-limits ships as `forbiddenWords: []` |
 | Q11 email | not part of the config — just your delivery contact |
 
 **Story skeletons (Q1).** `scene` picks which of the four settings' arena,
@@ -101,23 +101,22 @@ built the config, it already validated `scene` against the four allowed
 keys and refused to write the file on an unrecognized value.
 
 **Writing the actual dialogue.** Every cast role needs its content bucket's
-lines written out in full (see `game/config.js` for the complete field list
-per role: `judge.critiqueLines`/`duckLines`/`hitLines`/`cardBody`/
+lines written out in full (see `examples/roadtrip.config.js` for the
+complete field list per role: `judge.critiqueLines`/`duckLines`/`hitLines`/`cardBody`/
 `fakeDeathLine1`/`fakeDeathLine2`, `authority.entranceLine1`/`entranceLine2`/
 `turnGoodLine1`/`turnGoodLine2`/`beggingLine`/`failLine`/`cardTitle`/
 `cardBody`, `savior.line1`/`line2`/`sincereLine`, `butterfingers.*`,
 `builder.*`). This is genuinely hand-written per order, not templated —
-that's the point of the product. Keep the tone matching KCK's own (deadpan,
-ALL CAPS, short lines) and lean on the Q7 anecdotes for flavor.
+that's the point of the product. Keep the tone deadpan, ALL CAPS, short
+lines, and lean on the Q7 anecdotes for flavor.
 
 **Boss slots read as real people.** When The First Boss (`judge`) is cast,
 set `judge.title` to that person's name, ALL CAPS — it's what the boss HP
 bar shows during the fight, and it should read MARCO, not the generic "THE
 CRITIC" placeholder. Likewise, when The Final Boss (`authority`) is cast,
-set `authority.cardTitle` to `'<NAME> HAS ARRIVED'`, ALL CAPS — see
-`game/config.js`'s own `'ARAM HAS ARRIVED'` for the pattern this comes
-from. (`tools/generate.js` and the `/build/` wizard both do this
-automatically now; this only matters when you're hand-authoring a config.)
+set `authority.cardTitle` to `'<NAME> HAS ARRIVED'`, ALL CAPS. (`tools/generate.js`
+and the `/build/` wizard both do this automatically now; this only matters
+when you're hand-authoring a config.)
 
 The `{HOST}` and `{ITEM}` tokens (see `SPEC-game.md`'s "Template & roles"
 section) are available if a line needs to say the host's name or the gift
@@ -131,8 +130,8 @@ currently asked on the form, so: default to five_min).
 **Title font.** `title.lockupLines` renders through the hand-built 5×7
 pixel font — full A–Z, 0–9, apostrophe/period/question mark are covered
 (see `SPEC-game.md`), but there's no lowercase and no other punctuation.
-Keep the title short (2 short words/lines, like KCK's own `['KARKS CUB',
-'KINGDOM']`) so it fits the lockup's layout.
+Keep the title short (2 short words/lines, like test-group's own
+`['THE TEST', 'GROUP']`) so it fits the lockup's layout.
 
 **Assets.** SFX samples and the dungeon tile sheet are shared engine assets
 — never copied per order (see `README.md` "How games are added"). Only a
@@ -145,8 +144,8 @@ which sits one directory *below* `games/<slug>/config.js` itself — so the
 path needs that one extra `../` to climb back up to `games/<slug>/`
 before descending into `assets/`. (An earlier version of this note said
 `'assets/theme.mp3'`, relative to config.js's own folder — that was
-wrong, just never caught because KCK's own config.js and its game/intro
-pages happen to sit in the very same folder at the repo root, where the
+wrong, just never caught because the repo-root config.js and its game/intro
+pages happen to sit in the very same folder, where the
 two interpretations coincide. `games/test-group/config.js` shows the
 correct page-relative pattern for the shared Kenney loops,
 `'../../../assets/...'` — three levels, since that file's page is three
@@ -182,12 +181,11 @@ This is the real, checked-in tool (not a from-scratch harness per round
 anymore) — it runs, in order: a syntax check; a full headless playthrough
 (Node `vm`, no browser) that follows whatever degradation path this
 config's own cast implies (full cast → boss fight → Widowmaker →
-Aram chase; uncast JUDGE → straight to celebration; etc.) all the way to
-the end card; and the tone gate (the baseline safety words + this
-config's own `forbiddenWords`, whole-word case-sensitive, plus the
-separate `FREE`-only-inside-`CONFIG.punchline` rule — see
-`SPEC-game.md`'s "Template & roles" section for the underlying rule this
-implements). Prints PASS/FAIL, which phase the playthrough reached, which
+final-boss chase; uncast JUDGE → straight to celebration; etc.) all the way to
+the end card; and the tone gate (this config's own `forbiddenWords` list,
+whole-word case-sensitive, and nothing else — there's no baseline/
+universal word list, see `game/cfgcodec.js`'s `cfgBuildDefaultConfig` for
+why). Prints PASS/FAIL, which phase the playthrough reached, which
 roles read as cast, and every error — exit code 0 on pass. If you used
 `tools/generate.js` (see "The fast path" above) this already ran
 automatically and refused to write the config on failure; run it again
@@ -219,28 +217,28 @@ if it were a real order. This exact hypothetical intake is also checked in
 as `tools/example-answers.json` — `node tools/generate.js
 tools/example-answers.json` reproduces steps 3-5 below automatically.
 
-1. **Intake (hypothetical)**: catchphrase "FOR FREE?" · stories: missed a
+1. **Intake (hypothetical)**: catchphrase "SO TRUE." · stories: missed a
    flight by 4 minutes, alphabetized the spice rack on hold · title "The
    Test Group" · host "Jordan" · cast: only Butterfingers ("Morgan") and
    Builder ("Riley") — First Boss/Final Boss/Savior all left blank · anecdotes:
    Morgan takes 40 photos of every plate, Riley builds something every
-   hangout · music: no upload, "surprise us" → picked `dinner`/`Wacky
-   Waiting` as the default register · no off-limits list · five_min (the
-   default).
+   hangout · music: no upload, vibe "Warm and celebratory" · no off-limits
+   list · five_min (the default).
 2. **Content review**: nothing concerning — proceed.
 3. **Config mapping**: this is exactly `examples/test-group.config.js` —
    `cast.judge`/`authority`/`savior` are `null`, and their content buckets
    are simply absent from the file. `lengthPreset: 'five_min'`.
    `music.customSongPath: null` (no upload).
 4. **Deploy**: this repo ships the deployed copy at `games/test-group/` —
-   `config.js` (same content, asset paths adjusted one directory deeper),
-   `game/index.html`, `intro/index.html`, `index.html`, all copied
-   verbatim from the template shells.
+   `config.js` is literally `node tools/generate.js tools/example-answers.json`'s
+   own output (gameId pinned to `'test-group'` so the folder name and the
+   save-slot prefix match); `game/index.html`, `intro/index.html`,
+   `index.html` are copied verbatim from the template shells.
 5. **Verify**: `node --check games/test-group/config.js` passes; the
    harness confirms JUDGE/AUTHORITY/SAVIOR read as uncast, Beat 2/3/4 are
    disabled, the flow goes dinner rounds → celebration → Epilogue A →
    Epilogue B → Beat 5 → end card with the boss never becoming visible,
-   and the tone gate is clean.
+   and the tone gate is clean (forbiddenWords: []).
 6. **Deliver**: the link would be `https://<pages-domain>/games/test-group/`.
 
 This is the exact proof that the degradation map (see `SPEC-game.md`)

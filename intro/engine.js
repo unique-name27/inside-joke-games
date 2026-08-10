@@ -1,7 +1,10 @@
 'use strict';
 /* ======================================================================
-   KARKS CUB KINGDOM -- intro cinematic
-   Single-file implementation per SPEC-intro.md
+   SHARED ENGINE -- intro cinematic
+   Single-file implementation per SPEC-intro.md. Loaded by every deployed
+   games/<slug>/intro/ page AND the bare /intro/ page (which redirects to
+   the builder when there's no file config and no #cfg= fragment -- see
+   the CONFIG-resolution block just below).
    ====================================================================== */
 
 /* ---------------- shared-engine asset root -- see game/index.html for the
@@ -12,14 +15,22 @@
 const ENGINE_ROOT = new URL('../', document.currentScript.src).href;
 
 /* ---------------- URL-fragment CONFIG override (self-serve generator) ----------------
-   See game/engine.js for the full rationale -- identical mechanism here,
-   duplicated by this project's established convention for anything
-   shared between the two engines. game/cfgcodec.js is loaded just before
-   this script (right after config.js), same as on the game/ page. */
+   See game/engine.js for the full rationale (including the bare-page
+   redirect-to-builder behavior) -- identical mechanism here, duplicated by
+   this project's established convention for anything shared between the
+   two engines. game/cfgcodec.js is loaded just before this script (right
+   after config.js), same as on the game/ page. */
 const CFG_FRAGMENT = (typeof cfgLoadFragmentOverride === 'function') ? cfgLoadFragmentOverride(ENGINE_ROOT) : null;
 if(CFG_FRAGMENT && CFG_FRAGMENT.config){
-  for(const k in CONFIG){ if(Object.prototype.hasOwnProperty.call(CONFIG, k)) delete CONFIG[k]; }
-  Object.assign(CONFIG, CFG_FRAGMENT.config);
+  if(CONFIG){
+    for(const k in CONFIG){ if(Object.prototype.hasOwnProperty.call(CONFIG, k)) delete CONFIG[k]; }
+    Object.assign(CONFIG, CFG_FRAGMENT.config);
+  } else {
+    CONFIG = CFG_FRAGMENT.config;
+  }
+} else if(!CONFIG){
+  location.replace(ENGINE_ROOT + 'build/');
+  CONFIG = cfgBuildDefaultConfig(ENGINE_ROOT);
 }
 
 document.title = CONFIG.title.introPageTitle;
@@ -49,7 +60,7 @@ const SKEL_HELPERS = { PAL: PAL, drawPixelCircle: drawPixelCircle, drawBitmap: d
    a fragment-loaded game's STORAGE_PREFIX is hash-derived instead of
    CONFIG.gameId. See game/index.html for the identical (duplicated by
    convention) fmt()/skey(). */
-const STORAGE_PREFIX = CFG_FRAGMENT ? ('frag_' + CFG_FRAGMENT.hash) : ((CONFIG && CONFIG.gameId) || 'kck');
+const STORAGE_PREFIX = CFG_FRAGMENT ? ('frag_' + CFG_FRAGMENT.hash) : ((CONFIG && CONFIG.gameId) || 'game');
 function skey(name){ return STORAGE_PREFIX + '_' + name; }
 function fmt(s){
   if(typeof s !== 'string') return s;
@@ -62,8 +73,8 @@ function fmtLines(lines){ return lines.map(fmt); }
 const CAST = CONFIG.cast || {};
 const SAVIOR_CAST = !!(CONFIG.cast && CONFIG.cast.savior);
 /* PHASE C: Scene 3's flashback table used to hardcode these 4 tiles as
-   bare literals -- byte-identical to KCK, but blind to ANY cast sprite
-   pick (legacy spriteCol/Row or the new roster enum alike). Resolved once
+   bare literals -- byte-identical to the old default, but blind to ANY
+   cast sprite pick (legacy spriteCol/Row or the new roster enum alike). Resolved once
    here (CONFIG/CAST never change at runtime) via the same shared
    rosterResolveSprite + fallback-col/row-IS-today's-literal pattern
    game/engine.js's DINER_DEFS uses, so an unpicked cast (every pre-
@@ -236,7 +247,7 @@ function drawPixelText(ctx, text, x, y, px, color, align, weight){
   ctx.drawImage(pt.canvas, Math.round(dx), Math.round(y), pt.w, pt.h);
   return pt.w;
 }
-/* chunky outlined text (used for "FOR FREE?" slam + banner label) */
+/* chunky outlined text (used for the punchline slam + banner label) */
 function drawChunkyText(ctx, text, cx, cy, px, fill, outline, align){
   align = align || 'center';
   const offs = [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,-2],[-2,2],[2,2]];
@@ -248,7 +259,7 @@ function drawChunkyText(ctx, text, cx, cy, px, fill, outline, align){
 
 /* ---------------- "reading" text: crisp native fillText, no half-res upscale ----------------
    Used for narration/dialogue/captions the player has to actually read (as opposed to
-   "display" text -- the title logo, FOR FREE? slams, PRESS START/PRESS ANY BUTTON prompts --
+   "display" text -- the title logo, punchline slams, PRESS START/PRESS ANY BUTTON prompts --
    which stays on the chunky pixelText path). The half-res-then-2x trick that pixelText uses
    compounds with the DPR backing-store scale and blurs at most window sizes; native fillText
    at final integer pixel size, drawn straight onto the already DPR-correct backing store,
@@ -378,26 +389,17 @@ function drawKnife(ctx, alpha){
 }
 
 /* ---------------- programmatic props (5x-ish grid bitmaps) ---------------- */
-const TOQUE_ROWS = ['00111100','01111110','01111110','11111111','11111111'];
-const TOQUE_COLORS = {'1':'#f5f2ea'};
-const TOQUE_BAND_SHADE = '#c9c2b3';
-
 const STEAK_ROWS = ['01111110','12222110','12133210','12222110','01111110'];
 const STEAK_COLORS = {'1':'#e79b8c','2':'#f2c9b8','3':'#7a3f2a'};
 
-function drawToque(ctx, x, y, cell){
-  drawBitmap(ctx, TOQUE_ROWS, TOQUE_COLORS, x, y, cell);
-  ctx.fillStyle = TOQUE_BAND_SHADE;
-  ctx.fillRect(Math.round(x), Math.round(y+4*cell), 8*cell, cell*0.35);
-}
 function drawSteak(ctx, x, y, cell){
   drawBitmap(ctx, STEAK_ROWS, STEAK_COLORS, x, y, cell);
 }
 
 /* ---------------- hand-built pixel title font (5x7 grid) ----------------
-   Originally just enough letters for "WAGYU"; extended to cover the full
-   "KARKS CUB KINGDOM" logo lockup (K,R,S,C,B,I,N,D,O,M added -- W/Y are no
-   longer used by the title itself but are harmless to leave in place). */
+   Full A-Z coverage (this renderer draws whatever CONFIG.title.lockupLines
+   supplies -- it owns no branding of its own; W/Y are unused by any
+   currently-shipped title but harmless to leave in place). */
 const TITLE_GLYPHS = {
   W: ['10001','10001','10001','10101','10101','11011','10001'],
   A: ['01110','10001','10001','11111','10001','10001','10001'],
@@ -447,8 +449,7 @@ function titleLineCols(line){
 }
 let titleCanvasCache = null;
 /* builds a multi-line hand-built pixel logo (each line independently
-   centered within the block), same 3-pass shadow/outline/fill style as the
-   original single-word WAGYU version */
+   centered within the block), 3-pass shadow/outline/fill style */
 function buildTitleCanvas(lines, cell){
   const pad = 3, lineGap = 2;
   const lineCols = lines.map(titleLineCols);
@@ -580,8 +581,9 @@ let noiseBuffer = null;
 let recordDest = null; // MediaStreamAudioDestinationNode when recording
 
 /* ---------------- master volume setting ----------------
-   Shared with game/index.html via localStorage['kck_volume'] so the choice
-   carries between the intro and the game. RECORD_MODE forces full volume at
+   Shared with game/index.html via localStorage[skey('volume')] (STORAGE_
+   PREFIX-scoped -- see this file's fmt()/skey() comment above) so the
+   choice carries between the intro and the game. RECORD_MODE forces full volume at
    load (recordings must stay full-volume) and hides/disables the icon so it
    can't be undone mid-recording. */
 function loadVolumeSetting(){
@@ -1041,12 +1043,14 @@ function drawSpotlight(ctx, cx, cy){
   for(const [r,color] of bands) drawPixelCircle(ctx, cx, cy, r, color, 4);
 }
 // PHASE C: same host sprite resolution as game/engine.js's HOST_SPRITE --
-// resolved once (CONFIG never changes at runtime), same {dungeon,2,7}
-// fallback, so an unpicked host renders byte-identical to before this phase.
+// resolved once (CONFIG never changes at runtime), the roster's own
+// 'plain' entry ({dungeon,2,7}) as the default, so an unpicked host
+// renders byte-identical to before this phase. No overlay on top (no
+// toque/hat) -- the host renders as exactly their roster sprite, same as
+// every other seat.
 const HOST_SPRITE = rosterResolveSprite(CONFIG.host, 2, 7);
 function drawItemGetChef(ctx, cx, feetY, t){
   drawTile(ctx, rawTile(sheetImage(HOST_SPRITE.sheet),HOST_SPRITE.col,HOST_SPRITE.row), cx-32, feetY-64, 4, false);
-  drawToque(ctx, cx-16, feetY-74, 4);
   const steakY = feetY-112 + Math.sin(t*2)*3;
   drawSteak(ctx, cx-16, steakY, 4);
   for(let k=0;k<4;k++){

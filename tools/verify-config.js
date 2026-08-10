@@ -3,8 +3,11 @@
    tools/verify-config.js -- reusable CONFIG verification: syntax check,
    a full headless playthrough (driven generically off whichever roles
    are cast -- BEAT2/3/4_ENABLED, EPILOGUE_A/B_ENABLED -- not hardcoded to
-   any one config), and the tone gate (baseline safety words + the
-   config's own forbiddenWords + the FREE-only-inside-punchline rule).
+   any one config), and the tone gate (this config's own forbiddenWords
+   list, and nothing else -- see forbiddenWords' own comment in
+   game/cfgcodec.js's cfgBuildDefaultConfig for why there's no baseline/
+   universal word list: the off-limits words were always one specific
+   group's own list, never a rule the product itself imposes).
 
    Used by tools/generate.js (refuses to write games/<slug>/ on failure)
    and directly runnable on its own against any existing config file --
@@ -30,27 +33,24 @@ const CFGCODEC_PATH = path.join(REPO_ROOT, 'game', 'cfgcodec.js');
 const SKELETONS_PATH = path.join(REPO_ROOT, 'game', 'skeletons.js');
 const ROSTER_PATH = path.join(REPO_ROOT, 'game', 'roster.js');
 
-/* ---------------------------------------------------------------------
-   BASELINE_FORBIDDEN -- "always-on safety words": KCK's own baseline
-   (COIN/BILL/COST/NOTHING), enforced on EVERY config regardless of what
-   its own `forbiddenWords` says, mirroring FULFILLMENT.md's existing
-   convention ("append to forbiddenWords... in addition to the baseline").
-   A generated config's off-limits list only ever ADDS words to check,
-   never removes from this floor.
-   --------------------------------------------------------------------- */
-const BASELINE_FORBIDDEN = ['COIN', 'BILL', 'COST', 'NOTHING'];
-
 function escapeRegex(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 /* Scans the raw config SOURCE TEXT (not a parsed object) for whole-word,
-   case-sensitive forbidden-word hits and any bare "FREE" outside "FOR
-   FREE?" -- the same convention used throughout this project's own
-   verification rounds. The `forbiddenWords`/`punchline` array/field
-   DEFINITION lines are excluded from the scan (that's the gate's own
-   data, not player-facing text). */
+   case-sensitive forbidden-word hits against this config's OWN
+   `forbiddenWords` list (plus `extraForbidden`, a caller-supplied add-on
+   -- tools/generate.js/the /build/ wizard don't currently pass one, but
+   the hook stays for anything that wants to layer on more without
+   touching the config's own list). There's no universal/baseline word
+   list and no special-cased punchline exception anymore -- the tone gate
+   is entirely per-group, matching a normal person's actual worry ("don't
+   let the game say THIS"), not a rule the product itself imposes. A
+   config with nothing off-limits (forbiddenWords: []) ships with zero
+   forbidden-word checks, by design. The `forbiddenWords` array/field
+   DEFINITION line is excluded from the scan (that's the gate's own data,
+   not player-facing text). */
 function toneGateSource(configSource, extraForbidden){
   const words = Array.from(new Set(
-    BASELINE_FORBIDDEN.concat(extraForbidden || []).map(w => String(w).toUpperCase()).filter(Boolean)
+    (extraForbidden || []).map(w => String(w).toUpperCase()).filter(Boolean)
   ));
   // exclude the ENTIRE forbiddenWords array literal from the scan -- that's
   // the gate's own data, not player-facing text. A plain per-LINE exclusion
@@ -60,25 +60,25 @@ function toneGateSource(configSource, extraForbidden){
   // never contain the literal substring "forbiddenWords" -- so this matches
   // the whole `forbiddenWords: [...]`/`"forbiddenWords": [...]` span,
   // single- or multi-line alike ([^\]]* matches newlines, unlike `.`).
+  // The config's OWN list is read back out of that same span (rather than
+  // requiring every caller to also pass it in) so `node tools/verify-
+  // config.js <file>` keeps working as a single-argument, no-extra-setup
+  // command against any real config file.
+  const forbiddenMatch = /["']?forbiddenWords["']?\s*:\s*\[([^\]]*)\]/.exec(configSource);
+  if(forbiddenMatch){
+    const listedWords = forbiddenMatch[1].match(/["']([^"']*)["']/g) || [];
+    for(const w of listedWords) words.push(w.slice(1, -1).toUpperCase());
+  }
+  const uniqueWords = Array.from(new Set(words.filter(Boolean)));
   const scanText = configSource.replace(/["']?forbiddenWords["']?\s*:\s*\[[^\]]*\]/g, '');
   const violations = [];
-  if(words.length){
-    const pattern = new RegExp('\\b(' + words.map(escapeRegex).join('|') + ')\\b');
+  if(uniqueWords.length){
+    const pattern = new RegExp('\\b(' + uniqueWords.map(escapeRegex).join('|') + ')\\b');
     const globalPattern = new RegExp(pattern.source, 'g');
     let m;
     while((m = globalPattern.exec(scanText))){
       const lineNo = scanText.slice(0, m.index).split('\n').length;
       violations.push('forbidden word "' + m[0] + '" on line ' + lineNo);
-    }
-  }
-  const freePattern = /FREE/g;
-  let fm;
-  while((fm = freePattern.exec(scanText))){
-    const start = fm.index;
-    const window = scanText.slice(Math.max(0, start-8), start+10);
-    if(window.indexOf('FOR FREE?') === -1){
-      const lineNo = scanText.slice(0, start).split('\n').length;
-      violations.push('bare "FREE" outside "FOR FREE?" on line ' + lineNo + ' (context: ' + window.replace(/\n/g,' ') + ')');
     }
   }
   return violations;
@@ -119,10 +119,10 @@ function __selectHardMode(){
   }
 }
 /* PHASE C (characters are their people) -- tools/verify-skeletons.js's own
-   no-pick KCK-parity check reads this: every place a cast/host sprite
+   roster-defaults check reads this: every place a cast/host sprite
    resolves to an actual {sheet,col,row}, so it can assert an unpicked
-   config (every pre-Phase-C config, including game/config.js itself)
-   still resolves to today's exact literal tile for every seat. */
+   config still resolves to game/roster.js's own documented default tile
+   for every seat. */
 function __rosterProbe(){
   return {
     diners: DINER_DEFS.map(function(d){ return { sheet:d.sheet, col:d.col, row:d.row }; }),
@@ -196,7 +196,7 @@ function driveBeat5(sb, maxIter){
    degradation path this config's own cast implies (no hardcoded
    assumptions about which roles exist). Where a beat's own MECHANICS are
    pure gameplay unrelated to config content (the boss dodge/hit fight,
-   the Aram chase), it jumps straight past them via the same
+   the final-boss chase), it jumps straight past them via the same
    enterPhase(...) shortcut this project's own verification harnesses
    have used all along -- the point is exercising every CONFIG string
    actually getting read (intro lines, critique/duck/hit lines, the
@@ -266,7 +266,7 @@ function verifyConfigFile(filePath, opts){
 }
 
 module.exports = {
-  verifyConfigSource, verifyConfigFile, toneGateSource, BASELINE_FORBIDDEN,
+  verifyConfigSource, verifyConfigFile, toneGateSource,
   // exposed for tools/verify-skeletons.js -- the scene matrix reuses these
   // directly (rather than duplicating the vm/PROBE plumbing) for its own
   // per-scene playthroughs and its hard-mode variant (which needs

@@ -1,15 +1,18 @@
 'use strict';
 /* ======================================================================
-   KARKS CUB KINGDOM -- playable demo
+   SHARED ENGINE -- playable demo
    Single-file implementation per SPEC-game.md. Shares the palette, pixel
    helpers and audio engine style with intro/index.html (copied + adapted
-   here since this is a separate HTML document/AudioContext).
+   here since this is a separate HTML document/AudioContext). Loaded by
+   every deployed games/<slug>/game/ page AND the bare /game/ page (which
+   redirects to the builder when there's no file config and no #cfg=
+   fragment -- see the CONFIG-resolution block just below).
    ====================================================================== */
 
 /* ---------------- shared-engine asset root (see README "How games are
    added") ----------------
-   This script is shared verbatim between the top-level game/ demo (this
-   repo's own KCK) and every games/<slug>/game/ page, which loads it via a
+   This script is shared verbatim between the top-level game/ page and
+   every games/<slug>/game/ page, which loads it via a
    relative <script src> pointing back at THIS file (never a per-game copy).
    The engine's own asset references (SFX samples, the dungeon tile sheet --
    NOT CONFIG's, which a per-game config.js writes correctly for its own
@@ -27,18 +30,40 @@ const ENGINE_ROOT = new URL('../', document.currentScript.src).href;
    A `#cfg=<data>` URL fragment lets a game run entirely from a shareable
    link, no games/<slug>/ deployment needed -- see game/cfgcodec.js (loaded
    just before this script, right after config.js) for the codec/schema/
-   merge/validation this leans on. CONFIG is declared `const` in config.js,
-   which this script can't reassign (separate <script> tags share one
-   top-level lexical scope, but the BINDING is still const) -- so instead
-   of reassigning CONFIG, its contents are replaced in place, preserving
-   the object identity every later `CONFIG.xxx` read already expects.
-   Anything invalid, oversized, or simply absent falls back to the page's
-   own file CONFIG unchanged (cfgLoadFragmentOverride returns null for
-   every one of those cases alike -- see its own doc comment). */
+   merge/validation this leans on. Every REAL deployment (games/<slug>/
+   config.js) declares CONFIG `const`, which this script can't reassign
+   (separate <script> tags share one top-level lexical scope, but the
+   BINDING is still const) -- so instead of reassigning CONFIG, its
+   contents are replaced in place, preserving the object identity every
+   later `CONFIG.xxx` read already expects. Anything invalid, oversized,
+   or simply absent falls back to the page's own file CONFIG unchanged
+   (cfgLoadFragmentOverride returns null for every one of those cases
+   alike -- see its own doc comment).
+
+   The bare /game/ page ships no real config (game/config.js is a stub,
+   `let CONFIG = null` -- see that file's own comment for why `let`, not
+   `const`, specifically there) -- it exists only as the shared engine's
+   canonical home, not a product of its own. With a fragment, that stub
+   gets a straight reassignment (nothing to mutate in place). With NEITHER
+   a stub-real config NOR a fragment, there's nothing to play at all --
+   redirect to the builder rather than crash on the very first CONFIG.*
+   read two lines down. cfgBuildDefaultConfig gives CONFIG a safe, fully-
+   populated placeholder for the brief window before that navigation
+   actually takes effect (assigning `location.href` doesn't halt the rest
+   of this synchronous script). games/<slug>/ deployments always have a
+   real CONFIG, so neither branch here ever fires for them -- behavior
+   stays exactly what it's always been. */
 const CFG_FRAGMENT = (typeof cfgLoadFragmentOverride === 'function') ? cfgLoadFragmentOverride(ENGINE_ROOT) : null;
 if(CFG_FRAGMENT && CFG_FRAGMENT.config){
-  for(const k in CONFIG){ if(Object.prototype.hasOwnProperty.call(CONFIG, k)) delete CONFIG[k]; }
-  Object.assign(CONFIG, CFG_FRAGMENT.config);
+  if(CONFIG){
+    for(const k in CONFIG){ if(Object.prototype.hasOwnProperty.call(CONFIG, k)) delete CONFIG[k]; }
+    Object.assign(CONFIG, CFG_FRAGMENT.config);
+  } else {
+    CONFIG = CFG_FRAGMENT.config;
+  }
+} else if(!CONFIG){
+  location.replace(ENGINE_ROOT + 'build/');
+  CONFIG = cfgBuildDefaultConfig(ENGINE_ROOT);
 }
 
 document.title = CONFIG.title.gamePageTitle;
@@ -50,7 +75,7 @@ const PAL = {
   night:'#141428', gold:'#e8b84b', outline:'#6b2b1f', ink:'#2a1c12',
   silhouette:'#0a0a14', wall:'#241a22', floor:'#3a2a1c',
   glowHi:'#ffb347', glowLo:'#7a4a1e', heartFull:'#c9394a', heartEmpty:'#3a2a20',
-  napkin:'#efe6d0', napkinShade:'#cbbf9e', riesling:'#5a8a3c', rieslingDark:'#3a6024'
+  napkin:'#efe6d0', napkinShade:'#cbbf9e', bottleGreen:'#5a8a3c', bottleGreenDark:'#3a6024'
 };
 
 /* ---------------- story skeleton (scene) resolution -- see game/skeletons.js
@@ -84,7 +109,7 @@ const SKEL_HELPERS = { PAL: PAL, drawPixelCircle: drawPixelCircle, drawBitmap: d
    {ITEM} -- wherever a config string uses them; every other piece of
    display text in config is already a complete, final sentence (no
    generic templating beyond these two tokens). */
-const STORAGE_PREFIX = CFG_FRAGMENT ? ('frag_' + CFG_FRAGMENT.hash) : ((CONFIG && CONFIG.gameId) || 'kck');
+const STORAGE_PREFIX = CFG_FRAGMENT ? ('frag_' + CFG_FRAGMENT.hash) : ((CONFIG && CONFIG.gameId) || 'game');
 function skey(name){ return STORAGE_PREFIX + '_' + name; }
 function fmt(s){
   if(typeof s !== 'string') return s;
@@ -108,7 +133,7 @@ const BUTTERFINGERS_CAST = !!CAST.butterfingers;
 const BUILDER_CAST = !!CAST.builder;
 /* derived beat-enable flags -- each beat only runs if its own role AND every
    narratively-upstream role is also cast (Beat 4 needs the judge defeated
-   and revived before Aram's review crisis makes sense; Beat 5 and Epilogue B
+   and revived before the final boss's review crisis makes sense; Beat 5 and Epilogue B
    are both the BUILDER's beats so they share one flag). */
 const BEAT2_ENABLED = JUDGE_CAST;
 const BEAT3_ENABLED = JUDGE_CAST && SAVIOR_CAST;
@@ -125,7 +150,7 @@ function nextAfterBossDeath(){ return BEAT3_ENABLED ? 'beat3_intro' : 'celebrati
 function nextAfterBeat3(){ return BEAT4_ENABLED ? 'beat4_intro' : 'celebration'; }
 function nextAfterCelebration(){ return EPILOGUE_A_ENABLED ? 'epilogueA' : (EPILOGUE_B_ENABLED ? 'epilogueB' : 'freeze'); }
 function nextAfterEpilogueA(){ return EPILOGUE_B_ENABLED ? 'epilogueB' : 'freeze'; }
-/* cast-slot sprite picks, with KCK's own defaults as the fallback so an
+/* cast-slot sprite picks, with the shipped defaults as the fallback so an
    uncast role's SEAT still shows a generic diner rather than a hole at the
    table -- only that role's dedicated beat is what's actually skipped.
    PHASE C: now returns {sheet, col, row} (sheet indirection) -- delegates
@@ -133,8 +158,8 @@ function nextAfterEpilogueA(){ return EPILOGUE_B_ENABLED ? 'epilogueB' : 'freeze
    script; see that file's own header comment for the exact precedence:
    entry.sprite roster-key wins outright, else legacy spriteCol/spriteRow,
    else these fallbacks). Every existing call site's fallbackCol/Row is
-   today's literal KCK tile on the 'dungeon' sheet, so an uncast/unpicked
-   slot resolves BYTE-IDENTICAL to before this phase existed. */
+   the roster's own documented default tile on the 'dungeon' sheet, so an
+   uncast/unpicked slot resolves BYTE-IDENTICAL to before this phase existed. */
 function castSprite(slot, fallbackCol, fallbackRow){
   return rosterResolveSprite(CAST[slot], fallbackCol, fallbackRow);
 }
@@ -188,7 +213,7 @@ window.addEventListener('hashchange', ()=>{ location.reload(); });
 
 /* ---------------- assets (reused from ../intro/assets/) ----------------
    PHASE C (characters are their people): imgDungeon stays the one always-
-   loaded sheet every pre-Phase-C draw call already hardcoded (KCK's own
+   loaded sheet every pre-Phase-C draw call already hardcoded (the
    regression baseline); ROSTER_SHEET_IMAGES additionally loads every OTHER
    sheet game/roster.js references (Tiny Farm/Ski/Battle) so a roster pick
    can point at any of them. sheetImage(key) is the one lookup every draw
@@ -396,14 +421,6 @@ function sparkleFrameSize(t, period){
 }
 
 /* ---------------- programmatic props ---------------- */
-const TOQUE_ROWS = ['00111100','01111110','01111110','11111111','11111111'];
-const TOQUE_COLORS = {'1':'#f5f2ea'};
-const TOQUE_BAND_SHADE = '#c9c2b3';
-function drawToque(ctx, x, y, cell){
-  drawBitmap(ctx, TOQUE_ROWS, TOQUE_COLORS, x, y, cell);
-  ctx.fillStyle = TOQUE_BAND_SHADE;
-  ctx.fillRect(Math.round(x), Math.round(y+4*cell), 8*cell, cell*0.35);
-}
 const STEAK_ROWS = ['01111110','12222110','12133210','12222110','01111110'];
 const STEAK_COLORS = {'1':'#e79b8c','2':'#f2c9b8','3':'#7a3f2a'};
 function drawSteak(ctx, x, y, cell){
@@ -428,7 +445,7 @@ function drawHeart(ctx, x, y, cell, fill){
 }
 /* the thrown/held/pickup "bottle" sprite and the boss's thrown "napkin"
    sprite are both entirely skeleton-owned art now (SKEL.throwable/
-   SKEL.projectile in game/skeletons.js -- green riesling bottle + crumpled
+   SKEL.projectile in game/skeletons.js -- green bottle + crumpled
    napkin, verbatim, for 'dinner') -- these two wrappers are the ONLY thing
    every existing call site (drawHeldBottle, drawBottles, drawBottlePickupCue,
    the HUD icon, drawNapkins) needs to keep working unchanged: physics,
@@ -645,7 +662,9 @@ function initAudio(){
    SFX are unaffected either way. */
 /* CONFIG.music.customSongPath: null for a config with no uploaded song (the
    loops below become the actual score, played at full level, with no mp3 to
-   ever wait for). Karks Cub Kingdom ships with its own song and keeps it. */
+   ever wait for). A deployed games/<slug>/ order can still set its own
+   uploaded song here -- that mechanism stays; only the bare /game/ page's
+   default song is gone (see game/config.js's own stub comment). */
 const USE_CUSTOM_SONG = !!CONFIG.music.customSongPath;
 const MUSIC_TRACK_SRC = CONFIG.music.customSongPath;
 let useMp3Music = false, bgmGraceUntil = 0;
@@ -754,8 +773,8 @@ function playSample(key, t, gainMul){
 
 /* ---- per-beat music loops (the fallback/quiet-understudy score; a config's
    own custom song always wins while USE_CUSTOM_SONG is true -- see
-   updateBeatMusic()). Paths come from CONFIG.music.loops; KCK's final picks
-   are documented in assets/audio/CREDITS.txt. */
+   updateBeatMusic()). Paths come from CONFIG.music.loops; the shared
+   stock tracks are documented in assets/audio/CREDITS.txt. */
 const MUSIC_LOOP_DEFS = {};
 for(const key in CONFIG.music.loops) MUSIC_LOOP_DEFS[key] = { src: CONFIG.music.loops[key] };
 const loopLoader = makeBufferBank(MUSIC_LOOP_DEFS);
@@ -980,8 +999,8 @@ function drawArena(ctx){
 const CRITIC_INDEX = 1;
 /* seat 0 has no dedicated role (just a fourth friend); seat 1 is the JUDGE's
    seat before he stands up; seat 2/3 are BUTTERFINGERS/BUILDER. Sprite picks
-   come from CONFIG.cast, falling back to KCK's own tiles so an uncast role's
-   seat still shows a generic diner instead of a gap at the table. */
+   come from CONFIG.cast, falling back to the roster's own default tiles so
+   an uncast role's seat still shows a generic diner instead of a gap at the table. */
 const DINER_DEFS = [
   Object.assign(castSprite('diner0', 1,7), {x:400,y:248, flip:false}),
   Object.assign(castSprite('judge', 4,8),  {x:560,y:248, flip:false}),
@@ -1006,16 +1025,17 @@ function drawSeatedDiners(ctx, diners){
 
 /* ---------------- chef (player/host) ---------------- */
 // PHASE C: the host gets the same optional sprite pick a cast role does --
-// resolved ONCE at load (CONFIG.host never changes at runtime), same
-// fallback (dungeon 2,7) as the hardcoded tile this replaces, so an
-// unpicked host renders BYTE-IDENTICAL to before this phase existed.
+// resolved ONCE at load (CONFIG.host never changes at runtime), the
+// roster's own 'plain' entry (dungeon 2,7) as the default, so an unpicked
+// host renders BYTE-IDENTICAL to before this phase existed. No overlay on
+// top (no toque/hat) -- the host renders as exactly their roster sprite,
+// same as every other seat.
 const HOST_SPRITE = rosterResolveSprite(CONFIG.host, 2, 7);
 function drawChef(ctx, x, y, facing, bobT){
   const bob = Math.sin(bobT*10) * (bobT>0?1:0);
   const flipY = facing==='up';
   const flipX = facing==='left';
   drawTile(ctx, rawTile(sheetImage(HOST_SPRITE.sheet),HOST_SPRITE.col,HOST_SPRITE.row), x-32, y-64+bob, 4, flipY, flipX);
-  drawToque(ctx, x-16, y-74+bob, 4);
 }
 /* held out at his side, in addition to the HUD corner icon -- obvious at a
    glance that he's armed. Same bob formula as drawChef so it moves with him. */
@@ -1049,11 +1069,11 @@ function drawBossSagged(ctx, alpha){
 // never change at runtime) -- the critic's tinted "loom" form now tints
 // WHATEVER the judge is actually seated as (any sheet, not just dungeon),
 // instead of a hardcoded (imgDungeon,4,8) that silently ignored even the
-// pre-Phase-C legacy spriteCol/spriteRow. Unpicked judge (KCK's own
-// game/config.js: no sprite/spriteCol/spriteRow on cast.judge) resolves
-// to the exact same {dungeon,4,8} as before -- byte-identical regression.
+// pre-Phase-C legacy spriteCol/spriteRow. An unpicked judge (no
+// sprite/spriteCol/spriteRow on cast.judge) resolves to the exact same
+// {dungeon,4,8} as before -- byte-identical regression.
 // Judge/critic isn't one of the two roles Phase C calls out for an
-// override-the-bespoke-look toggle (see drawWoman/drawAram below) --
+// override-the-bespoke-look toggle (see drawWoman/drawFinalBoss below) --
 // the tint+aura "transformation" effect is presentation for ANY judge,
 // picked or not, so it always applies; only ITS SOURCE tile now follows
 // the pick, keeping the boss form visually consistent with the seat.
@@ -1134,7 +1154,7 @@ function drawWoman(ctx, x, y, walkT, flip){
   drawTile(ctx, rawTile(sheetImage(SAVIOR_SPRITE.sheet),SAVIOR_SPRITE.col,SAVIOR_SPRITE.row), x-32, y-64+bob, 4, false, !!flip);
 }
 
-/* ---------------- Aram, the chef's boss (Beat 4) ----------------
+/* ---------------- the final boss, the chef's boss (Beat 4) ----------------
    Same isolated-offscreen tint trick as the critic (buildCriticSprite),
    reusing the chef's own base sprite tile so there's no risk of picking an
    unintended tile from the sheet -- just a darker, angrier recolor at ~2x
@@ -1147,8 +1167,8 @@ function drawWoman(ctx, x, y, walkT, flip){
    person's plain tile (no tint, no angry brows -- a real likeness isn't
    recolored/defaced) at the same size/position/bob. No pick keeps
    EXACTLY today's tinted-monster rendering, both states, unchanged. */
-let aramSpriteCache = null, aramGoodSpriteCache = null;
-function buildAramSprite(tintRGBA){
+let finalBossSpriteCache = null, finalBossGoodSpriteCache = null;
+function buildFinalBossSprite(tintRGBA){
   const off = document.createElement('canvas');
   off.width = 16; off.height = 16;
   const o = off.getContext('2d');
@@ -1159,20 +1179,20 @@ function buildAramSprite(tintRGBA){
   o.fillRect(0, 0, 16, 16);
   return off;
 }
-function getAramSprite(good){
+function getFinalBossSprite(good){
   if(good){
-    if(!aramGoodSpriteCache) aramGoodSpriteCache = buildAramSprite('rgba(196,120,40,0.5)');
-    return aramGoodSpriteCache;
+    if(!finalBossGoodSpriteCache) finalBossGoodSpriteCache = buildFinalBossSprite('rgba(196,120,40,0.5)');
+    return finalBossGoodSpriteCache;
   }
-  if(!aramSpriteCache) aramSpriteCache = buildAramSprite('rgba(120,18,18,0.55)');
-  return aramSpriteCache;
+  if(!finalBossSpriteCache) finalBossSpriteCache = buildFinalBossSprite('rgba(120,18,18,0.55)');
+  return finalBossSpriteCache;
 }
 const AUTHORITY_SPRITE_PICK = (CAST.authority && CAST.authority.sprite && Object.prototype.hasOwnProperty.call(ROSTER_BY_KEY, CAST.authority.sprite))
   ? ROSTER_BY_KEY[CAST.authority.sprite] : null;
-const ARAM_SIZE = 128; // ~2x diner scale (diner draw is TILE*4 = 64px)
-function drawAram(ctx, x, y, poseT, walkT, good){
+const FINALBOSS_SIZE = 128; // ~2x diner scale (diner draw is TILE*4 = 64px)
+function drawFinalBoss(ctx, x, y, poseT, walkT, good){
   const bob = Math.sin(walkT*8)*1.5;
-  const size = ARAM_SIZE;
+  const size = FINALBOSS_SIZE;
   ctx.save();
   ctx.translate(x, y+bob);
   ctx.imageSmoothingEnabled = false;
@@ -1181,7 +1201,7 @@ function drawAram(ctx, x, y, poseT, walkT, good){
     ctx.restore();
     return;
   }
-  ctx.drawImage(getAramSprite(good), -size/2, -size, size, size);
+  ctx.drawImage(getFinalBossSprite(good), -size/2, -size, size, size);
   if(!good){
     // simple hand-drawn angry brows -- two dark angled bars over the upper face
     ctx.fillStyle = '#1a0a0a';
@@ -1204,7 +1224,9 @@ function drawStarIcon(ctx, x, y, filled, cell){
 /* ---------------- hand-built pixel title font (5x7 grid) ----------------
    Ported from intro/index.html (same file has its own copy -- separate
    documents/scripts, can't literally share the canvas object) so Epilogue
-   B's "tiny screen" shot can render a miniature KARKS CUB KINGDOM lockup. */
+   B's "tiny screen" shot can render a miniature title lockup (whatever
+   CONFIG.title.lockupLines actually is -- this renderer draws whatever
+   config supplies, it owns no branding of its own). */
 const TITLE_GLYPHS = {
   W: ['10001','10001','10001','10101','10101','11011','10001'],
   A: ['01110','10001','10001','11111','10001','10001','10001'],
@@ -1355,7 +1377,7 @@ function moveAndCollide(entity, dx, dy, solids, r){
 }
 
 /* ======================================================================
-   PROJECTILES -- napkins (boss) and riesling bottles (player), both lobbed
+   PROJECTILES -- napkins (boss) and bottles (player), both lobbed
    arcs: constant horizontal velocity + a parabolic height (z) that lands
    exactly on target at t=duration. The ground-shadow is drawn at the fixed
    TARGET point for the whole flight, which is the "telegraph" the spec asks
@@ -1612,7 +1634,7 @@ function clamp01(t){ return Math.max(0, Math.min(1, t)); }
 function easeInOut(t){ t = clamp01(t); return t*t*(3-2*t); }
 
 /* length-preset round count: 'five_min' plays only the first 2 configured
-   stories, 'full' plays every one CONFIG.stories supplies (KCK: 3) */
+   stories, 'full' plays every one CONFIG.stories supplies */
 function roundsCount(){ return LENGTH_PRESET==='five_min' ? Math.min(2, CONFIG.stories.length) : CONFIG.stories.length; }
 const ROUNDS = CONFIG.stories.slice(0, roundsCount()).map(r=>({ lines: fmtLines(r.lines) }));
 /* each entry is a pre-wrapped 1-2 line bubble (array-of-arrays so a long line
@@ -1639,10 +1661,10 @@ let boss = {
   shrinking:false, shrinkT:0
 };
 let woman = { x:24, y:300, active:false, arrived:false };
-/* Aram (Beat 4) -- the chef's boss. state: 'idle' | 'walkin' | 'chase' | 'frozen'.
+/* the final boss (Beat 4) -- the chef's boss. state: 'idle' | 'walkin' | 'chase' | 'frozen'.
    Reuses the same "reused fields on a shared entity" convention as everything
    else here (x/y drive both movement and drawing). */
-let aram = { active:false, x:24, y:300, state:'idle', turnedGood:false, contactCooldown:0, facing:'right', walkAnimT:0 };
+let finalBoss = { active:false, x:24, y:300, state:'idle', turnedGood:false, contactCooldown:0, facing:'right', walkAnimT:0 };
 let stats = { heartsCaptured:0, hitsTaken:0, bottlesLanded:0, tooSoon:0, reviews:0, resets:0 };
 let bottlePickup = { x:BOTTLE_SPAWN.x, y:BOTTLE_SPAWN.y, active:true, respawnAt:0 };
 let lastTooSoonAt = -999;
@@ -1659,7 +1681,7 @@ const DIALOGUE_GAP = 0.9;        // pause between two sequential staged bubble l
 const DIALOGUE_HOLD = 1.7;       // pause after the LAST staged line before the beat advances
 const BEAT3_WALK_DUR = 3.5;      // the woman's walk-in (was 2.2s)
 const BEAT3_LINE1_HOLD = 2.2;    // hold on "EXCUSE ME..."
-const BEAT3_LINE2_HOLD = 2.4;    // hold on "I BROUGHT THE WAGYU."
+const BEAT3_LINE2_HOLD = 2.4;    // hold on "I BROUGHT THE {ITEM}."
 const BEAT3_LINE3_HOLD = 2.6;    // hold on the sincere line (now beat3_tribute)
 /* the Widowmaker beat -- inserted between the critic's revival spring-up
    (beat3_revive) and the woman's tribute line (beat3_tribute). Only ever
@@ -1668,8 +1690,8 @@ const BEAT3_LINE3_HOLD = 2.6;    // hold on the sincere line (now beat3_tribute)
    guarded by JUDGE_CAST here (not read unconditionally at module-eval
    time) plus a `||` fallback per field, matching this file's established
    "never crash on an uncast role's missing content bucket" convention. */
-const WIDOWMAKER_MOCK_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.mockLine || ['I LIVE.', '...NICE SEARS SHIRT.']) : ['I LIVE.', '...NICE SEARS SHIRT.'];
-const WIDOWMAKER_RETORT_LINE = JUDGE_CAST ? fmt(CONFIG.judge.retortLine || 'IT IS FROM SEARS.') : 'IT IS FROM SEARS.';
+const WIDOWMAKER_MOCK_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.mockLine || ['I LIVE.', '...NICE SHIRT.']) : ['I LIVE.', '...NICE SHIRT.'];
+const WIDOWMAKER_RETORT_LINE = JUDGE_CAST ? fmt(CONFIG.judge.retortLine || 'IT WAS A GIFT.') : 'IT WAS A GIFT.';
 const WIDOWMAKER_ITEM_LABEL = JUDGE_CAST ? fmt(CONFIG.judge.itemLabel || 'THE WIDOWMAKER!') : 'THE WIDOWMAKER!';
 const WIDOWMAKER_REDEMPTION_LINE = JUDGE_CAST ? fmt(CONFIG.judge.redemptionLine || 'THE SOUP IS ACTUALLY FINE.') : 'THE SOUP IS ACTUALLY FINE.';
 const WIDOWMAKER_MOCK1_HOLD = 0.9;       // hold on the first mock line
@@ -1708,8 +1730,8 @@ const DIFF = {
   napkinDamage:        { normal:1,    hard:2 },
   duckChance:          { normal:0.25, hard:0.35 },
   leadTimeMul:         { normal:1.0,  hard:1.3 },
-  aramSpeedMul:        { normal:0.8,  hard:0.95 },
-  aramContactDamage:   { normal:1,    hard:2 },
+  finalBossSpeedMul:        { normal:0.8,  hard:0.95 },
+  finalBossContactDamage:   { normal:1,    hard:2 },
   reviewsNeeded:       { normal:3,    hard:4 },
   begDuration:         { normal:1.2,  hard:1.8 },
   reviewerFleeSpeed:   { normal:130,  hard:170 },
@@ -1724,8 +1746,8 @@ const DIFF = {
    duplicated rather than aliased so this table reads standalone. Five_min's
    hard-mode numbers aren't spelled out by spec; they're derived by applying
    the same normal->hard delta 'full' mode uses (documented judgment call,
-   since unlocking hard mode is a KCK-specific meta-progression feature that
-   could in principle be reached from a five_min preset too). */
+   since unlocking hard mode is a meta-progression feature any deployment
+   could in principle reach from a five_min preset too). */
 const LENGTH_DIFF = {
   bossMaxHp:    { full:{normal:6, hard:8}, five_min:{normal:4, hard:6} },
   bossPhase2Hp: { full:{normal:4, hard:6}, five_min:{normal:3, hard:5} },
@@ -1958,29 +1980,29 @@ function enterPhase(name){
   } else if(name==='beat4_intro'){
     // dramatic staging: music cuts to silence up front, room dims, door
     // SLAMS a beat later (see updatePhase's 'beat4_intro' case for the
-    // slam/walk/letterbox timeline) -- Aram isn't visible until the slam.
+    // slam/walk/letterbox timeline) -- the final boss isn't visible until the slam.
     player.canMove = false;
-    aram.active = false; aram.state = 'walkin'; aram.turnedGood = false;
-    aram.x = 24; aram.y = LEFT_DOOR.y+LEFT_DOOR.h/2;
-    aram.contactCooldown = 0;
+    finalBoss.active = false; finalBoss.state = 'walkin'; finalBoss.turnedGood = false;
+    finalBoss.x = 24; finalBoss.y = LEFT_DOOR.y+LEFT_DOOR.h/2;
+    finalBoss.contactCooldown = 0;
     phaseData.stage = 0;
     phaseData.slamFired = false;
     phaseData.lastFootstepAt = -999;
     if(actx) duckDown(actx.currentTime, 0.0);
   } else if(name==='beat4_chase'){
     player.canMove = true;
-    aram.state = 'chase';
+    finalBoss.state = 'chase';
     resetReviewers();
     setBeatMusic('chase');
-    maybeShowCard('aram');
+    maybeShowCard('finalboss');
   } else if(name==='beat4_turngood'){
-    aram.state = 'frozen';
+    finalBoss.state = 'frozen';
     phaseData.stage = 0;
     if(actx) duckDown(actx.currentTime);
   } else if(name==='celebration'){
     // everyone converges loosely around the chef and celebrates for a
     // sustained beat before the freeze/end card. Participants = the 3 still-
-    // seated diners + the woman + the (revived) critic + Aram -- same
+    // seated diners + the woman + the (revived) critic + the final boss -- same
     // "4 guys" headcount convention as the Beat 3 finale's unison bubbles,
     // since one of the original 4 diners literally IS the critic/boss by now.
     player.canMove = false;
@@ -2172,7 +2194,7 @@ function throwBottle(){
   if(ducked){
     boss.duckT = duration*0.6;
     if(actx) playWhoosh(actx.currentTime);
-    // the critic can't resist rubbing it in -- insult aimed at Gabe, not the wine
+    // the critic can't resist rubbing it in -- insult aimed at the host, not the bottle
     const line = CRITIC_DUCK_LINES[criticDuckIndex % CRITIC_DUCK_LINES.length];
     criticDuckIndex++;
     boss.bubble = { text: [line], born: gameT };
@@ -2184,7 +2206,7 @@ function checkBossHit(){
   stats.bottlesLanded++;
   boss.recoilT = 0.3;
   if(boss.hp>0){
-    // he takes the hit and insults Gabe anyway
+    // he takes the hit and insults the host anyway
     const line = CRITIC_HIT_LINES[criticHitIndex % CRITIC_HIT_LINES.length];
     criticHitIndex++;
     boss.bubble = { text: [line], born: gameT };
@@ -2504,7 +2526,7 @@ function updateBottlePickup(){
 }
 
 /* ======================================================================
-   BEAT 4 -- ARAM (post-finale final level: chase + beg for 5-star reviews)
+   BEAT 4 -- THE FINAL BOSS (post-finale final level: chase + beg for 5-star reviews)
    Reviewers are the *same* diners[]/woman/boss objects the rest of the game
    already draws (repurposing their x/y directly, per the established
    convention here) -- no parallel entity list, so every existing draw loop
@@ -2524,7 +2546,7 @@ function getReviewerList(){ return [diners[0], diners[CRITIC_INDEX], diners[2], 
    retired (uncast judge: never retires, always present as a plain diner;
    judge-cast-but-savior-uncast: retired forever after the real kill, no
    Windowmaker to undo it, correctly excluded; full cast: the Windowmaker
-   flips retired back to false before celebration is ever reached), Aram
+   flips retired back to false before celebration is ever reached), the final boss
    only if he actually turned good (beat 4 completed) -- the 2 non-role
    diners (diner0, and whichever of judge/butterfingers/builder didn't get
    a special beat this run) are always included. */
@@ -2532,7 +2554,7 @@ function celebrationParticipants(){
   return [diners[0], diners[2], diners[3]]
     .concat(woman.active ? [woman] : [])
     .concat(!diners[CRITIC_INDEX].retired ? [diners[CRITIC_INDEX]] : [])
-    .concat(aram.turnedGood ? [aram] : []);
+    .concat(finalBoss.turnedGood ? [finalBoss] : []);
 }
 function resetReviewers(){
   stats.reviews = 0;
@@ -2711,16 +2733,16 @@ function updateBeat5(dt){
     if(!od.walking && !od.retired && od.bounceT<=0) od.bounceT = 0.001;
   }
 }
-const ARAM_CONTACT_RADIUS = 36, ARAM_CONTACT_COOLDOWN = 1.0, ARAM_IFRAMES = 1.0, ARAM_KNOCKBACK = 40;
+const FINALBOSS_CONTACT_RADIUS = 36, FINALBOSS_CONTACT_COOLDOWN = 1.0, FINALBOSS_IFRAMES = 1.0, FINALBOSS_KNOCKBACK = 40;
 /* dramatic entrance staging (see updatePhase's 'beat4_intro' case) */
-const ARAM_SLAM_AT = 0.5;            // door slam fires this far into the beat
-const ARAM_WALK_START = 1.0;         // slow walk begins once the slam/letterbox settle
-const ARAM_WALK_DUR = 3.6;           // slow heavy walk (was an instant 1.0s stroll)
-const ARAM_FOOTSTEP_INTERVAL = 0.55; // thud + small shake cadence while walking
-const ARAM_BUBBLE_CPS = 10;          // slower typing for his intro lines specifically
-const ARAM_LETTERBOX_OUT_DUR = 0.5;  // final beat: bars out, lights up, music slams back in
+const FINALBOSS_SLAM_AT = 0.5;            // door slam fires this far into the beat
+const FINALBOSS_WALK_START = 1.0;         // slow walk begins once the slam/letterbox settle
+const FINALBOSS_WALK_DUR = 3.6;           // slow heavy walk (was an instant 1.0s stroll)
+const FINALBOSS_FOOTSTEP_INTERVAL = 0.55; // thud + small shake cadence while walking
+const FINALBOSS_BUBBLE_CPS = 10;          // slower typing for his intro lines specifically
+const FINALBOSS_LETTERBOX_OUT_DUR = 0.5;  // final beat: bars out, lights up, music slams back in
 
-/* ---------------- win celebration (after Aram turns good, before freeze/end card) ---------------- */
+/* ---------------- win celebration (after the final boss turns good, before freeze/end card) ---------------- */
 const CELEBRATION_DURATION = 5.0;
 const CELEB_BOUNCE_OFFSET = {0:0, 2:0.25, 3:0.5}; // per-diner phase offset so hops don't all sync up
 function spawnConfettiField(n){
@@ -2747,39 +2769,39 @@ function drawConfetti(ctx, confetti){
     ctx.restore();
   }
 }
-function updateAram(dt){
-  if(!aram.active) return;
-  if(aram.contactCooldown>0) aram.contactCooldown = Math.max(0, aram.contactCooldown-dt);
-  if(aram.state==='chase'){
-    const dx = player.x-aram.x, dy = player.y-aram.y, d = Math.hypot(dx,dy);
+function updateFinalBoss(dt){
+  if(!finalBoss.active) return;
+  if(finalBoss.contactCooldown>0) finalBoss.contactCooldown = Math.max(0, finalBoss.contactCooldown-dt);
+  if(finalBoss.state==='chase'){
+    const dx = player.x-finalBoss.x, dy = player.y-finalBoss.y, d = Math.hypot(dx,dy);
     if(d>1){
-      aram.facing = dx>=0 ? 'right' : 'left';
-      aram.walkAnimT += dt;
+      finalBoss.facing = dx>=0 ? 'right' : 'left';
+      finalBoss.walkAnimT += dt;
       // resolved live (not a module-level const) since hardMode isn't known
       // until the mode-select card confirms, well after module load
-      const aramSpeed = PLAYER_SPEED * D('aramSpeedMul');
-      const mx = dx/d*aramSpeed*dt, my = dy/d*aramSpeed*dt;
-      aram.x = Math.max(WALL_SIDE+18, Math.min(CW-WALL_SIDE-18, aram.x+mx));
-      aram.y = Math.max(WALL_TOP+18, Math.min(CH-18, aram.y+my));
+      const finalBossSpeed = PLAYER_SPEED * D('finalBossSpeedMul');
+      const mx = dx/d*finalBossSpeed*dt, my = dy/d*finalBossSpeed*dt;
+      finalBoss.x = Math.max(WALL_SIDE+18, Math.min(CW-WALL_SIDE-18, finalBoss.x+mx));
+      finalBoss.y = Math.max(WALL_TOP+18, Math.min(CH-18, finalBoss.y+my));
     } else {
-      aram.walkAnimT = 0;
+      finalBoss.walkAnimT = 0;
     }
-    if(d < ARAM_CONTACT_RADIUS && aram.contactCooldown<=0) aramContactDamage();
+    if(d < FINALBOSS_CONTACT_RADIUS && finalBoss.contactCooldown<=0) finalBossContactDamage();
   }
 }
-/* not reusing damagePlayer() -- Aram's contact needs longer iframes (1.0s vs
+/* not reusing damagePlayer() -- the final boss's contact needs longer iframes (1.0s vs
    0.8s) plus a knockback shove, since he's a persistent chaser rather than a
    one-shot projectile landing */
-function aramContactDamage(){
-  aram.contactCooldown = ARAM_CONTACT_COOLDOWN;
+function finalBossContactDamage(){
+  finalBoss.contactCooldown = FINALBOSS_CONTACT_COOLDOWN;
   if(player.iframes>0) return;
-  player.hearts = Math.max(0, player.hearts-D('aramContactDamage'));
-  player.iframes = ARAM_IFRAMES;
+  player.hearts = Math.max(0, player.hearts-D('finalBossContactDamage'));
+  player.iframes = FINALBOSS_IFRAMES;
   stats.hitsTaken++;
   if(actx) playThud(actx.currentTime);
-  const dx = player.x-aram.x, dy = player.y-aram.y, d = Math.hypot(dx,dy)||1;
-  player.x = Math.max(WALL_SIDE+13, Math.min(CW-WALL_SIDE-13, player.x + dx/d*ARAM_KNOCKBACK));
-  player.y = Math.max(WALL_TOP+13, Math.min(CH-13, player.y + dy/d*ARAM_KNOCKBACK));
+  const dx = player.x-finalBoss.x, dy = player.y-finalBoss.y, d = Math.hypot(dx,dy)||1;
+  player.x = Math.max(WALL_SIDE+13, Math.min(CW-WALL_SIDE-13, player.x + dx/d*FINALBOSS_KNOCKBACK));
+  player.y = Math.max(WALL_TOP+13, Math.min(CH-13, player.y + dy/d*FINALBOSS_KNOCKBACK));
   triggerShake(4, 0.25);
 }
 
@@ -2859,7 +2881,7 @@ function updatePhase(dt){
         phaseData.bubbleTw = makeTypewriter([fmt(CONFIG.savior.line1)], 15, 0.5);
         phaseData.bubbleStart = phaseElapsed;
       }
-      // "EXCUSE ME..." and "I BROUGHT THE WAGYU." now type and hold as two
+      // "EXCUSE ME..." and "I BROUGHT THE {ITEM}." now type and hold as two
       // separate staged bubbles (each gets its own long read-hold) rather
       // than sharing one bubble with almost no pause after typing finishes.
       if(phaseData.stage===1){
@@ -2977,38 +2999,38 @@ function updatePhase(dt){
     case 'beat4_intro': {
       // door SLAMS open partway into the beat -- boom + strong shake, and
       // that's the moment he actually becomes visible
-      if(!phaseData.slamFired && phaseElapsed>=ARAM_SLAM_AT){
+      if(!phaseData.slamFired && phaseElapsed>=FINALBOSS_SLAM_AT){
         phaseData.slamFired = true;
-        aram.active = true;
+        finalBoss.active = true;
         triggerShake(9, 0.5);
         if(actx) playSlamBoom(actx.currentTime);
       }
       // slow, heavy walk-in with a thud + small shake per footstep
-      if(phaseElapsed>=ARAM_WALK_START && phaseElapsed<ARAM_WALK_START+ARAM_WALK_DUR){
-        const wt = clamp01((phaseElapsed-ARAM_WALK_START)/ARAM_WALK_DUR);
-        aram.x = lerp(24, 480, wt);
-        aram.y = lerp(LEFT_DOOR.y+LEFT_DOOR.h/2, 300, wt);
-        aram.walkAnimT = phaseElapsed;
-        if(phaseElapsed-phaseData.lastFootstepAt >= ARAM_FOOTSTEP_INTERVAL){
+      if(phaseElapsed>=FINALBOSS_WALK_START && phaseElapsed<FINALBOSS_WALK_START+FINALBOSS_WALK_DUR){
+        const wt = clamp01((phaseElapsed-FINALBOSS_WALK_START)/FINALBOSS_WALK_DUR);
+        finalBoss.x = lerp(24, 480, wt);
+        finalBoss.y = lerp(LEFT_DOOR.y+LEFT_DOOR.h/2, 300, wt);
+        finalBoss.walkAnimT = phaseElapsed;
+        if(phaseElapsed-phaseData.lastFootstepAt >= FINALBOSS_FOOTSTEP_INTERVAL){
           phaseData.lastFootstepAt = phaseElapsed;
           triggerShake(3, 0.15);
           if(actx) playThud(actx.currentTime);
         }
-      } else if(phaseElapsed>=ARAM_WALK_START+ARAM_WALK_DUR){
-        aram.x = 480; aram.y = 300;
+      } else if(phaseElapsed>=FINALBOSS_WALK_START+FINALBOSS_WALK_DUR){
+        finalBoss.x = 480; finalBoss.y = 300;
         if(phaseData.stage===0){
           phaseData.stage = 1;
-          phaseData.bubbleTw = makeTypewriter([CONFIG.authority.entranceLine1], ARAM_BUBBLE_CPS, 0.4);
+          phaseData.bubbleTw = makeTypewriter([CONFIG.authority.entranceLine1], FINALBOSS_BUBBLE_CPS, 0.4);
           phaseData.bubbleStart = phaseElapsed;
         }
       }
-      // bubbles type slowly (ARAM_BUBBLE_CPS) with long holds
+      // bubbles type slowly (FINALBOSS_BUBBLE_CPS) with long holds
       if(phaseData.stage===1){
         const local = phaseElapsed-phaseData.bubbleStart;
         updateTypewriterAudio(phaseData.bubbleTw, local);
         if(local > phaseData.bubbleTw.doneAt + DIALOGUE_GAP){
           phaseData.stage = 2;
-          phaseData.bubbleTw = makeTypewriter([CONFIG.authority.entranceLine2], ARAM_BUBBLE_CPS, 0.4);
+          phaseData.bubbleTw = makeTypewriter([CONFIG.authority.entranceLine2], FINALBOSS_BUBBLE_CPS, 0.4);
           phaseData.bubbleStart = phaseElapsed;
         }
       } else if(phaseData.stage===2){
@@ -3021,7 +3043,7 @@ function updatePhase(dt){
           if(actx) duckUp(actx.currentTime, 1.0);
         }
       } else if(phaseData.stage===3){
-        if(phaseElapsed-phaseData.stage3At > ARAM_LETTERBOX_OUT_DUR) enterPhase('beat4_chase');
+        if(phaseElapsed-phaseData.stage3At > FINALBOSS_LETTERBOX_OUT_DUR) enterPhase('beat4_chase');
       }
       break;
     }
@@ -3033,7 +3055,7 @@ function updatePhase(dt){
     case 'beat4_turngood': {
       if(phaseData.stage===0 && phaseElapsed>1.5){
         phaseData.stage = 1;
-        aram.turnedGood = true;
+        finalBoss.turnedGood = true;
         triggerShake(5, 0.3);
         for(const d of diners){ if(!d.walking && !d.retired) d.bounceT = 0.001; }
         spawnHaBurst(diners[0].x, diners[0].y-40, gameT);
@@ -3041,7 +3063,7 @@ function updatePhase(dt){
         spawnHaBurst(diners[3].x, diners[3].y-40, gameT);
         spawnHaBurst(woman.x, woman.y-40, gameT);
         spawnHaBurst(boss.x, boss.y-40, gameT);
-        spawnSparkleBurst(aram.x, aram.y-60, 14, gameT);
+        spawnSparkleBurst(finalBoss.x, finalBoss.y-60, 14, gameT);
         phaseData.bubbleTw = makeTypewriter([CONFIG.authority.turnGoodLine1], 18, 0.4);
         phaseData.bubbleStart = phaseElapsed;
         setBeatMusic('celebration');
@@ -3073,11 +3095,11 @@ function updatePhase(dt){
         participants[i].x = lerp(sp.x, tp.x, convT);
         participants[i].y = lerp(sp.y, tp.y, convT);
       }
-      // keep Aram's own bob animating (his bounce is driven by walkAnimT,
+      // keep the final boss's own bob animating (his bounce is driven by walkAnimT,
       // which normally only advances while actually chasing)
-      aram.walkAnimT += dt;
+      finalBoss.walkAnimT += dt;
       // continuous staggered hop for the 3 remaining seated diners (woman/
-      // boss/Aram already bob continuously off gameT/walkAnimT on their own)
+      // boss/the final boss already bob continuously off gameT/walkAnimT on their own)
       for(const idx of [0,2,3]){
         const d = diners[idx];
         if(d.walking || d.retired) continue;
@@ -3249,7 +3271,7 @@ function update(dt){
   updatePlayerMovement(dt);
   updateDiners(dt);
   updateBoss(dt);
-  updateAram(dt);
+  updateFinalBoss(dt);
   updateReviewers(dt);
   updateBeat5(dt);
   updateNapkins(dt, gameT);
@@ -3333,8 +3355,8 @@ function retryBeat2(){
 function retryBeat4(){
   player.hearts = 6; player.canMove = true;
   napkins = []; bottles = []; heartPickups = [];
-  aram.contactCooldown = 0;
-  // cardsShown deliberately untouched -- ARAM HAS ARRIVED already shown once
+  finalBoss.contactCooldown = 0;
+  // cardsShown deliberately untouched -- the final-boss arrival card already shown once
   enterPhase('beat4_chase');
 }
 
@@ -3459,7 +3481,7 @@ function drawBaseScene(ctx){
     const facingPlayer = phase==='beat3_tribute' && player.x < woman.x;
     drawWoman(ctx, woman.x, woman.y, gameT, facingPlayer);
   }
-  if(assetsReady && aram.active) drawAram(ctx, aram.x, aram.y, gameT, aram.walkAnimT, aram.turnedGood);
+  if(assetsReady && finalBoss.active) drawFinalBoss(ctx, finalBoss.x, finalBoss.y, gameT, finalBoss.walkAnimT, finalBoss.turnedGood);
   if(phase==='beat4_chase' || phase==='beat4_turngood') drawReviewerOverlays(ctx);
   drawShadow(ctx, player.x, player.y, 10, 0.3);
   const blinking = player.iframes>0 && Math.floor(gameT*12)%2===0;
@@ -3662,8 +3684,8 @@ function drawPhaseBeat3Finale(ctx){
   drawUnisonBubbles(ctx, 1);
   drawChunkyText(ctx, CONFIG.punchline, CW/2, CH/2-20, 60, PAL.gold, PAL.outline, 'center');
 }
-/* room darkens except a light pool at the left door, for Aram's entrance */
-function drawAramDim(ctx, alpha){
+/* room darkens except a light pool at the left door, for the final boss's entrance */
+function drawFinalBossDim(ctx, alpha){
   if(alpha<=0) return;
   ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = '#000'; ctx.fillRect(0,0,CW,CH); ctx.restore();
   const cx = LEFT_DOOR.x+30, cy = LEFT_DOOR.y+LEFT_DOOR.h/2;
@@ -3789,20 +3811,20 @@ function drawEpBSharing(ctx, pingIndex){
 }
 function drawPhaseBeat4Intro(ctx){
   drawBaseScene(ctx);
-  const dimT = clamp01(phaseElapsed/ARAM_SLAM_AT);
+  const dimT = clamp01(phaseElapsed/FINALBOSS_SLAM_AT);
   let dim = 0.6*dimT;
-  let letterboxT = clamp01((phaseElapsed-ARAM_SLAM_AT*0.5)/0.6);
+  let letterboxT = clamp01((phaseElapsed-FINALBOSS_SLAM_AT*0.5)/0.6);
   if(phaseData.stage===3){
     // final beat: letterbox slides out, lights come back up
-    const p = clamp01((phaseElapsed-phaseData.stage3At)/ARAM_LETTERBOX_OUT_DUR);
+    const p = clamp01((phaseElapsed-phaseData.stage3At)/FINALBOSS_LETTERBOX_OUT_DUR);
     dim = 0.6*(1-p);
     letterboxT = 1-p;
   }
-  drawAramDim(ctx, dim);
+  drawFinalBossDim(ctx, dim);
   if(phaseData.stage>=1 && phaseData.bubbleTw){
     const local = phaseElapsed-phaseData.bubbleStart;
     const state = phaseData.bubbleTw.getState(local);
-    drawAutoBubble(ctx, phaseData.bubbleTw.lines[0].slice(0,state[0]), aram.x, aram.y-130, 16, 1);
+    drawAutoBubble(ctx, phaseData.bubbleTw.lines[0].slice(0,state[0]), finalBoss.x, finalBoss.y-130, 16, 1);
   }
   drawLetterbox(ctx, letterboxT);
 }
@@ -3812,7 +3834,7 @@ function drawPhaseBeat4TurnGood(ctx){
   if(phaseData.stage>=1 && phaseData.bubbleTw){
     const local = phaseElapsed-phaseData.bubbleStart;
     const state = phaseData.bubbleTw.getState(local);
-    drawAutoBubble(ctx, phaseData.bubbleTw.lines[0].slice(0,state[0]), aram.x, aram.y-130, 16, 1);
+    drawAutoBubble(ctx, phaseData.bubbleTw.lines[0].slice(0,state[0]), finalBoss.x, finalBoss.y-130, 16, 1);
   }
 }
 function drawPhaseCelebration(ctx){
@@ -4070,7 +4092,7 @@ function draw(){
    so the scene behind the dim genuinely holds still rather than needing a
    separate "paused snapshot" code path.
    ====================================================================== */
-/* boss/aram/beat5 entries only exist when their role is cast -- each is only
+/* boss/finalBoss/beat5 entries only exist when their role is cast -- each is only
    ever looked up from inside that role's own (already role-gated) phase
    code, but building them unconditionally would crash at load time for a
    config that omits an uncast role's content bucket entirely (as the
@@ -4080,7 +4102,7 @@ const CARDS = {
   capture: { key:'capture', title:'CATCH THE LAUGHS!', body:['THE TABLE IS LOSING IT.','RUN AROUND AND SOAK UP EVERY HA.'] },
 };
 if(JUDGE_CAST) CARDS.boss = { key:'boss', title:CONFIG.judge.title, body:CONFIG.judge.cardBody };
-if(AUTHORITY_CAST) CARDS.aram = { key:'aram', title:CONFIG.authority.cardTitle, body:fmtLines(CONFIG.authority.cardBody) };
+if(AUTHORITY_CAST) CARDS.finalboss = { key:'finalboss', title:CONFIG.authority.cardTitle, body:fmtLines(CONFIG.authority.cardBody) };
 if(BUILDER_CAST) CARDS.beat5 = { key:'beat5', title:CONFIG.builder.cardTitle, body:CONFIG.builder.cardBody };
 let activeCard = null;
 let pendingCard = null, pendingCardAt = 0;
@@ -4384,22 +4406,22 @@ window.addEventListener('load', ()=>{ try{ ensureAudioStarted(); }catch(e){} });
 let touchActionPointerId = null;
 
 /* ======================================================================
-   URL ENTRY POINTS -- ?start=<dinner|boss|aram|ending|techsupport>
+   URL ENTRY POINTS -- ?start=<dinner|boss|finalBoss|ending|techsupport>
    Jump straight into a later part of the game without playing the rest.
    Each non-default entry is a proper state initializer (same idea as
    retryBeat1/retryBeat2/retryBeat4): it sets every flag the target phase's
-   code expects -- boss/aram/woman/diner positions, which tutorial cards
+   code expects -- boss/finalBoss/woman/diner positions, which tutorial cards
    have already "shown" so they don't fire mid-jump, drums/music state,
    stats zeroed -- then calls enterPhase() to actually enter it. The jump is
    applied AFTER mode-select confirms (mode-select still shows first if
-   kck_beaten is set), so hardMode/D() are always already resolved by the
+   this game's own "<gameId>_beaten" key is set), so hardMode/D() are always already resolved by the
    time any of this runs. Invalid/missing values fall back to 'dinner',
    which is byte-for-byte today's boot behavior (no code path change at all
    for the default case). */
 const START_PARAM = (function(){
   try{
     const v = new URLSearchParams(location.search).get('start');
-    const valid = new Set(['dinner','boss','aram','ending','techsupport']);
+    const valid = new Set(['dinner','boss','finalboss','ending','techsupport']);
     return valid.has(v) ? v : 'dinner';
   }catch(e){ return 'dinner'; }
 })();
@@ -4407,7 +4429,7 @@ function resetStatsForEntryPoint(){
   stats.heartsCaptured=0; stats.hitsTaken=0; stats.bottlesLanded=0; stats.tooSoon=0; stats.reviews=0; stats.resets=0;
 }
 /* shared "the boss fight (and the Widowmaker beat) already happened" setup
-   for the aram/ending/techsupport entries: critic restored and back in his
+   for the finalBoss/ending/techsupport entries: critic restored and back in his
    own seat (not revived-in-the-window -- the Widowmaker already un-made
    that window by this point in every one of these entry points), the wall
    door gone, the woman already arrived and delivered her lines. */
@@ -4428,26 +4450,26 @@ function startAtBoss(){
   cardsShown.start = true; cardsShown.capture = true;
   enterPhase('beat2_intro'); // critic walk-out -> transform -> enterPhase('boss') shows its card once
 }
-function startAtAram(){
+function startAtFinalBoss(){
   resetStatsForEntryPoint();
   setupPostFightState();
   player.hearts = player.maxHearts;
   cardsShown.start = true; cardsShown.capture = true; cardsShown.boss = true;
-  enterPhase('beat4_intro'); // dramatic staging -> beat4_chase shows the ARAM card once
+  enterPhase('beat4_intro'); // dramatic staging -> beat4_chase shows the final-boss card once
 }
-/* the third five-star review just landed: Aram freezes mid-chase, checks his
+/* the third five-star review just landed: the final boss freezes mid-chase, checks his
    phone, turns good, then flows naturally into celebration -> epilogueA ->
    epilogueB -> beat5 -> end card, exactly like reaching this point by play. */
 function startAtEnding(){
   resetStatsForEntryPoint();
   setupPostFightState();
   player.hearts = player.maxHearts;
-  aram.active = true; aram.turnedGood = false; aram.state = 'chase';
+  finalBoss.active = true; finalBoss.turnedGood = false; finalBoss.state = 'chase';
   // both positioned on open floor, clear of the solid TABLE rect (336-624 x,
   // 248-368 y) -- starting a mobile entity already overlapping a solid
   // freezes it in place, since moveAndCollide reverts any delta that's still
   // inside the same rect it started in
-  aram.x = 760; aram.y = 300;
+  finalBoss.x = 760; finalBoss.y = 300;
   player.x = 700; player.y = 450;
   // scatter the 5 reviewer candidates around the room like a real completed
   // chase, and mark exactly D('reviewsNeeded') of them as already reviewed
@@ -4462,7 +4484,7 @@ function startAtEnding(){
     r.wanderTX = r.x; r.wanderTY = r.y;
   });
   stats.reviews = need;
-  cardsShown.start = true; cardsShown.capture = true; cardsShown.boss = true; cardsShown.aram = true;
+  cardsShown.start = true; cardsShown.capture = true; cardsShown.boss = true; cardsShown.finalboss = true;
   setBeatMusic('chase'); // simulating "was mid-chase when caught," same as beat4_chase's own pick
   enterPhase('beat4_turngood');
 }
@@ -4470,17 +4492,17 @@ function startAtTechSupport(){
   resetStatsForEntryPoint();
   setupPostFightState();
   player.hearts = player.maxHearts;
-  aram.active = true; aram.turnedGood = true; aram.state = 'frozen';
-  aram.x = 480; aram.y = 300;
+  finalBoss.active = true; finalBoss.turnedGood = true; finalBoss.state = 'frozen';
+  finalBoss.x = 480; finalBoss.y = 300;
   const need = D('reviewsNeeded');
   getReviewerList().forEach(r=>{ r.reviewGiven = true; r.fleeing=false; r.begging=false; r.beggingT=0; });
   stats.reviews = need;
-  cardsShown.start = true; cardsShown.capture = true; cardsShown.boss = true; cardsShown.aram = true;
+  cardsShown.start = true; cardsShown.capture = true; cardsShown.boss = true; cardsShown.finalboss = true;
   enterPhase('beat5_chase'); // shows the TECH SUPPORT card once, room already in its post-win state
 }
 function applyStartParam(){
   if(START_PARAM==='boss') startAtBoss();
-  else if(START_PARAM==='aram') startAtAram();
+  else if(START_PARAM==='finalboss') startAtFinalBoss();
   else if(START_PARAM==='ending') startAtEnding();
   else if(START_PARAM==='techsupport') startAtTechSupport();
   else maybeShowCard('start'); // 'dinner' -- today's exact default behavior

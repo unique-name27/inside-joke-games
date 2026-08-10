@@ -47,9 +47,9 @@
         phase) -- independently defaulted, matching the exact fallback
         shape castSprite() has always had.
      3. else the caller's own fallback col/row, also on 'dungeon' --
-        every existing call site's fallback IS today's literal KCK tile,
-        so an uncast/unpicked slot renders BYTE-IDENTICAL to before this
-        phase existed. This is the whole KCK-regression guarantee: no
+        every existing call site's fallback IS today's literal default
+        tile, so an uncast/unpicked slot renders BYTE-IDENTICAL to before
+        this phase existed. This is the whole regression guarantee: no
         entry.sprite anywhere (true of every pre-Phase-C config) means
         every single call always falls through to branch 3.
    ====================================================================== */
@@ -63,9 +63,9 @@ var ROSTER_SHEETS = {
 
 var ROSTER = [
   // ---- Tiny Dungeon (col,row on the existing tiny_dungeon.png) ----
-  // the 5 starred entries are today's KCK hardcoded literals -- their
-  // labels double as "what this slot looks like if you don't touch the
-  // sprite picker at all" in the wizard.
+  // the 5 starred entries are the engine's own default hardcoded literals
+  // -- their labels double as "what this slot looks like if you don't
+  // touch the sprite picker at all" in the wizard.
   { key:'sage',      label:'Sage',       sheet:'dungeon', col:0, row:7 },
   { key:'villager',  label:'Villager',   sheet:'dungeon', col:1, row:7 }, // * diner0 default
   { key:'plain',     label:'Plain',      sheet:'dungeon', col:2, row:7 }, // * host/player default

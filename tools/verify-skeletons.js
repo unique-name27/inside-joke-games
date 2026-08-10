@@ -1,32 +1,42 @@
 'use strict';
 /* ======================================================================
    tools/verify-skeletons.js -- STORY SKELETONS verification (see
-   SPEC-skeletons.md / game/skeletons.js). Zero dependencies, same Node
-   `vm` harness methodology as tools/verify-config.js (reuses that file's
-   own loadEngineWithConfig/drivePlaythrough rather than re-implementing
-   the sandbox plumbing -- see its own module.exports comment).
+   SPEC-skeletons.md / game/skeletons.js) + PHASE C roster verification
+   (see game/roster.js). Zero dependencies, same Node `vm` harness
+   methodology as tools/verify-config.js (reuses that file's own
+   loadEngineWithConfig/drivePlaythrough rather than re-implementing the
+   sandbox plumbing -- see its own module.exports comment).
 
      node tools/verify-skeletons.js
 
    Runs, in order:
-   1. Dinner literal parity -- SKELETONS.dinner.strings equal the exact
-      strings KCK's engine hardcoded before this feature existed.
-   2. KCK (game/config.js) full playthrough, NORMAL mode -- no `scene`
-      field in that file, proving absent-scene -> 'dinner' end to end.
-   3. KCK full playthrough, HARD mode ("SECOND SEATING") -- localStorage
-      pre-seeded so the mode-select card appears at boot, then
-      __selectHardMode() picks row 1, same as a real returning player.
-   4. examples/test-group.config.js playthrough -- also no `scene` field;
-      proves the same absent-scene default through a degraded (JUDGE
-      uncast) cast.
-   5. examples/roadtrip.config.js playthrough (the new example).
-   6. Scene matrix -- for EACH of the four scene keys, a
+   1. examples/test-group.config.js playthrough -- no `scene` field;
+      proves absent-scene -> 'dinner' through a degraded (JUDGE uncast)
+      cast.
+   2. examples/roadtrip.config.js playthrough.
+   3. Scene matrix -- for EACH of the four scene keys, a
       cfgBuildDefaultConfig(root, scene) base + a fully-cast override, run
-      through the full generic playthrough + tone gate.
-   7. Tone gate over the whole of game/skeletons.js's own source.
-   8. Round-trip -- cfgEncodeConfigFragment -> cfgDecompress for each
+      through the full generic playthrough (no baseline/universal tone
+      gate anymore -- see tools/verify-config.js's toneGateSource; this
+      neutral config has nothing in forbiddenWords to check).
+   4. Neutral default config, HARD MODE ("SECOND SEATING") playthrough --
+      localStorage pre-seeded so the mode-select card appears at boot,
+      then __selectHardMode() picks row 1, same as a real returning
+      player. (game/config.js is a stub now (no file config of its own),
+      so this exercises the same hard-mode code path off the neutral
+      scene-matrix base instead.)
+   5. Round-trip -- cfgEncodeConfigFragment -> cfgDecompress for each
       scene key (survives), an unknown key, and an absent key (both
       sanitize to absent).
+   6. Roster resource check -- every roster entry's backing sheet ships
+      on disk, and every entry's `sheet` resolves to a real ROSTER_SHEETS
+      mapping.
+   7. Roster defaults -- with no `sprite` (or spriteCol/spriteRow) pick
+      set anywhere, every cast/host sprite resolution comes out exactly
+      equal to game/roster.js's own documented default entry for that
+      slot (villager/grandma/braid/vest/plain) -- proves the "absent pick
+      -> the roster's own documented default" guarantee end to end (not
+      just per-function in isolation).
    ====================================================================== */
 const fs = require('fs');
 const path = require('path');
@@ -35,14 +45,11 @@ const REPO_ROOT = path.join(__dirname, '..');
 const {
   cfgBuildDefaultConfig, cfgDeepMerge, cfgEncodeConfigFragment, cfgDecompress, CFG_SCENE_KEYS,
 } = require(path.join(REPO_ROOT, 'game', 'cfgcodec.js'));
-const { SKELETONS } = require(path.join(REPO_ROOT, 'game', 'skeletons.js'));
-const { ROSTER, ROSTER_SHEETS } = require(path.join(REPO_ROOT, 'game', 'roster.js'));
+const { ROSTER, ROSTER_SHEETS, ROSTER_BY_KEY } = require(path.join(REPO_ROOT, 'game', 'roster.js'));
 const {
-  verifyConfigFile, verifyConfigSource, toneGateSource, loadEngineWithConfig, drivePlaythrough,
+  verifyConfigFile, verifyConfigSource, loadEngineWithConfig, drivePlaythrough,
 } = require('./verify-config.js');
 
-const SKELETONS_PATH = path.join(REPO_ROOT, 'game', 'skeletons.js');
-const GAME_CONFIG_PATH = path.join(REPO_ROOT, 'game', 'config.js');
 const TEST_GROUP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'test-group.config.js');
 const ROADTRIP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'roadtrip.config.js');
 
@@ -53,70 +60,8 @@ function record(label, ok, detail){
 }
 
 /* ----------------------------------------------------------------------
-   1. Dinner literal parity -- these are EXACTLY the strings KCK's
-   engine.js hardcoded before the extraction (game/engine.js's old
-   CARDS.start / MODE_SELECT_ROWS / 'CHOOSE YOUR SEATING' / 'SECOND
-   SEATING AWAITS AT THE START' / 'SECOND SEATING CLEARED' literals --
-   see SPEC-skeletons.md's "dinner -- THE DINNER PARTY (parity skeleton)").
-   ---------------------------------------------------------------------- */
-function checkDinnerParity(){
-  const expected = {
-    startCardTitle: 'DINNER IS SERVED',
-    startCardBody: ['THE GUYS TELL THEIR STORIES.','WAIT FOR THE LAST WORD...','THEN HIT SPACE.',"DON'T LET THE LAUGHTER DIE."],
-    modeSelectTitle: 'CHOOSE YOUR SEATING',
-    modeRowNormal: 'FIRST SEATING  --  A NICE DINNER',
-    modeRowHard: 'SECOND SEATING  --  MUCH HARDER. YOU CAN LOSE.',
-    hardUnlockLine: 'SECOND SEATING AWAITS AT THE START',
-    hardClearedLine: 'SECOND SEATING CLEARED',
-  };
-  const actual = SKELETONS.dinner && SKELETONS.dinner.strings;
-  if(!actual) return record('dinner literal parity', false, 'SKELETONS.dinner.strings is missing');
-  const mismatches = [];
-  for(const key in expected){
-    const exp = JSON.stringify(expected[key]);
-    const act = JSON.stringify(actual[key]);
-    if(exp !== act) mismatches.push(key + ': expected ' + exp + ', got ' + act);
-  }
-  record('dinner literal parity (strings match KCK\'s old hardcoded literals)', mismatches.length === 0, mismatches.join('; '));
-}
-
-/* ----------------------------------------------------------------------
-   2/3. KCK (game/config.js), normal + hard mode. Hard mode needs
-   hasBeatenBefore true BEFORE the combined script evaluates (that's a
-   one-time top-level check, not something a probe hook can flip after
-   the fact) -- loadEngineWithConfig's beforeRun hook patches
-   sandbox.localStorage.getItem to answer '1' for ANY "*_beaten" key
-   (works regardless of this config's own gameId) before the script runs;
-   __selectHardMode() (tools/verify-config.js's own PROBE addition) then
-   picks SECOND SEATING and confirms it, same as a real returning player.
-   ---------------------------------------------------------------------- */
-function checkKckPlaythroughs(){
-  const configSource = fs.readFileSync(GAME_CONFIG_PATH, 'utf8');
-  try{
-    const result = verifyConfigSource(configSource, {});
-    record('KCK (game/config.js) normal-mode playthrough', result.ok, result.ok ? ('reached ' + result.phaseReached) : result.errors.join('; '));
-  }catch(e){
-    record('KCK (game/config.js) normal-mode playthrough', false, 'threw: ' + (e && e.stack ? e.stack : e));
-  }
-  try{
-    const sb = loadEngineWithConfig(configSource, {
-      beforeRun(sandbox){
-        const origGetItem = sandbox.localStorage.getItem;
-        sandbox.localStorage.getItem = function(k){ return /_beaten$/.test(k) ? '1' : origGetItem(k); };
-      },
-    });
-    sb.__selectHardMode();
-    const phase = drivePlaythrough(sb);
-    record('KCK (game/config.js) hard-mode ("SECOND SEATING") playthrough', phase === 'endcard', 'reached ' + phase);
-  }catch(e){
-    record('KCK (game/config.js) hard-mode playthrough', false, 'threw: ' + (e && e.stack ? e.stack : e));
-  }
-}
-
-/* ----------------------------------------------------------------------
-   4/5. Existing examples -- proves absent-scene -> dinner through the
-   shell/codec path (neither file has a `scene` field), plus the new
-   roadtrip example.
+   1/2. Existing examples -- proves absent-scene -> dinner through the
+   shell/codec path (neither file has a `scene` field).
    ---------------------------------------------------------------------- */
 function checkExamples(){
   for(const [label, filePath] of [
@@ -133,8 +78,10 @@ function checkExamples(){
 }
 
 /* ----------------------------------------------------------------------
-   6. Scene matrix -- every scene key, fully cast, full generic
-   playthrough + tone gate (verifyConfigSource already runs both).
+   3. Scene matrix -- every scene key, fully cast, full generic
+   playthrough (verifyConfigSource also runs the tone gate, but this
+   neutral config's forbiddenWords is empty -- see cfgBuildDefaultConfig
+   -- so that step is a no-op here by design, not skipped).
    ---------------------------------------------------------------------- */
 const FULL_CAST_OVERRIDE = {
   cast: {
@@ -165,18 +112,35 @@ function checkSceneMatrix(){
 }
 
 /* ----------------------------------------------------------------------
-   7. Tone gate over the whole of game/skeletons.js's own source (baseline
-   forbidden words + the FREE-only-inside-"FOR FREE?" rule) -- every
-   skeleton's strings AND any stray text in a comment/draw function alike.
+   4. Hard mode, off the same neutral 'dinner' scene-matrix base
+   (game/config.js is a stub now and can't run a playthrough at all --
+   this is the generic replacement). Hard mode needs
+   hasBeatenBefore true BEFORE the combined script evaluates (that's a
+   one-time top-level check, not something a probe hook can flip after
+   the fact) -- loadEngineWithConfig's beforeRun hook patches
+   sandbox.localStorage.getItem to answer '1' for ANY "*_beaten" key;
+   __selectHardMode() then picks SECOND SEATING and confirms it, same as
+   a real returning player.
    ---------------------------------------------------------------------- */
-function checkSkeletonsToneGate(){
-  const src = fs.readFileSync(SKELETONS_PATH, 'utf8');
-  const violations = toneGateSource(src, []);
-  record('tone gate over game/skeletons.js source', violations.length === 0, violations.join('; '));
+function checkHardModePlaythrough(){
+  try{
+    const configSource = buildSceneConfigSource('dinner');
+    const sb = loadEngineWithConfig(configSource, {
+      beforeRun(sandbox){
+        const origGetItem = sandbox.localStorage.getItem;
+        sandbox.localStorage.getItem = function(k){ return /_beaten$/.test(k) ? '1' : origGetItem(k); };
+      },
+    });
+    sb.__selectHardMode();
+    const phase = drivePlaythrough(sb);
+    record('neutral default config, hard-mode ("SECOND SEATING") playthrough', phase === 'endcard', 'reached ' + phase);
+  }catch(e){
+    record('neutral default config, hard-mode playthrough', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
 }
 
 /* ----------------------------------------------------------------------
-   8. Round-trip: cfgEncodeConfigFragment -> cfgDecompress -> JSON.parse.
+   5. Round-trip: cfgEncodeConfigFragment -> cfgDecompress -> JSON.parse.
    `scene` survives for each valid key; an unknown or absent scene
    sanitizes to absent (dropped key) either way.
    ---------------------------------------------------------------------- */
@@ -207,7 +171,7 @@ function checkRoundTrip(){
 }
 
 /* ----------------------------------------------------------------------
-   9. PHASE C (characters are their people) -- resource check: the harness
+   6. PHASE C (characters are their people) -- resource check: the harness
    never draws a tile (tools/lib/sandbox.js's FakeImage never actually
    decodes a PNG), so this is the one place that can actually prove every
    roster entry's backing sheet ships as a real file on disk, and that
@@ -226,29 +190,46 @@ function checkRosterAssets(){
 }
 
 /* ----------------------------------------------------------------------
-   10. PHASE C -- no-pick KCK parity: game/config.js has no `sprite` (or
-   spriteCol/spriteRow beyond its own existing 4 literals) anywhere, so
-   every cast/host sprite resolution must come out EXACTLY as it did
-   before this phase existed -- proves the "absent pick -> byte-identical
-   regression" guarantee end to end (not just per-function in isolation).
+   7. PHASE C -- roster defaults: a fully-cast neutral config with no
+   `sprite`/spriteCol/spriteRow set anywhere -- every cast/host sprite
+   resolution must come out EXACTLY equal to game/roster.js's own
+   documented default entry for that slot. Expected values are read
+   straight off ROSTER_BY_KEY (not re-typed as literals) so this can never
+   silently drift from the roster's own data if it changes.
    __rosterProbe (tools/verify-config.js's PROBE) exposes the resolved
    values directly off the running sandbox.
    ---------------------------------------------------------------------- */
-function checkRosterNoPickParity(){
+const ROSTER_DEFAULTS_OVERRIDE = {
+  cast: {
+    judge: { name: 'THE CRITIC GUY' },
+    authority: { name: 'THE BOSS GUY' },
+    savior: { name: 'THE SAVIOR GUY' },
+    butterfingers: { name: 'THE PHONE GUY' },
+    builder: { name: 'THE BUILDER GUY' },
+  },
+};
+function rosterTile(key){
+  const r = ROSTER_BY_KEY[key];
+  return { sheet: r.sheet, col: r.col, row: r.row };
+}
+function checkRosterDefaults(){
   const expected = {
     diners: [
-      { sheet:'dungeon', col:1, row:7 }, // diner0
-      { sheet:'dungeon', col:4, row:8 }, // judge
-      { sheet:'dungeon', col:3, row:8 }, // butterfingers
-      { sheet:'dungeon', col:2, row:8 }, // builder
+      rosterTile('villager'),  // diner0
+      rosterTile('grandma'),   // judge
+      rosterTile('braid'),     // butterfingers
+      rosterTile('vest'),      // builder
     ],
-    host: { sheet:'dungeon', col:2, row:7 },
-    critic: { sheet:'dungeon', col:4, row:8 },
-    savior: { sheet:'dungeon', col:3, row:8 },
-    authorityPick: null,
+    host: rosterTile('plain'),
+    critic: rosterTile('grandma'),  // same tile as judge, tinted for the boss form
+    savior: rosterTile('braid'),    // same tile as butterfingers, drawn plain
+    authorityPick: null,            // no pick -- bespoke tinted rendering stays
   };
   try{
-    const configSource = fs.readFileSync(GAME_CONFIG_PATH, 'utf8');
+    const base = cfgBuildDefaultConfig('../', 'dinner');
+    const cfg = cfgDeepMerge(base, ROSTER_DEFAULTS_OVERRIDE);
+    cfg.gameId = 'roster-defaults-check';
+    const configSource = "'use strict';\nconst CONFIG = " + JSON.stringify(cfg) + ";\n";
     const sb = loadEngineWithConfig(configSource, {});
     const actual = sb.__rosterProbe();
     const mismatches = [];
@@ -257,21 +238,19 @@ function checkRosterNoPickParity(){
       const act = JSON.stringify(actual[key]);
       if(exp !== act) mismatches.push(key + ': expected ' + exp + ', got ' + act);
     }
-    record('roster: KCK (game/config.js) no-pick parity -- every seat resolves to today\'s exact sheet/col/row', mismatches.length === 0, mismatches.join('; '));
+    record('roster: no-sprite-pick path resolves every seat to the roster\'s documented defaults', mismatches.length === 0, mismatches.join('; '));
   }catch(e){
-    record('roster: KCK (game/config.js) no-pick parity', false, 'threw: ' + (e && e.stack ? e.stack : e));
+    record('roster: no-sprite-pick defaults', false, 'threw: ' + (e && e.stack ? e.stack : e));
   }
 }
 
 function main(){
-  checkDinnerParity();
-  checkKckPlaythroughs();
   checkExamples();
   checkSceneMatrix();
-  checkSkeletonsToneGate();
+  checkHardModePlaythrough();
   checkRoundTrip();
   checkRosterAssets();
-  checkRosterNoPickParity();
+  checkRosterDefaults();
 
   const failed = results.filter(r => !r.ok);
   console.log('');
@@ -281,4 +260,4 @@ function main(){
 
 if(require.main === module) main();
 
-module.exports = { checkDinnerParity, checkKckPlaythroughs, checkExamples, checkSceneMatrix, checkSkeletonsToneGate, checkRoundTrip, checkRosterAssets, checkRosterNoPickParity };
+module.exports = { checkExamples, checkSceneMatrix, checkHardModePlaythrough, checkRoundTrip, checkRosterAssets, checkRosterDefaults };

@@ -18,9 +18,9 @@
    KITCHEN_DOOR 760,500,152,40 + KITCHEN_GLOW center 840,508) -- so every
    pixel position below is a literal chosen to sit inside that same fixed
    footprint, not a rect this file defines or owns. `dinner`'s own values
-   are today's KCK literals moved verbatim (byte-identical regression
-   proof for the extraction); the other three are new art in the same
-   economy (~30 lines per prop).
+   are the original hardcoded literals moved verbatim (byte-identical
+   regression proof for the extraction); the other three are new art in
+   the same economy (~30 lines per prop).
 
    Each draw function's signature is `(ctx, t, H)` for scene-level props
    (t = elapsed gameT/localT, for cheap animation) or `(ctx, x, y, size, H)`
@@ -43,12 +43,12 @@
    laugh tokens, hearts, the HA particles, the "LAUGHS CAUGHT:" stat
    label, "HARD MODE UNLOCKED" -- laughter is the currency in every scene.
 
-   This project's usual tone gate applies to every string below and to
-   this file's own source text -- see tools/verify-config.js's
-   BASELINE_FORBIDDEN list and its "FOR FREE?"-only exception for the
-   exact rule (deliberately not restated word-for-word here, so this
-   comment doesn't trip its own gate). tools/verify-skeletons.js checks
-   this file's source the same way tools/verify-config.js checks a config.
+   The tone gate itself (tools/verify-config.js's toneGateSource) is
+   per-group now -- it checks a CONFIG's own forbiddenWords list, which
+   this file (engine-shipped, shared by every group) has no equivalent
+   of. Every string below is still ordinary, generic dinner/road-trip/
+   office/wedding flavor text -- nothing that presumes any one group's
+   specific off-limits words.
    ====================================================================== */
 
 var SKELETONS = {
@@ -103,7 +103,7 @@ var SKELETONS = {
     }},
     strings: {
       startCardTitle: 'DINNER IS SERVED',
-      startCardBody: ['THE GUYS TELL THEIR STORIES.','WAIT FOR THE LAST WORD...','THEN HIT SPACE.',"DON'T LET THE LAUGHTER DIE."],
+      startCardBody: ['THE TABLE TELLS ITS STORIES.','WAIT FOR THE LAST WORD...','THEN HIT SPACE.',"DON'T LET THE LAUGHTER DIE."],
       modeSelectTitle: 'CHOOSE YOUR SEATING',
       modeRowNormal: 'FIRST SEATING  --  A NICE DINNER',
       modeRowHard: 'SECOND SEATING  --  MUCH HARDER. YOU CAN LOSE.',

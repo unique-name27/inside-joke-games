@@ -21,8 +21,8 @@
    modern browser and in Node without any dependency).
 
    PART B -- FRAGMENT CONFIG: a neutral, fully-populated CFG_DEFAULT_CONFIG
-   (deliberately NOT Karks Cub Kingdom's own config -- game/config.js stays
-   the *schema* reference, per the spec, not the merge base) + a whitelist
+   (deliberately generic, unbranded content -- see examples/roadtrip.
+   config.js for the fully-cast schema reference) + a whitelist
    validator/sanitizer (CFG_FRAGMENT_SCHEMA + cfgSanitizeConfig) + a deep
    merge (cfgDeepMerge), so a decoded fragment can safely override just the
    parts of CONFIG it wants to and nothing else -- unknown keys are
@@ -292,8 +292,10 @@ var CFG_SCENE_DEFAULTS = {
 
 /* ----------------------------------------------------------------------
    PART B.1 -- CFG_DEFAULT_CONFIG: a neutral, fully-populated base for
-   deep-merging a fragment onto. Deliberately NOT Karks Cub Kingdom's own
-   branding (that stays the *schema* reference in game/config.js) -- every
+   deep-merging a fragment onto. Deliberately generic, unbranded content --
+   game/config.js ships no config of its own anymore (see that file's own
+   stub comment); examples/roadtrip.config.js is the fully-cast schema
+   reference now, examples/test-group.config.js the degraded one. Every
    role's content bucket is fully written out with generic-but-complete
    placeholder text so a fragment that supplies e.g. only `cast.judge.name`
    still gets a complete, playable Widowmaker beat for free via merge.
@@ -327,7 +329,7 @@ function cfgBuildDefaultConfig(engineRoot, sceneKey){
       introPageTitle: 'A Tiny Game',
       gamePageTitle: 'A Tiny Game -- Playable Demo',
     },
-    punchline: 'FOR FREE?',
+    punchline: 'CLASSIC.',
     host: { name: 'HOST' },
     music: {
       customSongPath: null,
@@ -341,7 +343,11 @@ function cfgBuildDefaultConfig(engineRoot, sceneKey){
       },
       introFallback: root + 'assets/audio/music/night-at-the-beach.ogg',
     },
-    forbiddenWords: ['COIN', 'BILL', 'COST', 'NOTHING'],
+    // the tone gate is entirely per-group now (see tools/verify-config.js's
+    // toneGateSource) -- no universal/baseline word list, so the neutral
+    // default is simply nothing off-limits. A real order's own off-limits
+    // answer (Q10) fills this in.
+    forbiddenWords: [],
     stories: [
       { lines: ['SOMEONE MISSED THE TURN', 'FOR THE THIRD TIME.'] },
       { lines: ['THE WAITER FORGOT THE ORDER', 'AND NOBODY MINDED.'] },

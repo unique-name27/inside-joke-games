@@ -10,9 +10,9 @@
    game/config.js for a local check) and the game plays a genuinely
    different, shorter story that still reaches a satisfying end card.
 
-   Differences from CONFIG #1 (game/config.js):
+   Differences from a fully-cast config (see examples/roadtrip.config.js):
    - JUDGE is uncast (cast.judge = null) -- per the degradation map, that
-     also makes Beat 3 (savior/revival) and Beat 4 (authority/Aram)
+     also makes Beat 3 (savior/revival) and Beat 4 (authority/final-boss)
      unreachable regardless of their own cast values, since both are
      narratively downstream of the critic incident -- so this config leaves
      authority/savior uncast too rather than supplying dead content.
@@ -34,7 +34,7 @@ const CONFIG = {
     gamePageTitle: 'The Test Group -- Playable Demo',
   },
 
-  punchline: 'FOR FREE?',
+  punchline: 'SO TRUE.',
 
   host: {
     name: 'JORDAN',
@@ -53,7 +53,7 @@ const CONFIG = {
     introFallback: '../assets/audio/music/night-at-the-beach.ogg',
   },
 
-  forbiddenWords: ['COIN', 'BILL', 'COST', 'NOTHING'],
+  forbiddenWords: [], // no universal baseline anymore -- this group has nothing off-limits
 
   // required even with JUDGE uncast -- Beat 1's laugh-drain death can still
   // happen (dinner rounds always run) and reuses this as its reaction line

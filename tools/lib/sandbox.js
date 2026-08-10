@@ -153,7 +153,18 @@ function buildSandbox(opts){
     currentScript: { src: opts.currentScriptSrc || 'https://example.test/game/index.html' },
   });
   const windowTarget = makeEventTarget();
-  const location = { search: opts.locationSearch || '', hash: opts.locationHash || '', href: '', pathname:'/game/' };
+  // replace()/assign() just record the target rather than actually
+  // navigating (there's nowhere to navigate to in a vm sandbox) -- lets
+  // the bare-page "no config, no fragment -> redirect to the builder"
+  // code path (game/engine.js / intro/engine.js) run without throwing;
+  // __redirectedTo is inspectable by a test that wants to assert a
+  // redirect happened, same spirit as __localStorageData/__fetchCalls below.
+  const location = {
+    search: opts.locationSearch || '', hash: opts.locationHash || '', href: '', pathname:'/game/',
+    __redirectedTo: null,
+    replace(url){ location.__redirectedTo = url; location.href = url; },
+    assign(url){ location.__redirectedTo = url; location.href = url; },
+  };
   const speechState = { calls: [], voices: [] };
   const speechSynthesis = { getVoices(){ return speechState.voices; }, speak(u){ speechState.calls.push(u); }, cancel(){}, onvoiceschanged: null };
   class FakeSpeechSynthesisUtterance {
