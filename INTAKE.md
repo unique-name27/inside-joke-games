@@ -17,12 +17,14 @@ to match.
 - ☐ The things your group can't stop roasting → **The Gallery**
 - ☐ A disaster trip you keep retelling → **The Flight**
 - ☐ A recurring annoyance the group defends against → **The Defense**
+- ☐ Us-against-the-world absurdism → **The Mission**
 
 Not sure? Default to The Hangout — it's the original.
 
 ---
 
-**Q2. Pick your setting.** *(Multiple choice, required — Hangout games only; skip if you picked The Gallery, The Flight, or The Defense in Q1)*
+**Q2. Pick your setting.** *(Multiple choice, required — Hangout games only; skip if you picked The Gallery, The Flight, The Defense, or The
+Mission in Q1)*
 
 Same game, four rooms — pick whichever one actually fits your group. Every
 setting shares the same roles and the same engine; only the scenery, props,
@@ -66,6 +68,11 @@ punchline of your game, the one line everybody shouts at the big finish
   "THE THERMOSTAT"). Then: what keeps coming for it? 3–6 short labels,
   in order — each one becomes a wave of the recurring annoyance
   marching in ("MONDAY MEETINGS," "THE GROUP CHAT AT 2AM").
+- **If you picked The Mission:** What's the mission? The sillier the
+  better — it goes on the banner ("FIND THE BEST TACO"). Then: what are
+  you up against? Short labels, in order (2–6 swarms) — each one becomes
+  a stage's enemy swarm ("THE GROUP CHAT," "BAD DIRECTIONS"). Then pick
+  a ship color: Blue, Green, Orange, or Red.
 
 ---
 
@@ -73,8 +80,9 @@ punchline of your game, the one line everybody shouts at the big finish
 
 Your group's name, an inside joke, whatever fits — see
 `examples/test-group.config.js` (The Hangout), `examples/gallery-sample.config.js`
-(The Gallery), `examples/flight-sample.config.js` (The Flight), or
-`examples/defense-sample.config.js` (The Defense) for a worked example
+(The Gallery), `examples/flight-sample.config.js` (The Flight),
+`examples/defense-sample.config.js` (The Defense), or
+`examples/mission-sample.config.js` (The Mission) for a worked example
 matching whichever shape you picked in Q1. Keep it short; it has to
 render as blocky pixel lettering.
 
@@ -85,8 +93,9 @@ render as blocky pixel lettering.
 Every game has a host — the character the player plays. In The Hangout
 that's the one who cooks, hosts, or organizes; in The Gallery it's whoever's
 running the stall; in The Flight it's whoever's flying the plane; in The
-Defense it's the anchor tower nearest the thing everyone protects. Just
-their first name (or nickname) is fine.
+Defense it's the anchor tower nearest the thing everyone protects; in
+The Mission they fly lead, the rest of the squadron falling in around
+them. Just their first name (or nickname) is fine.
 
 ---
 
@@ -99,8 +108,8 @@ these.
 
 | Role | Who's this? |
 |---|---|
-| **The First Boss** | Every game needs a boss fight. Pick a real person from your group — they'll heckle from on high (and, in The Gallery/The Flight, throw things), and the player gives it right back. In The Defense they're on your side for once: the team's sniper, still heckling — just aimed at the annoyances. |
-| **The Final Boss** | Someone with actual authority in your world — a manager, a parent, a coach, a landlord — who storms in mad about something small, then comes around. (In The Defense they lead the very last wave — and then, beaten, join your side for the cleanup.) |
+| **The First Boss** | Every game needs a boss fight. Pick a real person from your group — they'll heckle from on high (and, in The Gallery/The Flight, throw things), and the player gives it right back. In The Defense they're on your side for once: the team's sniper, still heckling — just aimed at the annoyances. In The Mission they're back on the other side: the ace fighter that ambushes the squadron mid-mission, heckling before peeling off. |
+| **The Final Boss** | Someone with actual authority in your world — a manager, a parent, a coach, a landlord — who storms in mad about something small, then comes around. (In The Defense they lead the very last wave — and then, beaten, join your side for the cleanup. In The Mission they command the flagship at the end, then eject and join the victory flyby.) |
 | **The Savior** | The sincere one who saves the day — shows up right when things look bad. |
 | **Butterfingers** | The one tech/phone mishaps always happen to. |
 | **The Builder** | The one who'd actually go build something like this game. |
@@ -110,13 +119,15 @@ these.
 under the hood; the names on this form are the current, boss-slot framing
 only.)*
 
-**If you picked The Gallery, The Flight, or The Defense in Q1**, two more
-optional short-answer fields belong here: what The First Boss heckles
-with (their own words, short — in The Defense this is their sniper
-one-liner, delivered from your side of the field), and The Final Boss's
+**If you picked The Gallery, The Flight, The Defense, or The Mission in
+Q1**, two more optional short-answer fields belong here: what The First
+Boss heckles with (their own words, short — in The Defense this is
+their sniper one-liner, delivered from your side of the field; in The
+Mission it's beamed across the screen mid-ambush), and The Final Boss's
 dead giveaway or what they're mad about — the thing that always tells you
-it's really them. Both optional; leave either blank and the game falls
-back to a neutral, already-cleared line.
+it's really them (in The Mission this is beamed between the flagship's
+volleys). Both optional; leave either blank and the game falls back to a
+neutral, already-cleared line.
 
 ---
 

@@ -11,8 +11,9 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
 
 - `<answers.json>` — required. See "The answers schema" below;
   `tools/example-answers.json` (Hangout), `tools/gallery-sample-answers.json`
-  (Gallery), `tools/flight-sample-answers.json` (Flight), and
-  `tools/defense-sample-answers.json` (Defense) are complete
+  (Gallery), `tools/flight-sample-answers.json` (Flight),
+  `tools/defense-sample-answers.json` (Defense), and
+  `tools/mission-sample-answers.json` (Mission) are complete
   worked examples, one per template — `tools/example-answers.json` is the
   same content as `examples/test-group.config.js`, expressed as intake
   answers.
@@ -28,7 +29,8 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
   always take the default (a stable, guessable folder name is
   undesirable for someone else's game); this exists for reproducible
   checked-in examples like `games/gallery-sample/`/`games/flight-sample/`/
-  `games/defense-sample/` (see their matching `tools/<slug>-answers.json`),
+  `games/defense-sample/`/`games/mission-sample/` (see their matching
+  `tools/<slug>-answers.json`),
   the same deterministic-naming spirit as `games/test-group/`'s own
   hand-picked slug.
 
@@ -47,7 +49,8 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
 3. **Verifies before writing anything** — that template's own verify
    driver (`tools/verify-config.js` for Hangout, `tools/verify-gallery.js`
    for Gallery, `tools/verify-flight.js` for Flight,
-   `tools/verify-defense.js` for Defense) runs the generated
+   `tools/verify-defense.js` for Defense, `tools/verify-mission.js` for
+   Mission) runs the generated
    config through: a syntax check, a full headless playthrough (Node
    `vm`, no browser — the same methodology every round of this project
    has used) that drives whatever roles ended up cast all the way to the
@@ -59,9 +62,10 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
    **Hangout** gets three HTML pages (`index.html`, `game/index.html`,
    `intro/index.html`), copied fresh off `games/test-group/`'s own
    current files (not a hardcoded template string) with just the
-   `<title>` swapped; **Gallery**/**Flight**/**Defense** each get exactly
+   `<title>` swapped; **Gallery**/**Flight**/**Defense**/**Mission** each get exactly
    ONE `index.html`, copied fresh off
-   `gallery/index.html`/`flight/index.html`/`defense/index.html`
+   `gallery/index.html`/`flight/index.html`/`defense/index.html`/
+   `mission/index.html`
    with five exact-string replacements (title + four script `src`s,
    re-pointed one directory level deeper) — every replacement is
    verified to have actually matched something before it's written (see
@@ -77,17 +81,19 @@ node tools/generate.js <answers.json> [--out=games] [--base-url=https://<pages-d
    deployment step, using this repo's own already-shared engine.
    Hangout's instant link is `/intro/#cfg=<data>` (the intro page, same
    as ever); Gallery's is `/gallery/#cfg=<data>`; Flight's is
-   `/flight/#cfg=<data>`; Defense's is `/defense/#cfg=<data>` (each a
-   single page, no separate intro to route through). "An order can be fulfilled either as a hosted folder or an
-   instant link."
+   `/flight/#cfg=<data>`; Defense's is `/defense/#cfg=<data>`; Mission's
+   is `/mission/#cfg=<data>` (each a single page, no separate intro to
+   route through). "An order can be fulfilled either as a hosted folder
+   or an instant link."
 
 ## The answers schema
 
 `template` (INTAKE.md's new Q1, "What's the joke?") picks which of the
-four shapes below applies — `"hangout"` (default if omitted),
-`"gallery"`, `"flight"`, or `"defense"`. The shared fields (`catchphrase`/
-`title`/`host`/`cast`/`anecdotes`/`music`/`spellings`/`offLimits`/`email`)
-are read identically across all of them; each template's own content fields
+five shapes below applies — `"hangout"` (default if omitted),
+`"gallery"`, `"flight"`, `"defense"`, or `"mission"`. The shared fields
+(`catchphrase`/`title`/`host`/`cast`/`anecdotes`/`music`/`spellings`/
+`offLimits`/`email`) are read identically across all of them; each
+template's own content fields
 are template-only (a Hangout answers file never has `targets`/`beats`, a
 Gallery one never has `stories`/`scene`, and so on). Q-numbers in the
 comments below match INTAKE.md's current numbering (Q1 the joke pick,
@@ -141,6 +147,32 @@ music, Q10 spellings, Q11 off-limits, Q12 email).
   "anecdotes": { "...": "..." },            // Q8
   "spriteCast": { "critic": "grandma", "boss": "bandana" },      // optional -- roster keys, see below
   "music": { "vibe": "upbeat" },            // Q9
+  "spellings": [], "offLimits": [], "email": "user@example.com" // Q10/Q11/Q12
+}
+```
+
+**Mission** (`"template": "mission"`) — swaps `scene`/`stories` for
+`mission` + `swarms` (+ the same two optional boss lines; both bosses
+are ANTAGONISTS here, the boss fleet — the ace fighter's heckle and the
+flagship's quirk are beamed across the screen, not delivered from your
+own side the way the Defense's sniper-ally line is):
+
+```jsonc
+{
+  "template": "mission",
+  "catchphrase": "We found it. It has laundry.",     // Q3, required
+  "mission": "Find a place with in-unit laundry",    // Q4 (Mission), required -- the banner line, the sillier the better
+  "swarms": [                                        // Q4 (Mission), required -- 2-6 short labels, IN ORDER; each becomes a stage's swarm (uppercased)
+    "The Bad Listings", "Ghosting Landlords", "Surprise Fees"
+  ],
+  "shipColor": "orange",                             // Q4 (Mission), optional -- blue/green/orange/red, defaults to blue
+  "firstBossHeckle": "It won't last at this price.",   // optional (Q7's cast section) -- the ace fighter's beamed heckle, mid-ambush
+  "finalBossQuirk": "Still mad about that one email.", // optional (Q7's cast section) -- the flagship's beamed quirk, between volleys
+  "title": "The Apartment Hunters", "host": "Deshawn", // Q5/Q6, required
+  "cast": { "critic": "The Broker", "boss": "The Landlord", "savior": "...", "butterfingers": "...", "builder": "..." }, // Q7
+  "anecdotes": { "...": "..." },                     // Q8
+  "hostSprite": "overalls", "spriteCast": { "critic": "grandma" }, // optional -- roster keys, see below
+  "music": { "vibe": "chase" },                      // Q9
   "spellings": [], "offLimits": [], "email": "user@example.com" // Q10/Q11/Q12
 }
 ```
@@ -208,7 +240,7 @@ longer means "today's fixed defaults" — `cfgApplyMusicVibe` picks one of
 the five sets deterministically, hashing the order's own `gameId` (never
 random at runtime), so a given order always sounds the same across
 re-reads but different orders spread across the curated options. This
-works identically across all four templates.
+works identically across all five templates.
 
 `scene` (Hangout only) picks one of the four **story skeletons** — THE
 DINNER PARTY (default), THE ROAD TRIP, THE OFFICE PARTY, THE WEDDING
@@ -219,10 +251,11 @@ passes it straight to `cfgBuildDefaultConfig(root, scene)`, which fills
 in that scene's own flavor text (intro lines, the lose line, the "worst"
 rank name) as the base every other answer still overrides — no bespoke
 per-scene wiring needed here. See `README.md`'s "Story skeletons"
-section. The Gallery, the Flight, and the Defense have no `scene` answer
-at all — their `cfgBuildDefaultConfig(root, undefined, template)` base is
-its own separate, smaller object (see `cfgBuildGalleryDefaultConfig`/
-`cfgBuildFlightDefaultConfig`/`cfgBuildDefenseDefaultConfig`).
+section. The Gallery, the Flight, the Defense, and the Mission have no `scene`
+answer at all — their `cfgBuildDefaultConfig(root, undefined, template)`
+base is its own separate, smaller object (see
+`cfgBuildGalleryDefaultConfig`/`cfgBuildFlightDefaultConfig`/
+`cfgBuildDefenseDefaultConfig`/`cfgBuildMissionDefaultConfig`).
 
 `hostSprite`/`spriteCast` (every template) are optional
 `game/roster.js` keys — "which tile is this person?" (see that file's
@@ -251,8 +284,8 @@ Hangout's supporting dialogue (critique lines, entrance lines, epilogue
 captions, etc.) reuses `cfgBuildDefaultConfig`'s generic-but-complete,
 already tone-gate-clean template text — the same content a `#cfg=` link
 falls back to for anything a user didn't specify (the Gallery's/Flight's/
-Defense's own neutral fallback pools work the same way for their optional
-boss lines). Real per-order wit remains `FULFILLMENT.md`'s hand-authored path
+Defense's/Mission's own neutral fallback pools work the same way for
+their optional boss lines). Real per-order wit remains `FULFILLMENT.md`'s hand-authored path
 (copy `examples/roadtrip.config.js` as the schema reference, write every
 line by hand) — this CLI automates getting a *complete, correct,
 deployed, verified* game with zero manual steps; making every line of
@@ -274,8 +307,8 @@ asset at `games/<slug>/assets/theme.mp3` is `'../assets/theme.mp3'` — one
 `../` to climb from `games/<slug>/game/` (or `intro/`) back up to
 `games/<slug>/`, then into `assets/`. This CLI uses the corrected path;
 `FULFILLMENT.md`'s "Assets" note has been corrected to match. (Uploaded-
-song support is Hangout-only today — the Gallery/Flight/Defense answer
-schemas above have no `music.songFile`.)
+song support is Hangout-only today — the Gallery/Flight/Defense/Mission
+answer schemas above have no `music.songFile`.)
 
 ## The per-template verify drivers on their own
 
@@ -289,22 +322,24 @@ node tools/verify-config.js games/<slug>/config.js    # Hangout
 node tools/verify-gallery.js games/<slug>/config.js    # Gallery
 node tools/verify-flight.js games/<slug>/config.js     # Flight
 node tools/verify-defense.js games/<slug>/config.js    # Defense
+node tools/verify-mission.js games/<slug>/config.js    # Mission
 ```
 
 Prints PASS/FAIL, which phase the playthrough reached, which roles read
 as cast, and every tone-gate/error line — exit code 0 on pass, 1 on
 fail (2 on a missing argument). `tools/verify-skeletons.js` (no
 arguments — run bare) is the third layer: the scene matrix, the roster
-resource/default checks, and — for the Gallery, the Flight, and the
-Defense — a full-cast + host-only playthrough off each template's own
-checked-in sample plus a fragment round-trip proving `template` and every
-one of that template's own fields survive encode/sanitize/decode.
+resource/default checks, and — for the Gallery, the Flight, the
+Defense, and the Mission — a full-cast + host-only playthrough off each
+template's own checked-in sample plus a fragment round-trip proving
+`template` and every one of that template's own fields survive
+encode/sanitize/decode.
 
 ## `game/cfgcodec.js` — reused, not reimplemented
 
 Both the fragment-URL mechanism (every template's own `engine.js`) and
 this generator share the exact same `game/cfgcodec.js` for compression,
-the CONFIG whitelist schema (now four templates' worth), the neutral
+the CONFIG whitelist schema (now five templates' worth), the neutral
 default per template, and the deep merge — see that file's own header
 comment for the full design, and `README.md`'s "URL-fragment configs"
 section for the player-facing mechanism this CLI's instant links plug

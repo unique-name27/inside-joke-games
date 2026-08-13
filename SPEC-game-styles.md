@@ -16,7 +16,7 @@ a shape, and the shape picks the game:
 | The things your group can't stop roasting | The Gallery (built) |
 | A disaster trip you keep retelling | The Flight (built) |
 | A recurring annoyance the group defends against | The Defense (built) |
-| Us-against-the-world absurdism | The Mission |
+| Us-against-the-world absurdism | The Mission (built) |
 | Somebody's escalating spiral | The Climb |
 | The vacation crew | The Slope |
 | The rec league / fantasy league | The Derby |
