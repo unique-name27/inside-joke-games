@@ -27,8 +27,8 @@ or something crueler. Steps 3-5 remain documented in full below both as a
 reference for what the CLI is actually doing, and as the manual fallback
 for a bespoke order (real hand-written dialogue, rather than the CLI's
 generic-but-complete template lines — Hangout only; the Gallery's/
-Flight's optional boss lines are the only per-order dialogue those two
-templates take).
+Flight's/Defense's optional boss lines are the only per-order dialogue
+those templates take).
 
 ## 0. Before you start
 
@@ -40,7 +40,8 @@ else — no build step, no npm install.
 
 Pull the user's answers for all 12 questions (see `INTAKE.md`). Note
 which template they picked (**Q1 — "What's the joke?"**: The Hangout /
-The Gallery / The Flight — everything downstream branches on this), which
+The Gallery / The Flight / The Defense — everything downstream branches
+on this), which
 setting (Q2 — Hangout only, defaults to THE DINNER PARTY if unanswered),
 and which of the five optional roles (First Boss/Final Boss/Savior/
 Butterfingers/Builder) they actually cast (Q7) — anything left blank is
@@ -80,13 +81,14 @@ a few random characters is enough — see "Privacy" below; not the user's
 literal name or email).
 
 **Which template.** Q1 picks the whole shape of what follows — the table
-below covers the Hangout; the Gallery's and the Flight's own answer →
-field mappings are in `tools/README.md`'s answers schema (same idea, a
-different content field in place of `stories`, and no `scene`/
-`lengthPreset` for either). Use `examples/roadtrip.config.js` (Hangout,
-fully cast), `examples/test-group.config.js` (Hangout, degraded),
-`examples/gallery-sample.config.js` (Gallery), or
-`examples/flight-sample.config.js` (Flight) as the schema reference —
+below covers the Hangout; the Gallery's, the Flight's, and the Defense's
+own answer → field mappings are in `tools/README.md`'s answers schema
+(same idea, a different content field in place of `stories`, and no
+`scene`/`lengthPreset` for any of them). Use `examples/roadtrip.config.js`
+(Hangout, fully cast), `examples/test-group.config.js` (Hangout, degraded),
+`examples/gallery-sample.config.js` (Gallery),
+`examples/flight-sample.config.js` (Flight), or
+`examples/defense-sample.config.js` (Defense) as the schema reference —
 copy whichever matches Q1's answer and is the closer starting point,
 then fill in every field from the intake answers.
 
@@ -106,24 +108,29 @@ then fill in every field from the intake answers.
 | Q11 off-limits | becomes `forbiddenWords` directly — this order's own list, no baseline/universal words at all. Nothing off-limits ships as `forbiddenWords: []` |
 | Q12 email | not part of the config — just your delivery contact |
 
-**The Gallery / The Flight** (Q1 = "the things your group can't stop
-roasting" / "a disaster trip you keep retelling"): the shared rows above
+**The Gallery / The Flight / The Defense** (Q1 = "the things your group
+can't stop roasting" / "a disaster trip you keep retelling" / "a
+recurring annoyance the group defends against"): the shared rows above
 (catchphrase/title/host/cast/anecdotes/music/spellings/off-limits/email)
-map identically; there is no `scene` or `lengthPreset` for either. Q4
-maps to `gallery.targets[]` (Gallery, 4-8 short labels, uppercased) or
+map identically; there is no `scene` or `lengthPreset` for any of them.
+Q4 maps to `gallery.targets[]` (Gallery, 4-8 short labels, uppercased),
 `flight.beats[]` + `flight.hazards[]` + `flight.planeColor` (Flight,
 beats keep the group's typed case — do NOT uppercase them, they read as
-narrated prose, not a shouty label). Q7's two optional boss-line fields
-map to `gallery.firstBossHeckle`/`gallery.finalBossQuirk` or
-`flight.firstBossHeckle`/`flight.finalBossQuirk` — blank on either
-falls back to that template's own engine-side neutral fallback pool
-(`gallery/engine.js`'s / `flight/engine.js`'s own `FIRST_BOSS_HECKLE_
-FALLBACKS`/`FINAL_BOSS_QUIRK_FALLBACKS`), never left visibly blank in
-the shipped game. Neither template's cast content buckets are per-role
-dialogue blocks the way the Hangout's `judge`/`authority` are — each
-engine builds its own boss-card/banner titles straight off
-`CAST.judge.name`/`CAST.authority.name`, so there's no `judge.title`/
-`authority.cardTitle` to set for either.
+narrated prose, not a shouty label), or `defense.defending` +
+`defense.waves[]` (Defense, both uppercased short labels — the thing on
+the plaque and the 3-6 wave banners). Q7's two optional boss-line fields
+map to `gallery.firstBossHeckle`/`gallery.finalBossQuirk`,
+`flight.firstBossHeckle`/`flight.finalBossQuirk`, or
+`defense.firstBossHeckle`/`defense.finalBossQuirk` (note the Defense's
+First Boss fights ON the group's side — their line is a sniper-ally
+one-liner, not an antagonist heckle) — blank on any falls back to that
+template's own engine-side neutral fallback pool (each engine's
+`FIRST_BOSS_HECKLE_FALLBACKS`/`FINAL_BOSS_QUIRK_FALLBACKS`), never left
+visibly blank in the shipped game. None of these templates' cast content
+buckets are per-role dialogue blocks the way the Hangout's
+`judge`/`authority` are — each engine builds its own boss-card/banner
+titles straight off `CAST.judge.name`/`CAST.authority.name`, so there's
+no `judge.title`/`authority.cardTitle` to set for any of them.
 
 **Story skeletons (Q2, Hangout only).** `scene` picks which of the four
 settings' arena, props, and mechanic-flavor strings (`game/skeletons.js`)
@@ -133,8 +140,8 @@ Every skeleton's own strings (start card, mode-select) already ship
 pre-cleared for tone — **you never hand-edit `game/skeletons.js` per
 order**; if `tools/generate.js` built the config, it already validated
 `scene` against the four allowed keys and refused to write the file on
-an unrecognized value. The Gallery and the Flight have no scene skeleton
-at all — Q2 doesn't apply to either.
+an unrecognized value. The Gallery, the Flight, and the Defense have no
+scene skeleton at all — Q2 doesn't apply to any of them.
 
 **Writing the actual dialogue.** Hangout only: every cast role needs its
 content bucket's lines written out in full (see `examples/roadtrip.config.js`
@@ -144,11 +151,11 @@ for the complete field list per role: `judge.critiqueLines`/`duckLines`/`hitLine
 `cardBody`, `savior.line1`/`line2`/`sincereLine`, `butterfingers.*`,
 `builder.*`). This is genuinely hand-written per order, not templated —
 that's the point of the product. Keep the tone deadpan, ALL CAPS, short
-lines, and lean on the Q8 anecdotes for flavor. The Gallery and the
-Flight have no equivalent step — their only per-order dialogue is Q7's
-two optional boss lines (heckle/quirk), and every other line (round
-intros, banners, end-card copy) is the template's own fixed, already
-tone-gate-clean engine text.
+lines, and lean on the Q8 anecdotes for flavor. The Gallery, the Flight,
+and the Defense have no equivalent step — their only per-order dialogue
+is Q7's two optional boss lines (heckle/quirk), and every other line
+(round intros, banners, end-card copy) is the template's own fixed,
+already tone-gate-clean engine text.
 
 **Boss slots read as real people.** Hangout: when The First Boss (`judge`)
 is cast, set `judge.title` to that person's name, ALL CAPS — it's what the
@@ -156,29 +163,30 @@ boss HP bar shows during the fight, and it should read MARCO, not the
 generic "THE CRITIC" placeholder. Likewise, when The Final Boss (`authority`)
 is cast, set `authority.cardTitle` to `'<NAME> HAS ARRIVED'`, ALL CAPS.
 (`tools/generate.js` and the `/build/` wizard both do this automatically
-now; this only matters when you're hand-authoring a config.) The Gallery
-and the Flight need no equivalent step — both engines already read the
-person's name straight off `CAST.judge`/`CAST.authority` for every boss
-title/banner.
+now; this only matters when you're hand-authoring a config.) The Gallery,
+the Flight, and the Defense need no equivalent step — those engines
+already read the person's name straight off `CAST.judge`/`CAST.authority`
+for every boss/tower title and banner.
 
 The `{HOST}` and `{ITEM}` tokens (see `SPEC-game.md`'s "Template & roles"
 section) are available if a Hangout line needs to say the host's name or
 the gift item's name — don't hand-write those in more than the two token
 spots unless you specifically want a line to differ from the shared
-value. (Neither token is used by the Gallery or the Flight.)
+value. (No template other than the Hangout uses either token.)
 
 **Length preset.** Hangout only. Default every order to
 `lengthPreset: 'five_min'` unless the user's intake indicates they want
 the full experience (not currently asked on the form, so: default to
-five_min). The Gallery and the Flight have no length preset — their own
-runtime comes entirely from their content (how many targets/legs).
+five_min). The Gallery, the Flight, and the Defense have no length
+preset — their own runtime comes entirely from their content (how many
+targets/legs/waves).
 
 **Title font.** `title.lockupLines` renders through the hand-built 5×7
 pixel font — full A–Z, 0–9, apostrophe/period/question mark are covered
 (see `SPEC-game.md`), but there's no lowercase and no other punctuation.
 Keep the title short (2 short words/lines, like test-group's own
 `['THE TEST', 'GROUP']`) so it fits the lockup's layout. Same rule for
-all three templates.
+all four templates.
 
 **Assets.** SFX samples, the dungeon/roster tile sheets, and each
 template's own art pack are shared engine assets — never copied per
@@ -229,12 +237,20 @@ whichever checked-in example matches:
   `<title>` + four `<script src>` adjustment as the Gallery above — see
   `games/flight-sample/index.html` for the exact result.
 
+**The Defense — 2 files**, mirroring `games/defense-sample/`:
+
+- `games/<slug>/config.js` — from step 3.
+- `games/<slug>/index.html` — copy `defense/index.html` verbatim, same
+  `<title>` + four `<script src>` adjustment — see
+  `games/defense-sample/index.html` for the exact result.
+
 None of these files need editing beyond the copy — they all load the
 shared engine (`game/engine.js`/`intro/engine.js`, or `gallery/engine.js`,
-or `flight/engine.js`, depending on template) this repo ships, plus the
-sibling `config.js` you just wrote. `tools/generate.js` does this whole
-step automatically (with `safeReplace()`-verified string replacements
-for the Gallery/Flight shell, so a mismatch fails loudly instead of
+`flight/engine.js`, or `defense/engine.js`, depending on template) this
+repo ships, plus the sibling `config.js` you just wrote.
+`tools/generate.js` does this whole step automatically (with
+`safeReplace()`-verified string replacements for the
+Gallery/Flight/Defense shell, so a mismatch fails loudly instead of
 silently shipping the wrong paths — see `tools/README.md`). See
 `README.md`'s "How games are added" for why this works without
 duplicating any engine.
@@ -247,6 +263,7 @@ Run the matching template's own driver:
 node tools/verify-config.js games/<slug>/config.js    # The Hangout
 node tools/verify-gallery.js games/<slug>/config.js    # The Gallery
 node tools/verify-flight.js games/<slug>/config.js     # The Flight
+node tools/verify-defense.js games/<slug>/config.js    # The Defense
 ```
 
 Each is the real, checked-in tool (not a from-scratch harness per round
@@ -257,7 +274,9 @@ config's own cast implies all the way to the end card (Hangout: full cast
 straight to celebration, etc.; Gallery: rounds → boss round or elite
 volley → finale or grand volley → end card; Flight: legs → the boss leg
 (if cast) → the final-boss approach gate (if cast) or a clear-sky landing
-→ end card, plus a THE SHOUT / ONE TANK check); and the tone gate (this
+→ end card, plus a THE SHOUT / ONE TANK check; Defense: waves → the
+final-boss wave (if cast) or a grand rush → turn-good mini-wave → end
+card, plus priority-target/pad-swap/RALLY checks); and the tone gate (this
 config's own `forbiddenWords` list, whole-word case-sensitive, and
 nothing else — there's no baseline/universal word list, see
 `game/cfgcodec.js`'s `cfgBuildDefaultConfig` for why). Prints PASS/FAIL,
@@ -279,8 +298,8 @@ visuals look right before sending the link. Then deliver
 For the **instant link** (no hosting/push required, works the moment
 it's generated), which page it points at also depends on the template:
 `/intro/#cfg=<data>` for The Hangout, `/gallery/#cfg=<data>` for The
-Gallery, `/flight/#cfg=<data>` for The Flight — `tools/generate.js`
-prints the right one automatically.
+Gallery, `/flight/#cfg=<data>` for The Flight, `/defense/#cfg=<data>`
+for The Defense — `tools/generate.js` prints the right one automatically.
 
 ## Privacy note
 
@@ -298,9 +317,10 @@ Walking the whole playbook against the config this repo already ships, as
 if it were a real order. This exact hypothetical intake is also checked in
 as `tools/example-answers.json` — `node tools/generate.js
 tools/example-answers.json` reproduces steps 3-5 below automatically.
-(`tools/gallery-sample-answers.json`/`tools/flight-sample-answers.json`
-+ `games/gallery-sample/`/`games/flight-sample/` are the same worked-
-example pattern for the other two templates.)
+(`tools/gallery-sample-answers.json`/`tools/flight-sample-answers.json`/
+`tools/defense-sample-answers.json` + their `games/<slug>-sample/`
+folders are the same worked-example pattern for the other three
+templates.)
 
 1. **Intake (hypothetical)**: Q1 "The Hangout" · catchphrase "SO TRUE." ·
    stories: missed a flight by 4 minutes, alphabetized the spice rack on
@@ -329,6 +349,7 @@ example pattern for the other two templates.)
 
 This is the exact proof that the degradation map (see `SPEC-game.md`)
 produces a complete, satisfying game even when three of the six roles are
-skipped — and `games/gallery-sample/`/`games/flight-sample/` are the same
-proof for the other two templates' own host-only degradation paths (see
-`tools/verify-skeletons.js`'s Gallery/Flight groups).
+skipped — and `games/gallery-sample/`/`games/flight-sample/`/
+`games/defense-sample/` are the same proof for the other three templates'
+own host-only degradation paths (see `tools/verify-skeletons.js`'s
+Gallery/Flight/Defense groups).

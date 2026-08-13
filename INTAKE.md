@@ -16,12 +16,13 @@ to match.
 - ☐ A place you always end up + the stories you retell → **The Hangout**
 - ☐ The things your group can't stop roasting → **The Gallery**
 - ☐ A disaster trip you keep retelling → **The Flight**
+- ☐ A recurring annoyance the group defends against → **The Defense**
 
 Not sure? Default to The Hangout — it's the original.
 
 ---
 
-**Q2. Pick your setting.** *(Multiple choice, required — Hangout games only; skip if you picked The Gallery or The Flight in Q1)*
+**Q2. Pick your setting.** *(Multiple choice, required — Hangout games only; skip if you picked The Gallery, The Flight, or The Defense in Q1)*
 
 Same game, four rooms — pick whichever one actually fits your group. Every
 setting shares the same roles and the same engine; only the scenery, props,
@@ -60,6 +61,11 @@ punchline of your game, the one line everybody shouts at the big finish
   kept getting in the way? Short labels — they get painted on the
   rocks the plane dodges (2–6 hazards). Then pick a plane color:
   Yellow, Red, Blue, or Green.
+- **If you picked The Defense:** What does your group actually defend?
+  One short label — it goes on a plaque, word for word ("GAME NIGHT",
+  "THE THERMOSTAT"). Then: what keeps coming for it? 3–6 short labels,
+  in order — each one becomes a wave of the recurring annoyance
+  marching in ("MONDAY MEETINGS," "THE GROUP CHAT AT 2AM").
 
 ---
 
@@ -67,9 +73,10 @@ punchline of your game, the one line everybody shouts at the big finish
 
 Your group's name, an inside joke, whatever fits — see
 `examples/test-group.config.js` (The Hangout), `examples/gallery-sample.config.js`
-(The Gallery), or `examples/flight-sample.config.js` (The Flight) for a
-worked example matching whichever shape you picked in Q1. Keep it
-short; it has to render as blocky pixel lettering.
+(The Gallery), `examples/flight-sample.config.js` (The Flight), or
+`examples/defense-sample.config.js` (The Defense) for a worked example
+matching whichever shape you picked in Q1. Keep it short; it has to
+render as blocky pixel lettering.
 
 ---
 
@@ -77,7 +84,8 @@ short; it has to render as blocky pixel lettering.
 
 Every game has a host — the character the player plays. In The Hangout
 that's the one who cooks, hosts, or organizes; in The Gallery it's whoever's
-running the stall; in The Flight it's whoever's flying the plane. Just
+running the stall; in The Flight it's whoever's flying the plane; in The
+Defense it's the anchor tower nearest the thing everyone protects. Just
 their first name (or nickname) is fine.
 
 ---
@@ -91,8 +99,8 @@ these.
 
 | Role | Who's this? |
 |---|---|
-| **The First Boss** | Every game needs a boss fight. Pick a real person from your group — they'll heckle from on high (and, in The Gallery/The Flight, throw things), and the player gives it right back. |
-| **The Final Boss** | Someone with actual authority in your world — a manager, a parent, a coach, a landlord — who storms in mad about something small, then comes around. |
+| **The First Boss** | Every game needs a boss fight. Pick a real person from your group — they'll heckle from on high (and, in The Gallery/The Flight, throw things), and the player gives it right back. In The Defense they're on your side for once: the team's sniper, still heckling — just aimed at the annoyances. |
+| **The Final Boss** | Someone with actual authority in your world — a manager, a parent, a coach, a landlord — who storms in mad about something small, then comes around. (In The Defense they lead the very last wave — and then, beaten, join your side for the cleanup.) |
 | **The Savior** | The sincere one who saves the day — shows up right when things look bad. |
 | **Butterfingers** | The one tech/phone mishaps always happen to. |
 | **The Builder** | The one who'd actually go build something like this game. |
@@ -102,12 +110,13 @@ these.
 under the hood; the names on this form are the current, boss-slot framing
 only.)*
 
-**If you picked The Gallery or The Flight in Q1**, two more optional
-short-answer fields belong here: what The First Boss heckles with (their
-own words, short), and The Final Boss's dead giveaway — the thing that
-always tells you it's really them, no matter what they're wearing. Both
-optional; leave either blank and the game falls back to a neutral,
-already-cleared line.
+**If you picked The Gallery, The Flight, or The Defense in Q1**, two more
+optional short-answer fields belong here: what The First Boss heckles
+with (their own words, short — in The Defense this is their sniper
+one-liner, delivered from your side of the field), and The Final Boss's
+dead giveaway or what they're mad about — the thing that always tells you
+it's really them. Both optional; leave either blank and the game falls
+back to a neutral, already-cleared line.
 
 ---
 

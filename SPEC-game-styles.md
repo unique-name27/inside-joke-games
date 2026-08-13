@@ -15,7 +15,7 @@ a shape, and the shape picks the game:
 | A phrase somebody always says / a place you always end up | The Hangout (today's game) |
 | The things your group can't stop roasting | The Gallery (built) |
 | A disaster trip you keep retelling | The Flight (built) |
-| A recurring annoyance the group defends against | The Defense |
+| A recurring annoyance the group defends against | The Defense (built) |
 | Us-against-the-world absurdism | The Mission |
 | Somebody's escalating spiral | The Climb |
 | The vacation crew | The Slope |

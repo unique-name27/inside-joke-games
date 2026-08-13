@@ -24,7 +24,7 @@ Plays on phones too — open in landscape (portrait shows a rotate prompt).
 ## What's the joke?
 
 Every inside joke has a shape, and the shape picks the game — that's the
-question the builder opens with, before anything else. Three templates
+question the builder opens with, before anything else. Four templates
 ship today:
 
 - **The Hangout** — *a place you always end up + the stories you
@@ -38,9 +38,13 @@ ship today:
 - **The Flight** — *a disaster trip you keep retelling.* A one-button
   flappy-style run; their trip becomes the level, their hazards label
   the gates. One page (`flight/`). See `SPEC-flight.md`.
+- **The Defense** — *a recurring annoyance the group defends against.*
+  A one-screen tower defense; every cast member stands as a tower doing
+  their personality, the waves are the group's own annoyances, word for
+  word. One page (`defense/`). See `SPEC-defense.md`.
 
 `SPEC-game-styles.md` is the full catalog, including the templates not
-built yet (The Defense, The Mission, and a longer second-wave list) and
+built yet (The Mission and a longer second-wave list) and
 the invariants every template — built or future — has to hold.
 
 ## What's in the box
@@ -65,23 +69,27 @@ the invariants every template — built or future — has to hold.
   `gallery/engine.js` itself) — see `SPEC-gallery.md`.
 - **`flight/`** — THE FLIGHT engine + page: the same single-page shape
   as the gallery — see `SPEC-flight.md`.
-- **`game/config.js` / `gallery/config.js` / `flight/config.js`** —
+- **`defense/`** — THE DEFENSE engine + page: same single-page shape —
+  see `SPEC-defense.md`.
+- **`game/config.js` / `gallery/config.js` / `flight/config.js` /
+  `defense/config.js`** —
   each a stub (`let CONFIG = null`). None of the bare template pages
   ship a game of their own; see `examples/roadtrip.config.js` (Hangout,
   fully cast), `examples/test-group.config.js` (Hangout, degraded),
-  `examples/gallery-sample.config.js` (Gallery), and
-  `examples/flight-sample.config.js` (Flight) for the real schema
+  `examples/gallery-sample.config.js` (Gallery),
+  `examples/flight-sample.config.js` (Flight), and
+  `examples/defense-sample.config.js` (Defense) for the real schema
   references instead.
 - **`game/skeletons.js`** — the four Hangout **story skeletons**
   (settings): THE DINNER PARTY, THE ROAD TRIP, THE OFFICE PARTY, THE
-  WEDDING WEEKEND. Hangout-only — the Gallery and the Flight have no
-  scene skeleton of their own. See "Story skeletons" below.
+  WEDDING WEEKEND. Hangout-only — no other template has a scene
+  skeleton of its own. See "Story skeletons" below.
 - **`game/roster.js`** — the shared character roster (Phase C): which
   Tiny-family tile a cast slot (or the host) can be pointed at, so a
   cast can actually look like the real people. Framework-level — every
   template draws from it.
 - **`game/cfgcodec.js`** — the shared CONFIG codec: compression, the
-  whitelist schema (now three templates' worth), the neutral default
+  whitelist schema (now four templates' worth), the neutral default
   per template, and the deep merge. See "URL-fragment configs" below.
 - **`examples/test-group.config.js`** — a second, intentionally
   different Hangout config (different cast, three of six roles left
@@ -105,6 +113,7 @@ the invariants every template — built or future — has to hold.
   graceful-degradation map for uncast roles).
 - **`SPEC-gallery.md`** — THE GALLERY's full behavioral spec.
 - **`SPEC-flight.md`** — THE FLIGHT's full behavioral spec.
+- **`SPEC-defense.md`** — THE DEFENSE's full behavioral spec.
 - **`SPEC-skeletons.md`** — the story skeletons (Hangout-only settings)
   spec.
 - **`SPEC-their-game.md`** — the founding directive this whole
@@ -124,13 +133,14 @@ then visit `http://localhost:8809/build/` to build a game, or any of
 the checked-in worked examples: `http://localhost:8809/games/test-group/`
 (Hangout, three of six roles uncast), `http://localhost:8809/games/gallery-sample/`
 (Gallery, fully cast), `http://localhost:8809/games/flight-sample/`
-(Flight, fully cast). Visiting a bare template page directly (`/game/`,
-`/intro/`, `/gallery/`, `/flight/`) with no `#cfg=` link redirects to
-`/build/` — there's no file config to play there.
+(Flight, fully cast), `http://localhost:8809/games/defense-sample/`
+(Defense, fully cast). Visiting a bare template page directly (`/game/`,
+`/intro/`, `/gallery/`, `/flight/`, `/defense/`) with no `#cfg=` link
+redirects to `/build/` — there's no file config to play there.
 
 On load you'll see a black boot-gate screen — any key / click / tap /
 gamepad button unlocks audio and starts things off (the Hangout's
-cinematic; the Gallery's/Flight's own in-page title screen). PRESS
+cinematic; every other template's own in-page title screen). PRESS
 START / SPACE / tap launches the game.
 
 Jump straight to a later part of a *Hangout* game (a `games/<slug>/`
@@ -142,15 +152,15 @@ chase), `ending` (skip to the celebration/epilogues/Beat 5), or
 falls back to `dinner`. These are debug shortcuts and don't respect
 role-casting the way normal play does — if a role's uncast, its
 `?start=` shortcut just plays with placeholder-free content missing, so
-treat these as dev tools, not user-facing links. The Gallery and the
-Flight have no `?start=` shortcuts (single-screen games, nothing to
-skip to).
+treat these as dev tools, not user-facing links. No other template has
+`?start=` shortcuts (single-screen games, nothing to skip to).
 
 ## How games are added
 
 **The engine is never duplicated per game.** Every template's own
 `engine.js` (`game/engine.js` + `intro/engine.js` for the Hangout;
-`gallery/engine.js`; `flight/engine.js`) is the *entire* game for that
+`gallery/engine.js`; `flight/engine.js`; `defense/engine.js`) is the
+*entire* game for that
 template — one copy of each, shared by every deployed game that uses
 it. Each game folder only ever contains a tiny HTML shell (or two) and
 its own `config.js`.
@@ -169,19 +179,19 @@ games/<slug>/
 its four files as the starting shell for a new Hangout order (see
 `FULFILLMENT.md` for the full per-order playbook).
 
-**THE GALLERY / THE FLIGHT — 2 files** (a single page, no separate
-intro):
+**THE GALLERY / THE FLIGHT / THE DEFENSE — 2 files** (a single page, no
+separate intro):
 
 ```
 games/<slug>/
-  config.js    that order's CONFIG -- see examples/gallery-sample.config.js / examples/flight-sample.config.js
-  index.html   config.js -> ../../game/roster.js -> ../../game/cfgcodec.js -> ../../shared/framework.js -> ../../gallery/engine.js (or ../../flight/engine.js)
+  config.js    that order's CONFIG -- see examples/<template>-sample.config.js
+  index.html   config.js -> ../../game/roster.js -> ../../game/cfgcodec.js -> ../../shared/framework.js -> ../../<template>/engine.js
 ```
 
-`games/gallery-sample/` and `games/flight-sample/` are exactly this,
-checked in as real examples — `tools/generate.js` deploys either shape
-automatically depending on the order's `template` answer (see "The
-generator" below).
+`games/gallery-sample/`, `games/flight-sample/`, and
+`games/defense-sample/` are exactly this, checked in as real examples —
+`tools/generate.js` deploys either shape automatically depending on the
+order's `template` answer (see "The generator" below).
 
 The `<script src>` lines are the whole mechanism: each per-game page
 loads its own sibling `config.js` (so `CONFIG` is a plain global by the
@@ -204,7 +214,7 @@ into a deployed `games/<slug>/`, automatically, for whichever template
 the order picked: builds the `CONFIG`, refuses to write anything unless
 a full headless playthrough (that template's own driver) and the tone
 gate both pass, deploys the right shell shape (four files for Hangout,
-two for Gallery/Flight), and prints a shareable link. See
+two for any other template), and prints a shareable link. See
 `tools/README.md` for the answers-file schema and exactly what is (and
 isn't) automated — the content-review judgment call in `FULFILLMENT.md`
 step 2 still needs a human either way.
@@ -214,7 +224,7 @@ step 2 still needs a human either way.
 Every template page understands a `#cfg=<data>` URL fragment as an
 alternative to its file `config.js` — appended to that template's own
 top-level page (`/game/` or `/intro/` for the Hangout, `/gallery/`,
-`/flight/` — this repo's own top-level pages, or in principle any page
+`/flight/`, `/defense/` — this repo's own top-level pages, or in principle any page
 that loads the matching `engine.js`), it *replaces* the page's CONFIG
 entirely for that visit, no `games/<slug>/` folder required at all.
 This is what makes an "instant link" possible: `tools/generate.js`
@@ -229,6 +239,8 @@ per-template step sequence:
   vibe, preview & share.
 - **THE FLIGHT** (7 steps): joke, group, punchline, trip, cast, vibe,
   preview & share.
+- **THE DEFENSE** (7 steps): joke, group, punchline, annoyance, cast,
+  vibe, preview & share.
 
 Every sequence assembles a config in the browser, validates it through
 the same whitelist a real link is checked against, and hands back a
@@ -247,8 +259,8 @@ the full design):
   `cfgBuildDefaultConfig()` — a neutral, fully-populated template per
   `template` pick (absent → the Hangout's own, deliberately unbranded —
   see `examples/roadtrip.config.js` for the schema reference instead;
-  `'gallery'`/`'flight'` each dispatch to their own smaller, separate
-  base object) — so a fragment can supply just a few fields (a host
+  `'gallery'`/`'flight'`/`'defense'` each dispatch to their own smaller,
+  separate base object) — so a fragment can supply just a few fields (a host
   name, a punchline) and still get a complete, playable game; anything
   it doesn't specify falls back to generic-but-complete template
   content.
@@ -258,7 +270,7 @@ the full design):
   path are never fragment-settable at all (no link can ever redirect
   the engine's asset `fetch()` calls at an attacker-chosen URL).
   `template` itself is a whitelisted enum (`'hangout'` / `'gallery'` /
-  `'flight'`, append-only) — an unrecognized value sanitizes away
+  `'flight'` / `'defense'`, append-only) — an unrecognized value sanitizes away
   entirely, falling back to the Hangout, same as an absent one always
   has. An oversized, corrupt, or malformed fragment fails closed to the
   page's own file `CONFIG`, silently — never a partial or broken
@@ -268,15 +280,15 @@ the full design):
   fragment payload instead — the same link always reuses the same save
   data, and two different links never collide.
 - The Hangout's intro↔game page transitions forward `location.hash` so
-  the same fragment survives navigating between them (the Gallery and
-  the Flight are single pages, so this doesn't apply to them).
+  the same fragment survives navigating between them (every other
+  template is a single page, so this doesn't apply to them).
 
 ## The CONFIG schema & role casting
 
 See `SPEC-game.md`'s **"Template & roles"** section for the Hangout's
 full schema and the exact graceful-degradation map (`SPEC-gallery.md`/
-`SPEC-flight.md` for the Gallery's/Flight's own). Short version, true
-across all three templates: every game has a required **HOST** (the
+`SPEC-flight.md`/`SPEC-defense.md` for the others'). Short version, true
+across all four templates: every game has a required **HOST** (the
 player) and up to five optional roles — **THE FIRST BOSS** (`judge`),
 **THE FINAL BOSS** (`authority`), **THE SAVIOR**, **BUTTERFINGERS**,
 **THE BUILDER** — each either cast (a name + a few lines of dialogue /
@@ -290,7 +302,7 @@ template's own verify suite, are the proof.
 
 ## Story skeletons
 
-Hangout-only (the Gallery and the Flight have no scene skeleton). Every
+Hangout-only (no other template has a scene skeleton). Every
 Hangout game is set in one of four **settings** — pick via
 `CONFIG.scene` (`'dinner'` (default) / `'roadtrip'` / `'office'` /
 `'wedding'`), one field alongside everything in the "CONFIG schema"
@@ -327,22 +339,24 @@ step, and a scene matrix entry in `tools/verify-skeletons.js`.
 ## Authoring a new template
 
 Adding a whole new template (see `SPEC-game-styles.md`'s catalog for
-candidates — The Defense, The Mission, and further out) is a bigger
+candidates — The Mission, and further out) is a bigger
 lift than a fifth skeleton — it's a new GAME, not a new room — but the
-checklist is fixed now, proven twice (The Gallery, then The Flight):
+checklist is fixed now, proven three times (The Gallery, The Flight,
+then The Defense):
 
 1. **Spec it.** Write `SPEC-<name>.md` — the game, the cast mapping
    (graceful degradation for every optional role, uncast = skip, no
    substitutes), the catchphrase mechanic, the modes if any,
    determinism (every random pick seeded off `gameId`, never
    `Math.random`), and a "Config / codec / wizard" section — model it
-   on `SPEC-gallery.md`/`SPEC-flight.md`, which both exist precisely so
-   the next template doesn't have to invent this shape from scratch.
+   on `SPEC-gallery.md`/`SPEC-flight.md`/`SPEC-defense.md`, which exist
+   precisely so the next template doesn't have to invent this shape from
+   scratch.
 2. **Build the engine on `shared/framework.js`.** A single page, no
    separate intro (unless the joke shape genuinely needs one) —
    `<name>/engine.js` + `<name>/index.html` + `<name>/config.js` (a
-   `let CONFIG = null` stub). Mirror `gallery/engine.js`'s / `flight/
-   engine.js`'s conventions: `ENGINE_ROOT` from
+   `let CONFIG = null` stub). Mirror the existing single-page engines'
+   conventions (`gallery/`, `flight/`, `defense/`): `ENGINE_ROOT` from
    `document.currentScript.src`, the fragment-or-redirect boot with the
    template key passed as `cfgBuildDefaultConfig`'s third argument PLUS
    a defensive `if(!CONFIG.<name>)` guard, local `CW`/`CH` (`CW` must
@@ -356,7 +370,8 @@ checklist is fixed now, proven twice (The Gallery, then The Flight):
    hash's own stability guarantee); define `CFG_<NAME>_SCHEMA` and add
    `<name>: cfgObj(CFG_<NAME>_SCHEMA)` to `CFG_FRAGMENT_SCHEMA`; write
    `cfgBuild<Name>DefaultConfig(engineRoot)` modeled on
-   `cfgBuildGalleryDefaultConfig`/`cfgBuildFlightDefaultConfig` (its own
+   `cfgBuildGalleryDefaultConfig`/`cfgBuildFlightDefaultConfig`/
+   `cfgBuildDefenseDefaultConfig` (its own
    small base object, not an overlay on the Hangout's) and add the
    dispatch line in `cfgBuildDefaultConfig`. The absent-template
    Hangout object must stay byte-identical — every existing scene-
@@ -365,23 +380,24 @@ checklist is fixed now, proven twice (The Gallery, then The Flight):
    index 0 of every step sequence — hard invariant); a
    `<NAME>_STEP_KEYS` sequence; the template's own content step;
    `<name>Field`/`<name>Desc` on the boss role cards if the template
-   wants boss lines (same mechanism as `galleryField`/`flightField`); a
+   wants boss lines (same mechanism as `galleryField`/`flightField`/
+   `defenseField`); a
    branch in `buildOverridesFromState`; `normalizeWizardState`
    migration for old drafts (defaults, caps, step bounds); a
    review-card row with `showFor:['<name>']`; the preview step's
    required-content gate + the off-limits check extended over the new
    fields; play/share both pointing at `../<name>/#cfg=...`.
 5. **`tools/generate.js`.** An `is<Name>` branch in `buildOverrides`
-   (required content fields validated the same way `gallery`'s/
-   `flight`'s already are); `engineRoot = '../../'` (single page,
-   2-deep, same as gallery/flight); the two-file shell deploy via
+   (required content fields validated the same way the existing
+   single-page templates' already are); `engineRoot = '../../'` (single
+   page, 2-deep); the two-file shell deploy via
    `safeReplace()` (never a blind `.replace()` chain — a template-string
    mismatch between the deploy code and the real `<name>/index.html`
    has to fail loudly at generate time, not silently ship a shell
    pointed at the wrong engine/config paths); a verifier dispatch to
    the new template's own `verify<Name>Source`; the hosted +
    `/<name>/#cfg=` links in the printed output.
-6. **Verify driver.** `tools/verify-<name>.js`, gallery/flight-driver
+6. **Verify driver.** `tools/verify-<name>.js`, house driver
    style: reuse `tools/lib/sandbox.js` + `tools/verify-config.js`'s
    `toneGateSource`; a PROBE that reads the engine's OWN state/data (no
    duplicated literals — re-typing a row/gap position outside the
@@ -405,7 +421,7 @@ checklist is fixed now, proven twice (The Gallery, then The Flight):
    canonical; reconcile any hand-built version to match it (same as
    this repo did for Flight).
 9. **Docs.** `README.md` (this section's own list — add the new
-   template everywhere the Gallery/Flight now appear), `tools/README.md`'s
+   template everywhere the existing ones appear), `tools/README.md`'s
    answers schema, `INTAKE.md`'s Q1 + content question, `FULFILLMENT.md`'s
    per-template branch, the storefront copy (`index.html`,
    `example/index.html`), and mark the template built in
@@ -418,9 +434,11 @@ All sound effects and music are Kenney (kenney.nl) assets under CC0 — see
 became which in-game sound, which loop scores which beat). CC0 means no
 attribution is required; it's included anyway. Each template's own art
 pack has its own credits file: `assets/gallery/CREDITS.txt` (Kenney's
-Shooting Gallery pack) and `assets/flight/CREDITS.txt` (Kenney's Tappy
-Plane pack) alongside `intro/assets/CREDITS.txt` (the Hangout's roster
-tile sheets, shared by every template).
+Shooting Gallery pack), `assets/flight/CREDITS.txt` (Kenney's Tappy
+Plane pack), and `assets/defense/CREDITS.txt` (Kenney's Tower Defense
+pack, with the exact tile-number mapping) alongside
+`intro/assets/CREDITS.txt` (the Hangout's roster tile sheets, shared by
+every template).
 
 Character/tile art is Kenney's **Tiny Dungeon**, **Tiny Town**, **Tiny
 Farm**, **Tiny Ski**, and **Tiny Battle** packs (`intro/assets/`, CC0,
@@ -449,6 +467,7 @@ Hangout-only today) music file.
   including the `CONFIG` schema and role-degradation map.
 - `SPEC-gallery.md` — THE GALLERY's full behavioral spec.
 - `SPEC-flight.md` — THE FLIGHT's full behavioral spec.
+- `SPEC-defense.md` — THE DEFENSE's full behavioral spec.
 - `SPEC-skeletons.md` — the story skeletons (Hangout-only settings)
   spec: the paint-and-text rule, the fixed-geometry invariant, and every
   string authored for the four built-in skeletons.
