@@ -1,0 +1,41 @@
+{
+  "template": "defense",
+  "email": "defense-sample@example.test",
+  "title": "The Game Night Regulars",
+  "host": "Priya",
+  "catchphrase": "That's not how you play that.",
+  "defending": "Game Night",
+  "waves": [
+    "Phone Notifications",
+    "The Rules Explainer",
+    "The Upstairs Neighbors",
+    "The Rules Lawyer",
+    "A Flipped Board"
+  ],
+  "firstBossHeckle": "Write that down, it's a penalty.",
+  "finalBossQuirk": "Still mad about the parking spot.",
+  "cast": {
+    "critic": "The Scorekeeper",
+    "boss": "The HOA President",
+    "savior": "The Peacemaker",
+    "butterfingers": "The One Who Knocks The Board",
+    "builder": "The Group's Score App"
+  },
+  "anecdotes": {
+    "critic": "Tracks points more carefully than the actual rulebook.",
+    "boss": "Has opinions about the driveway chalk.",
+    "savior": "Steps in right before someone flips the table.",
+    "butterfingers": "Has ended three games with one elbow.",
+    "builder": "Built this exact game during a rain delay."
+  },
+  "spriteCast": {
+    "critic": "grandma",
+    "boss": "beard",
+    "savior": "overalls",
+    "butterfingers": "braid",
+    "builder": "vest"
+  },
+  "hostSprite": "mohawk",
+  "offLimits": [],
+  "music": { "vibe": "spy" }
+}

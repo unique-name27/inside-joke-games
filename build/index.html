@@ -277,34 +277,37 @@ const SCENE_DEFS = [
 // joke?", picks CFG_TEMPLATE_KEYS (game/cfgcodec.js, loaded above this
 // script). `key` is exactly what CONFIG.template whitelists; `desc` is the
 // joke-shape framing that recommends the template, `label` the resulting
-// game style's name. Only the two BUILT templates get a card here --
+// game style's name. Only the BUILT templates get a card here --
 // SPEC-game-styles.md sketches a longer catalog, but this wizard only ever
-// offers what actually ships.
+// offers what actually ships. THE DEFENSE is template #4 (SPEC-defense.md).
 const JOKE_DEFS = [
   { key:'hangout', desc:'A place you always end up + the stories you retell', label:'The Hangout' },
   { key:'gallery', desc:'The things your group can’t stop roasting', label:'The Gallery' },
   { key:'flight', desc:'A disaster trip you keep retelling', label:'The Flight' },
+  { key:'defense', desc:'A recurring annoyance the group defends against', label:'The Defense' },
 ];
 // Per-template step SEQUENCES (keys into STEP_RENDERERS/STEP_LABELS below).
 // The joke step is always first and always shared -- a hard invariant
 // every sequence below keeps at index 0; the setting step only exists on
 // the Hangout path (SPEC-gallery.md: "The setting step shows only on the
 // Hangout path"); the Gallery path gets `targets`, the Flight path gets
-// `trip`, instead of `stories` as their own content step. Every other
-// step (group/punchline/cast/vibe/preview) is shared verbatim across all
-// three sequences.
+// `trip`, the Defense path gets `annoyance`, instead of `stories` as their
+// own content step. Every other step (group/punchline/cast/vibe/preview)
+// is shared verbatim across all four sequences.
 const HANGOUT_STEP_KEYS = ['joke', 'setting', 'group', 'punchline', 'stories', 'cast', 'vibe', 'preview'];
 const GALLERY_STEP_KEYS = ['joke', 'group', 'punchline', 'targets', 'cast', 'vibe', 'preview'];
 const FLIGHT_STEP_KEYS = ['joke', 'group', 'punchline', 'trip', 'cast', 'vibe', 'preview'];
+const DEFENSE_STEP_KEYS = ['joke', 'group', 'punchline', 'annoyance', 'cast', 'vibe', 'preview'];
 function stepSequence(template){
   if(template === 'gallery') return GALLERY_STEP_KEYS;
   if(template === 'flight') return FLIGHT_STEP_KEYS;
+  if(template === 'defense') return DEFENSE_STEP_KEYS;
   return HANGOUT_STEP_KEYS;
 }
 function stepCount(template){ return stepSequence(template).length; }
 const STEP_LABELS = {
   joke: 'What’s the joke?', setting: 'The setting', group: 'Your group', punchline: 'The catchphrase',
-  stories: 'The stories', targets: 'The targets', trip: 'The trip', cast: 'The cast', vibe: 'The vibe', preview: 'Preview & share',
+  stories: 'The stories', targets: 'The targets', trip: 'The trip', annoyance: 'The annoyance', cast: 'The cast', vibe: 'The vibe', preview: 'Preview & share',
 };
 // gallery.targets: 4-8 short labels -- the wizard's own UI guideline
 // (mirrors the stories step's "2-4" guideline just below it, also not a
@@ -322,6 +325,13 @@ const FLIGHT_HAZARDS_MIN = 2, FLIGHT_HAZARDS_MAX = 6;
 const FLIGHT_PLANE_COLORS = [
   { key:'yellow', label:'Yellow' }, { key:'red', label:'Red' }, { key:'blue', label:'Blue' }, { key:'green', label:'Green' },
 ];
+// THE DEFENSE (template #4, see SPEC-defense.md's config/codec/wizard
+// section) -- same "UI guideline, not a codec limit" split as the gallery/
+// flight arrays above (game/cfgcodec.js's CFG_DEFENSE_SCHEMA only caps the
+// ceiling at 6). `defending` (THE THING's plaque label) has no min/max
+// pair of its own -- it's a single required 24-char field, checked
+// directly in renderStepPreview's contentOk, same as `state.host`.
+const DEFENSE_WAVES_MIN = 3, DEFENSE_WAVES_MAX = 6;
 // Role framing: BOSS SLOTS, not personality archetypes -- the product's
 // promise is that every boss is a real person the group knows. `key`/
 // `cfgKey` (the underlying CONFIG.cast/answers-schema keys: judge,
@@ -334,6 +344,12 @@ const ROLE_DEFS = [
     desc:'Every game needs a boss fight. Pick a real person from your group -- they’ll heckle from on high and throw things, and the player throws them right back.',
     galleryDesc:'Every game needs a boss fight. Pick a real person from your group -- they’ll swing across the stall heckling in their own words while the player takes their shots.',
     flightDesc:'Every game needs a boss fight. Pick a real person from your group -- they’ll pull alongside mid-trip, heckle in their own words, and lob things at the plane before peeling off.',
+    // THE DEFENSE (template #4) -- NOT a boss fight here. THE FIRST BOSS is
+    // ON YOUR SIDE in this template: the sniper tower (longest range,
+    // biggest single hit, slowest rate -- "of course they do"), heckling
+    // the ANNOYANCE instead of the player on their first kill each wave.
+    // See SPEC-defense.md's cast-mapping bullet.
+    defenseDesc:'Every game needs a boss fight -- except this time they’re on your side. Pick a real person from your group -- they’re the sniper tower: longest range, biggest single hit, slowest rate (“of course they do”), heckling the ANNOYANCE, not the player, the first time they land a kill each wave.',
     // gallery only -- the optional first-boss heckle line, shown on this
     // card when template is gallery (see renderRoleCard). Absent/blank ->
     // gallery/engine.js's own neutral fallback pool (FIRST_BOSS_HECKLE_
@@ -344,13 +360,30 @@ const ROLE_DEFS = [
     // "optional, engine has its own neutral fallback pool" spirit -- see
     // flight/engine.js's FIRST_BOSS_HECKLE_FALLBACKS -- just flight-
     // appropriate (pilot) placeholder copy.
-    flightField: { key:'heckle', label:'What do they heckle with? (optional)', placeholder:'e.g. Call that flying?', maxLen:60 } },
+    flightField: { key:'heckle', label:'What do they heckle with? (optional)', placeholder:'e.g. Call that flying?', maxLen:60 },
+    // defense only -- same underlying answer (defense.firstBossHeckle),
+    // same "optional, engine has its own neutral fallback pool" spirit --
+    // see defense/engine.js's FIRST_BOSS_HECKLE_FALLBACKS -- flavored as
+    // the sniper's own kill line (SPEC-defense.md: "sniper line 60").
+    defenseField: { key:'heckle', label:'What do they heckle the annoyance with? (optional)', placeholder:'e.g. Finally, something worth shooting at.', maxLen:60 } },
   { key:'boss', cfgKey:'authority', title:'THE FINAL BOSS',
     desc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who storms in mad about something small, then comes around.',
     galleryDesc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who takes over the whole stall, then comes around at the end.',
     flightDesc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who storms the runway mad about something small, then comes around once you land.',
+    // THE DEFENSE (template #4) -- leads the last wave (jumbo unit, tanky,
+    // escorted), then turns good: dusts off, walks back along the path,
+    // takes the one empty pad (or stands beside THE THING) and helps shred
+    // a short straggler mini-wave as the strongest tower on the board.
+    defenseDesc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who leads the last wave still mad about something small, then turns good and joins the defense.',
     galleryField: { key:'quirk', label:'Their dead giveaway -- how do you always know it’s really them? (optional)', placeholder:'e.g. Always adjusts their glasses before lying.', maxLen:60 },
-    flightField: { key:'quirk', label:'Their dead giveaway -- how do you always know it’s really them? (optional)', placeholder:'e.g. Always complains about leg room.', maxLen:60 } },
+    flightField: { key:'quirk', label:'Their dead giveaway -- how do you always know it’s really them? (optional)', placeholder:'e.g. Always complains about leg room.', maxLen:60 },
+    // defense only -- same underlying answer (defense.finalBossQuirk), but
+    // here it's typed verbatim as their entrance LINE on the last wave's
+    // banner ("STILL MAD ABOUT THE TOLLS"), not a "how do you spot them"
+    // tell like the gallery's/flight's own quirk field -- see defense/
+    // engine.js's FINAL_BOSS_QUIRK_FALLBACKS and SPEC-defense.md's
+    // "mad-about line 60".
+    defenseField: { key:'quirk', label:'What are they still mad about? (optional)', placeholder:'e.g. Still mad about the parking spot.', maxLen:60 } },
   { key:'savior', cfgKey:'savior', title:'THE SAVIOR',
     desc:'The sincere one who saves the day -- shows up right when things look bad.',
     galleryDesc:'The sincere one who saves the day -- shows up right when a round is about to be lost.',
@@ -453,6 +486,13 @@ const REVIEW_ROWS = [
       if(filled.length < FLIGHT_BEATS_MIN) return filled.length + ' of ' + FLIGHT_BEATS_MIN + ' minimum legs filled in';
       return filled.length + ' legs: ' + filled.slice(0,3).map(b=>b.trim()).join(' / ') + (filled.length>3 ? '…' : '');
     } },
+  // THE DEFENSE (template #4) -- Defense-path only, this template's own
+  // content row (what targets/trip are to gallery/flight).
+  { stepKey:'annoyance', showFor:['defense'], label:'The annoyance', summary(state){
+      const filled = state.waves.filter(w => w && w.trim());
+      if(!state.defending.trim() || filled.length < DEFENSE_WAVES_MIN) return 'Not filled in yet';
+      return 'Defending ' + state.defending.trim() + ' -- ' + filled.length + ' waves: ' + filled.slice(0,3).map(w=>w.trim()).join(' / ') + (filled.length>3 ? '…' : '');
+    } },
   { stepKey:'cast', label:'The cast', summary(state){
       const cast = ROLE_DEFS.filter(r => state.cast[r.key] && state.cast[r.key].cast && state.cast[r.key].name && state.cast[r.key].name.trim());
       if(!cast.length) return 'Nobody cast -- the game adapts.';
@@ -482,10 +522,11 @@ function defaultWizardState(){
     cast[r.key] = { cast:false, name:'', anecdote:'', sprite:null };
     if(r.galleryField) cast[r.key][r.galleryField.key] = '';
     if(r.flightField) cast[r.key][r.flightField.key] = '';
+    if(r.defenseField) cast[r.key][r.defenseField.key] = '';
   }
   return {
     step: 0,
-    template: 'hangout', // THE GALLERY (template #2) / THE FLIGHT (template #3) -- carried by the draft; old (pre-Gallery) saved drafts normalize to this, see normalizeWizardState
+    template: 'hangout', // THE GALLERY (template #2) / THE FLIGHT (template #3) / THE DEFENSE (template #4) -- carried by the draft; old (pre-Gallery) saved drafts normalize to this, see normalizeWizardState
     scene: 'dinner',
     host: '', otherFriendName: '',
     hostSprite: null, otherFriendSprite: null, // PHASE C: null == "use the default tile"
@@ -495,6 +536,8 @@ function defaultWizardState(){
     beats: ['', '', ''], // flight only -- see FLIGHT_BEATS_MIN
     hazards: ['', ''], // flight only -- see FLIGHT_HAZARDS_MIN
     planeColor: 'yellow', // flight only -- see FLIGHT_PLANE_COLORS
+    defending: '', // defense only -- see DEFENSE_WAVES_MIN's own comment
+    waves: ['', '', ''], // defense only -- see DEFENSE_WAVES_MIN
     cast: cast,
     vibe: null,
   };
@@ -510,12 +553,13 @@ function normalizeWizardState(saved){
   if(!saved || typeof saved !== 'object') return base;
   const isPreGalleryDraft = typeof saved.template === 'undefined';
   const out = Object.assign({}, base, saved);
-  // THE GALLERY (template #2) / THE FLIGHT (template #3) -- an old
-  // (pre-Gallery) saved draft has no `template` key at all; Object.assign
-  // above already left base's 'hangout' in place for that case. Anything
-  // else unrecognized also falls back to 'hangout', same "fail closed to
-  // the safe default" convention as scene/sprite picks just below.
-  if(['hangout', 'gallery', 'flight'].indexOf(out.template) === -1) out.template = 'hangout';
+  // THE GALLERY (template #2) / THE FLIGHT (template #3) / THE DEFENSE
+  // (template #4) -- an old (pre-Gallery) saved draft has no `template`
+  // key at all; Object.assign above already left base's 'hangout' in place
+  // for that case. Anything else unrecognized also falls back to
+  // 'hangout', same "fail closed to the safe default" convention as
+  // scene/sprite picks just below.
+  if(['hangout', 'gallery', 'flight', 'defense'].indexOf(out.template) === -1) out.template = 'hangout';
   // a pre-Gallery draft's saved `step` was an index into the OLD 7-step
   // Hangout sequence (no joke step existed yet) -- reinterpreting that same
   // number against today's 8-step HANGOUT_STEP_KEYS would silently land a
@@ -540,12 +584,21 @@ function normalizeWizardState(saved){
   out.hazards = out.hazards.slice(0, FLIGHT_HAZARDS_MAX).map(h => (typeof h==='string') ? h.slice(0,24) : '');
   while(out.hazards.length < FLIGHT_HAZARDS_MIN) out.hazards.push('');
   if(!FLIGHT_PLANE_COLORS.some(c => c.key === out.planeColor)) out.planeColor = 'yellow';
+  // THE DEFENSE (template #4) -- `defending` is a plain capped string, same
+  // as `catchphrase`/`title` (no array normalization needed); `waves`
+  // clamps the same way targets/beats/hazards do just above.
+  if(typeof out.defending !== 'string') out.defending = base.defending;
+  out.defending = out.defending.slice(0, 24);
+  if(!Array.isArray(out.waves) || out.waves.length < DEFENSE_WAVES_MIN) out.waves = base.waves;
+  out.waves = out.waves.slice(0, DEFENSE_WAVES_MAX).map(w => (typeof w==='string') ? w.slice(0,24) : '');
+  while(out.waves.length < DEFENSE_WAVES_MIN) out.waves.push('');
   out.cast = Object.assign({}, base.cast, saved.cast || {});
   for(const r of ROLE_DEFS){
     out.cast[r.key] = Object.assign({}, base.cast[r.key], (saved.cast && saved.cast[r.key]) || {});
     if(!ROSTER_BY_KEY[out.cast[r.key].sprite]) out.cast[r.key].sprite = null;
     if(r.galleryField && typeof out.cast[r.key][r.galleryField.key] !== 'string') out.cast[r.key][r.galleryField.key] = '';
     if(r.flightField && typeof out.cast[r.key][r.flightField.key] !== 'string') out.cast[r.key][r.flightField.key] = '';
+    if(r.defenseField && typeof out.cast[r.key][r.defenseField.key] !== 'string') out.cast[r.key][r.defenseField.key] = '';
   }
   if(!ROSTER_BY_KEY[out.hostSprite]) out.hostSprite = null;
   if(!ROSTER_BY_KEY[out.otherFriendSprite]) out.otherFriendSprite = null;
@@ -605,6 +658,9 @@ function checkStateForbidden(state){
   } else if(state.template === 'flight'){
     for(const b of state.beats) fields.push(b);
     for(const h of state.hazards) fields.push(h);
+  } else if(state.template === 'defense'){
+    fields.push(state.defending);
+    for(const w of state.waves) fields.push(w);
   } else {
     for(const s of state.stories){ fields.push(s.l1); fields.push(s.l2); }
   }
@@ -614,6 +670,7 @@ function checkStateForbidden(state){
       fields.push(c.name); fields.push(c.anecdote);
       if(state.template === 'gallery' && r.galleryField) fields.push(c[r.galleryField.key]);
       if(state.template === 'flight' && r.flightField) fields.push(c[r.flightField.key]);
+      if(state.template === 'defense' && r.defenseField) fields.push(c[r.defenseField.key]);
     }
   }
   const all = [];
@@ -642,28 +699,32 @@ function wrapLineKeepCase(raw, maxLen){
    happens once, uniformly, in assembleConfig below) -- this function's
    only job is "wizard state -> a CONFIG-shaped overrides object".
 
-   THE GALLERY (template #2) / THE FLIGHT (template #3): branches on
-   state.template, three ways now. The shared fields (title/punchline/
-   host/forbiddenWords/cast) are built identically across all three;
-   scene/stories/lengthPreset are Hangout-only (neither gallery/engine.js
-   nor flight/engine.js reads them), gallery.targets/firstBossHeckle/
-   finalBossQuirk are Gallery-only, flight.beats/hazards/planeColor/
-   firstBossHeckle/finalBossQuirk are Flight-only. Per-role judge.title/
-   authority.cardTitle CONTENT BLOCKS are Hangout-only -- gallery/engine.js
-   and flight/engine.js each build their own boss-card/banner titles
-   straight from CAST.judge.name/CAST.authority.name (see gallery/
-   engine.js's CARDS.boss/CARDS.finale and flight/engine.js's
-   enterFinalBoss), neither ever reads CONFIG.judge/CONFIG.authority. */
+   THE GALLERY (template #2) / THE FLIGHT (template #3) / THE DEFENSE
+   (template #4): branches on state.template, four ways now. The shared
+   fields (title/punchline/host/forbiddenWords/cast) are built identically
+   across all four; scene/stories/lengthPreset are Hangout-only (neither
+   gallery/engine.js nor flight/engine.js nor defense/engine.js reads
+   them), gallery.targets/firstBossHeckle/finalBossQuirk are Gallery-only,
+   flight.beats/hazards/planeColor/firstBossHeckle/finalBossQuirk are
+   Flight-only, defense.defending/waves/firstBossHeckle/finalBossQuirk are
+   Defense-only. Per-role judge.title/authority.cardTitle CONTENT BLOCKS
+   are Hangout-only -- gallery/engine.js, flight/engine.js, and
+   defense/engine.js each build their own boss-card/banner/tower-label
+   titles straight from CAST.judge.name/CAST.authority.name (see gallery/
+   engine.js's CARDS.boss/CARDS.finale, flight/engine.js's
+   enterFinalBoss, and defense/engine.js's roleName/enterTurnGood), none
+   of them ever read CONFIG.judge/CONFIG.authority. */
 function buildOverridesFromState(state){
   const host = wrapLine(state.host || 'HOST', 40);
   const title = String(state.title || 'My Game').trim();
   const isGallery = state.template === 'gallery';
   const isFlight = state.template === 'flight';
+  const isDefense = state.template === 'defense';
   const overrides = {
     // absent -> 'hangout' (cfgBuildDefaultConfig's own default templateKey)
     // -- same "no explicit default value on the wire" convention musicVibe
-    // just below already uses. Three-way now (THE FLIGHT is template #3).
-    template: isGallery ? 'gallery' : (isFlight ? 'flight' : undefined),
+    // just below already uses. Four-way now (THE DEFENSE is template #4).
+    template: isGallery ? 'gallery' : (isFlight ? 'flight' : (isDefense ? 'defense' : undefined)),
     // an ENUM pick among a fixed set of built-in stock tracks -- see
     // game/cfgcodec.js's cfgApplyMusicVibe for why this is the one
     // narrow exception to "no music from a fragment, ever" (never an
@@ -698,6 +759,19 @@ function buildOverridesFromState(state){
       hazards: state.hazards.filter(h => h && h.trim()).slice(0, FLIGHT_HAZARDS_MAX).map(h => wrapLine(h, 24)),
       planeColor: FLIGHT_PLANE_COLORS.some(c => c.key === state.planeColor) ? state.planeColor : 'yellow',
     };
+  } else if(isDefense){
+    // THE DEFENSE (template #4, see SPEC-defense.md's config/codec/wizard
+    // section) -- defending/waves both uppercase like targets (this
+    // template has no "keep typed case" field the way the flight's beats
+    // do -- every defense label is a shouted plaque/banner, not narrated
+    // prose). `defending` falls back to cfgBuildDefenseDefaultConfig's own
+    // neutral default ('THE COUCH') the same defensive way `host`/
+    // `punchline` do just above, even though the real required-field gate
+    // lives in renderStepPreview's contentOk.
+    overrides.defense = {
+      defending: wrapLine(state.defending || 'THE COUCH', 24),
+      waves: state.waves.filter(w => w && w.trim()).slice(0, DEFENSE_WAVES_MAX).map(w => wrapLine(w, 24)),
+    };
   } else {
     overrides.lengthPreset = 'five_min';
     // STORY SKELETONS: which of the four settings (see SCENE_DEFS above) --
@@ -725,7 +799,7 @@ function buildOverridesFromState(state){
       if(DEFAULT_SPRITE[r.cfgKey]) Object.assign(entry, DEFAULT_SPRITE[r.cfgKey]);
       if(c.sprite && ROSTER_BY_KEY[c.sprite]) entry.sprite = c.sprite;
       overrides.cast[r.cfgKey] = entry;
-      if(!isGallery && !isFlight){
+      if(!isGallery && !isFlight && !isDefense){
         // BOSS SLOTS: the boss HP bar / entrance card should read the
         // actual person's name, not the generic "THE CRITIC"/"THE BOSS HAS
         // ARRIVED" default text (see cfgBuildDefaultConfig, which those
@@ -751,6 +825,13 @@ function buildOverridesFromState(state){
         // fallback pools (see that file's header).
         overrides.flight = overrides.flight || {};
         overrides.flight[r.flightField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(c[r.flightField.key], r.flightField.maxLen);
+      } else if(isDefense && r.defenseField && c[r.defenseField.key] && c[r.defenseField.key].trim()){
+        // THE DEFENSE: same shape as the gallery/flight branches above, but
+        // defense.firstBossHeckle/finalBossQuirk (CFG_DEFENSE_SCHEMA) --
+        // blank/skipped falls back to defense/engine.js's own neutral
+        // fallback pools (see that file's header).
+        overrides.defense = overrides.defense || {};
+        overrides.defense[r.defenseField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(c[r.defenseField.key], r.defenseField.maxLen);
       }
     } else {
       overrides.cast[r.cfgKey] = null;
@@ -1276,6 +1357,67 @@ function initWizard(){
     }
   }
 
+  /* THE ANNOYANCE -- Defense-path only, this template's content step (what
+     the stories/targets/trip steps are to the other three paths). One
+     required "what do you defend?" label (24 chars -- THE THING's plaque)
+     plus 3-6 wave rows (uppercased like targets -- these are shouted wave
+     banners, not narrated prose, so no wrapLineKeepCase equivalent here),
+     same "structural cap here, UX guidance there" split every array field
+     in this wizard already draws (game/cfgcodec.js's CFG_DEFENSE_SCHEMA
+     caps the ceiling only). */
+  function renderWaveCard(idx){
+    const card = document.createElement('div');
+    card.className = 'card story-card';
+    card.innerHTML =
+      (state.waves.length > DEFENSE_WAVES_MIN ? '<button type="button" class="story-remove" data-idx="'+idx+'" aria-label="Remove wave '+(idx+1)+'">Remove</button>' : '') +
+      '<div class="field"><label for="w-'+idx+'">Wave ' + (idx+1) + '</label><input type="text" id="w-'+idx+'" class="w-label" maxlength="24" placeholder="e.g. Phone Notifications" value=""></div>';
+    const input = card.querySelector('.w-label');
+    input.value = state.waves[idx] || '';
+    const wrap = document.createElement('div'); input.after(wrap);
+    makeCharCounter(input, 24, wrap);
+    input.addEventListener('input', ()=>{
+      state.waves[idx] = input.value; persist();
+      fieldWarning(wrap, checkForbidden(input.value, parseOffLimits(state.offLimits))[0]||null);
+    });
+    const removeBtn = card.querySelector('.story-remove');
+    if(removeBtn) removeBtn.addEventListener('click', ()=>{ state.waves.splice(idx,1); persist(); renderStep(); });
+    return card;
+  }
+  function renderStepAnnoyance(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2>The annoyance</h2>' +
+      '<p class="step-sub">What does your group actually defend, and what keeps coming for it?</p>' +
+      '<div class="field"><label for="fDefending">What do you defend?</label>' +
+      '<input type="text" id="fDefending" maxlength="24" placeholder="e.g. Game Night"></div>';
+    stepsContainer.appendChild(el);
+    const defendingInput = el.querySelector('#fDefending');
+    defendingInput.value = state.defending;
+    const defendingWrap = document.createElement('div'); defendingInput.after(defendingWrap);
+    makeCharCounter(defendingInput, 24, defendingWrap);
+    defendingInput.addEventListener('input', ()=>{
+      state.defending = defendingInput.value; persist();
+      fieldWarning(defendingWrap, checkForbidden(defendingInput.value, parseOffLimits(state.offLimits))[0]||null);
+    });
+
+    const wavesHead = document.createElement('div');
+    wavesHead.innerHTML =
+      '<h2 style="margin-top:28px;">What keeps coming?</h2>' +
+      '<p class="step-sub">Short labels -- they march in waves. 3-6 waves.</p>';
+    stepsContainer.appendChild(wavesHead);
+    const waveList = document.createElement('div');
+    waveList.id = 'waveList';
+    stepsContainer.appendChild(waveList);
+    for(let i=0;i<state.waves.length;i++) waveList.appendChild(renderWaveCard(i));
+    if(state.waves.length < DEFENSE_WAVES_MAX){
+      const addWaveBtn = document.createElement('button');
+      addWaveBtn.type = 'button'; addWaveBtn.className = 'btn btn-secondary btn-sm';
+      addWaveBtn.textContent = '+ Add another wave';
+      addWaveBtn.addEventListener('click', ()=>{ state.waves.push(''); persist(); renderStep(); });
+      stepsContainer.appendChild(addWaveBtn);
+    }
+  }
+
   function renderRoleCard(role){
     const c = state.cast[role.key];
     const card = document.createElement('div');
@@ -1290,8 +1432,9 @@ function initWizard(){
     const nameId = 'role-name-' + role.key, anecId = 'role-anec-' + role.key, skipId = 'role-skip-' + role.key;
     const isGallery = state.template === 'gallery';
     const isFlight = state.template === 'flight';
-    const descText = (isGallery && role.galleryDesc) ? role.galleryDesc : (isFlight && role.flightDesc) ? role.flightDesc : role.desc;
-    const gf = isGallery ? role.galleryField : (isFlight ? role.flightField : null);
+    const isDefense = state.template === 'defense';
+    const descText = (isGallery && role.galleryDesc) ? role.galleryDesc : (isFlight && role.flightDesc) ? role.flightDesc : (isDefense && role.defenseDesc) ? role.defenseDesc : role.desc;
+    const gf = isGallery ? role.galleryField : (isFlight ? role.flightField : (isDefense ? role.defenseField : null));
     const gfId = gf ? 'role-gf-' + role.key : null;
     body.innerHTML =
       '<div class="role-title-row"><h2>'+role.title+'</h2>' +
@@ -1495,11 +1638,14 @@ function initWizard(){
 
     const isGallery = state.template === 'gallery';
     const isFlight = state.template === 'flight';
+    const isDefense = state.template === 'defense';
     const contentOk = isGallery
       ? state.targets.filter(t => t && t.trim()).length >= GALLERY_TARGETS_MIN
       : isFlight
         ? state.beats.filter(b => b && b.trim()).length >= FLIGHT_BEATS_MIN && state.hazards.filter(h => h && h.trim()).length >= FLIGHT_HAZARDS_MIN
-        : state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim())).length >= 1;
+        : isDefense
+          ? state.defending.trim().length > 0 && state.waves.filter(w => w && w.trim()).length >= DEFENSE_WAVES_MIN
+          : state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim())).length >= 1;
     if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim() || !contentOk){
       const missing = document.createElement('div');
       missing.className = 'warning-banner show';
@@ -1507,7 +1653,9 @@ function initWizard(){
         ? 'Main character name, catchphrase, title, and at least ' + GALLERY_TARGETS_MIN + ' targets are all required -- go back and fill those in.'
         : isFlight
           ? 'Main character name, catchphrase, title, at least ' + FLIGHT_BEATS_MIN + ' trip legs, and at least ' + FLIGHT_HAZARDS_MIN + ' hazards are all required -- go back and fill those in.'
-          : 'Main character name, catchphrase, title, and at least one story are all required -- go back and fill those in.';
+          : isDefense
+            ? 'Main character name, catchphrase, title, what you defend, and at least ' + DEFENSE_WAVES_MIN + ' waves are all required -- go back and fill those in.'
+            : 'Main character name, catchphrase, title, and at least one story are all required -- go back and fill those in.';
       stepsContainer.appendChild(missing);
       return;
     }
@@ -1532,18 +1680,22 @@ function initWizard(){
     // and is the semantically right payload (a fragment is the delta, not
     // the whole default-filled config -- also ~4x smaller).
     const fragment = cfgEncodeConfigFragment(assembled.sanitized);
-    // THE GALLERY (template #2) / THE FLIGHT (template #3): one page each,
-    // no separate intro -- the play button AND the shared link both point
-    // straight at /gallery/#cfg=.../ /flight/#cfg=... (see gallery/
-    // index.html's/flight/index.html's own header comments). The Hangout
-    // keeps its existing two-page shape: play jumps straight into the game
-    // itself, the SHARED link goes through the intro/attract sequence first.
+    // THE GALLERY (template #2) / THE FLIGHT (template #3) / THE DEFENSE
+    // (template #4): one page each, no separate intro -- the play button
+    // AND the shared link both point straight at /gallery/#cfg=.../
+    // /flight/#cfg=.../ /defense/#cfg=... (see gallery/index.html's/
+    // flight/index.html's/defense/index.html's own header comments). The
+    // Hangout keeps its existing two-page shape: play jumps straight into
+    // the game itself, the SHARED link goes through the intro/attract
+    // sequence first.
     const playUrl = isGallery
       ? new URL('../gallery/#cfg=' + fragment, document.location.href).href
       : isFlight
         ? new URL('../flight/#cfg=' + fragment, document.location.href).href
-        : new URL('../game/#cfg=' + fragment, document.location.href).href;
-    const shareUrl = (isGallery || isFlight)
+        : isDefense
+          ? new URL('../defense/#cfg=' + fragment, document.location.href).href
+          : new URL('../game/#cfg=' + fragment, document.location.href).href;
+    const shareUrl = (isGallery || isFlight || isDefense)
       ? playUrl
       : new URL('../intro/#cfg=' + fragment, document.location.href).href;
 
@@ -1586,12 +1738,14 @@ function initWizard(){
     }
   }
 
-  // THE GALLERY (template #2) / THE FLIGHT (template #3): keyed by step
-  // KEY, not a fixed index -- stepSequence(state.template) picks which
-  // keys apply and in what order (see that function's own header comment).
+  // THE GALLERY (template #2) / THE FLIGHT (template #3) / THE DEFENSE
+  // (template #4): keyed by step KEY, not a fixed index -- stepSequence
+  // (state.template) picks which keys apply and in what order (see that
+  // function's own header comment).
   const STEP_RENDERERS = {
     joke: renderStepJoke, setting: renderStepSetting, group: renderStepHost, punchline: renderStepPunchline,
-    stories: renderStepStories, targets: renderStepTargets, trip: renderStepTrip, cast: renderStepCast, vibe: renderStepVibe, preview: renderStepPreview,
+    stories: renderStepStories, targets: renderStepTargets, trip: renderStepTrip, annoyance: renderStepAnnoyance,
+    cast: renderStepCast, vibe: renderStepVibe, preview: renderStepPreview,
   };
 
   function renderStep(){

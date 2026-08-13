@@ -50,6 +50,7 @@ const {
 const { verifyConfigSource } = require('./verify-config.js');
 const { verifyGallerySource } = require('./verify-gallery.js');
 const { verifyFlightSource } = require('./verify-flight.js');
+const { verifyDefenseSource } = require('./verify-defense.js');
 
 /* ---------------------------------------------------------------------
    CLI args
@@ -158,32 +159,35 @@ function randomSuffix(){
    needs to set) -- answers.json is trusted local/operator input, not an
    untrusted URL.
 
-   THE GALLERY (template #2) / THE FLIGHT (template #3): `answers.template`
-   switches the whole content shape -- gallery gets `answers.targets` (4-8
-   short labels), flight gets `answers.beats` (3-6 trip legs) + `answers.
-   hazards` (2-6 short labels) + `answers.planeColor`, hangout gets
-   `answers.stories`; neither gallery nor flight reads `answers.scene`
-   (neither has a scene skeleton), and both get the two optional boss
+   THE GALLERY (template #2) / THE FLIGHT (template #3) / THE DEFENSE
+   (template #4): `answers.template` switches the whole content shape --
+   gallery gets `answers.targets` (4-8 short labels), flight gets
+   `answers.beats` (3-6 trip legs) + `answers.hazards` (2-6 short labels) +
+   `answers.planeColor`, defense gets `answers.defending` (THE THING's
+   plaque label) + `answers.waves` (3-6 wave labels), hangout gets
+   `answers.stories`; none of gallery/flight/defense read `answers.scene`
+   (none has a scene skeleton), and all three get the two optional boss
    lines (`answers.firstBossHeckle`/`finalBossQuirk`) instead of judge.
-   title/authority.cardTitle content blocks (gallery/engine.js and flight/
-   engine.js both build their own boss-card/banner titles straight from
-   CAST.judge.name/CAST.authority.name -- see either file's header). Every
-   other answer (host/catchphrase/title/cast/anecdotes/offLimits/
-   spellings/music) is read identically across all three -- same shared-
-   fields principle SPEC-gallery.md's/SPEC-flight.md's config sections
-   both state. */
+   title/authority.cardTitle content blocks (gallery/engine.js, flight/
+   engine.js, and defense/engine.js each build their own boss-card/banner/
+   tower-label titles straight from CAST.judge.name/CAST.authority.name --
+   see any of those files' headers). Every other answer (host/catchphrase/
+   title/cast/anecdotes/offLimits/spellings/music) is read identically
+   across all four -- same shared-fields principle SPEC-gallery.md's/
+   SPEC-flight.md's/SPEC-defense.md's config sections all state. */
 function buildOverrides(answers, slug){
   const host = requireField(answers, 'host', 'Q6: who is the host?');
   const catchphrase = requireField(answers, 'catchphrase', 'Q3: what\'s your group\'s catchphrase?');
   const title = requireField(answers, 'title', 'Q5: what should we call your game?');
   const isGallery = answers.template === 'gallery';
   const isFlight = answers.template === 'flight';
+  const isDefense = answers.template === 'defense';
 
   const overrides = {
     gameId: slug,
-    // absent -> cfgBuildDefaultConfig's own 'hangout' default; a three-way
-    // pick now (THE FLIGHT is template #3, see SPEC-flight.md).
-    template: isGallery ? 'gallery' : (isFlight ? 'flight' : undefined),
+    // absent -> cfgBuildDefaultConfig's own 'hangout' default; a four-way
+    // pick now (THE DEFENSE is template #4, see SPEC-defense.md).
+    template: isGallery ? 'gallery' : (isFlight ? 'flight' : (isDefense ? 'defense' : undefined)),
     title: {
       lockupLines: wrapTitleLines(title, 14, 2),
       introPageTitle: String(title),
@@ -215,6 +219,22 @@ function buildOverrides(answers, slug){
     };
     if(answers.firstBossHeckle) overrides.flight.firstBossHeckle = String(answers.firstBossHeckle).toUpperCase().trim().slice(0, 60);
     if(answers.finalBossQuirk) overrides.flight.finalBossQuirk = String(answers.finalBossQuirk).toUpperCase().trim().slice(0, 60);
+  } else if(isDefense){
+    // THE DEFENSE (template #4, see SPEC-defense.md's config/codec/wizard
+    // section) -- defending + waves instead of stories/targets/beats, no
+    // `scene` (the defense has no scene skeleton either). Both fields
+    // uppercase like the gallery's targets (this template has no "keep
+    // typed case" field the way the flight's beats do -- every defense
+    // label is a shouted plaque/banner).
+    const defendingIn = requireField(answers, 'defending', 'Defense Q4: what does your group defend? (a short label, THE THING\'s plaque)');
+    const wavesIn = requireField(answers, 'waves', 'Defense Q4b: 3-6 short labels for what keeps coming, as an array of strings');
+    if(!Array.isArray(wavesIn) || wavesIn.length < 3) throw new GenerateError('answers.waves must be an array of at least 3 strings (defense.waves wants 3-6)');
+    overrides.defense = {
+      defending: String(defendingIn).toUpperCase().trim().replace(/\s+/g, ' ').slice(0, 24),
+      waves: wavesIn.slice(0, 6).map(w => String(w).toUpperCase().trim().replace(/\s+/g, ' ').slice(0, 24)),
+    };
+    if(answers.firstBossHeckle) overrides.defense.firstBossHeckle = String(answers.firstBossHeckle).toUpperCase().trim().slice(0, 60);
+    if(answers.finalBossQuirk) overrides.defense.finalBossQuirk = String(answers.finalBossQuirk).toUpperCase().trim().slice(0, 60);
   } else {
     const storiesIn = requireField(answers, 'stories', 'Q4: 2-4 real, boring stories, as an array of strings');
     if(!Array.isArray(storiesIn) || storiesIn.length === 0) throw new GenerateError('answers.stories must be a non-empty array of strings');
@@ -268,7 +288,7 @@ function buildOverrides(answers, slug){
         entry.sprite = spriteCast[introKey];
       }
       overrides.cast[cfgKey] = entry;
-      if(!isGallery && !isFlight){
+      if(!isGallery && !isFlight && !isDefense){
         // BOSS SLOTS (Hangout only -- see this function's own header): the
         // boss HP bar / entrance card reads the actual person's name, not
         // cfgBuildDefaultConfig's generic "THE CRITIC"/"THE BOSS HAS
@@ -395,16 +415,18 @@ function main(){
     const spellings = overrides.__spellings; delete overrides.__spellings;
     const isGallery = overrides.template === 'gallery';
     const isFlight = overrides.template === 'flight';
+    const isDefense = overrides.template === 'defense';
     // page-relative root matching this template's own shell nesting depth:
     // the Hangout writes games/<slug>/{game,intro}/ (3 levels deep -- see
     // games/test-group/config.js for the identical convention); THE
-    // GALLERY and THE FLIGHT each write a single games/<slug>/index.html
-    // (2 levels deep, mirroring gallery/index.html's/flight/index.html's
-    // own page -- see below). `overrides.scene` picks up CFG_SCENE_
-    // DEFAULTS' text overlay here, same as the wizard's own assembleConfig/
+    // GALLERY, THE FLIGHT, and THE DEFENSE each write a single
+    // games/<slug>/index.html (2 levels deep, mirroring gallery/
+    // index.html's/flight/index.html's/defense/index.html's own page --
+    // see below). `overrides.scene` picks up CFG_SCENE_DEFAULTS' text
+    // overlay here, same as the wizard's own assembleConfig/
     // cfgLoadFragmentOverride; overrides (below) still wins over it for
     // anything answers.json specifies itself.
-    const engineRoot = (isGallery || isFlight) ? '../../' : '../../../';
+    const engineRoot = (isGallery || isFlight || isDefense) ? '../../' : '../../../';
     const base = cfgBuildDefaultConfig(engineRoot, overrides.scene, overrides.template);
     merged = cfgDeepMerge(base, overrides);
     merged = applySpellings(merged, spellings);
@@ -448,13 +470,16 @@ function main(){
 
   const isGallery = merged.template === 'gallery';
   const isFlight = merged.template === 'flight';
-  const templateLabel = isGallery ? 'gallery' : (isFlight ? 'flight' : 'hangout');
+  const isDefense = merged.template === 'defense';
+  const templateLabel = isGallery ? 'gallery' : (isFlight ? 'flight' : (isDefense ? 'defense' : 'hangout'));
   console.log('Verifying generated config for "' + merged.title.introPageTitle + '" (slug: ' + slug + ', template: ' + templateLabel + ')...');
-  // THE GALLERY / THE FLIGHT: each template's own driver (tick/fireAt
-  // through the seeded rounds/boss/finale for the gallery; tick/flap
-  // through the seeded legs/boss gate for the flight) in place of verify-
-  // config.js's beat-by-beat one -- see either file's own header for why.
-  const verifyFn = isGallery ? verifyGallerySource : (isFlight ? verifyFlightSource : verifyConfigSource);
+  // THE GALLERY / THE FLIGHT / THE DEFENSE: each template's own driver
+  // (tick/fireAt through the seeded rounds/boss/finale for the gallery;
+  // tick/flap through the seeded legs/boss gate for the flight; tick/
+  // priority-tap through the seeded waves/boss for the defense) in place
+  // of verify-config.js's beat-by-beat one -- see any of those files' own
+  // header for why.
+  const verifyFn = isGallery ? verifyGallerySource : (isFlight ? verifyFlightSource : (isDefense ? verifyDefenseSource : verifyConfigSource));
   let result;
   try{
     result = verifyFn(configSource, { extraForbidden: merged.forbiddenWords });
@@ -525,6 +550,28 @@ function main(){
       console.error('  ' + (e && e.message ? e.message : e));
       process.exit(1);
     }
+  } else if(isDefense){
+    // THE DEFENSE writes ONE page (no separate intro), same shape as THE
+    // GALLERY/THE FLIGHT above -- mirror defense/index.html's own current
+    // script tags verbatim, shifted one directory level deeper and pointed
+    // at the ONE shared defense/engine.js. Every replacement here is
+    // verified to have actually matched something (see safeReplace's own
+    // header) -- these five strings MUST match defense/index.html
+    // byte-for-byte or this throws instead of silently shipping a shell
+    // with the wrong paths/title.
+    try{
+      let defenseShell = fs.readFileSync(path.join(REPO_ROOT, 'defense', 'index.html'), 'utf8');
+      defenseShell = safeReplace(defenseShell, '<title>The Defense -- Playable Demo</title>', '<title>' + merged.title.gamePageTitle + '</title>', 'title');
+      defenseShell = safeReplace(defenseShell, '<script src="../game/roster.js"></script>', '<script src="../../game/roster.js"></script>', 'roster.js src');
+      defenseShell = safeReplace(defenseShell, '<script src="../game/cfgcodec.js"></script>', '<script src="../../game/cfgcodec.js"></script>', 'cfgcodec.js src');
+      defenseShell = safeReplace(defenseShell, '<script src="../shared/framework.js"></script>', '<script src="../../shared/framework.js"></script>', 'framework.js src');
+      defenseShell = safeReplace(defenseShell, '<script src="engine.js"></script>', '<script src="../../defense/engine.js"></script>', 'engine.js src');
+      fs.writeFileSync(path.join(gameDir, 'index.html'), defenseShell);
+    }catch(e){
+      console.error('REFUSING TO EMIT -- could not build the defense shell for "' + merged.title.introPageTitle + '":');
+      console.error('  ' + (e && e.message ? e.message : e));
+      process.exit(1);
+    }
   } else {
     const gameSubDir = path.join(gameDir, 'game');
     const introSubDir = path.join(gameDir, 'intro');
@@ -552,15 +599,17 @@ function main(){
 
   const fragment = cfgEncodeConfigFragment(fragmentPayload);
   const hostedUrl = baseUrl.replace(/\/$/, '') + '/' + outDir + '/' + slug + '/';
-  // THE GALLERY / THE FLIGHT: one page each, no separate intro -- the
-  // instant link goes straight at /gallery/#cfg=.../ /flight/#cfg=...,
-  // matching /build/'s own single-page preview links (see build/
-  // index.html's renderStepPreview).
+  // THE GALLERY / THE FLIGHT / THE DEFENSE: one page each, no separate
+  // intro -- the instant link goes straight at /gallery/#cfg=.../
+  // /flight/#cfg=.../ /defense/#cfg=..., matching /build/'s own
+  // single-page preview links (see build/index.html's renderStepPreview).
   const instantUrl = isGallery
     ? baseUrl.replace(/\/$/, '') + '/gallery/#cfg=' + fragment
     : isFlight
       ? baseUrl.replace(/\/$/, '') + '/flight/#cfg=' + fragment
-      : baseUrl.replace(/\/$/, '') + '/intro/#cfg=' + fragment;
+      : isDefense
+        ? baseUrl.replace(/\/$/, '') + '/defense/#cfg=' + fragment
+        : baseUrl.replace(/\/$/, '') + '/intro/#cfg=' + fragment;
 
   console.log('');
   console.log('Wrote ' + path.relative(REPO_ROOT, gameDir));

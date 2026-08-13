@@ -51,11 +51,13 @@ const {
 } = require('./verify-config.js');
 const { verifyGalleryFile, verifyGallerySource } = require('./verify-gallery.js');
 const { verifyFlightFile, verifyFlightSource, verifyFlightHostOnlySource } = require('./verify-flight.js');
+const { verifyDefenseFile, verifyDefenseSource, verifyDefenseHostOnlySource } = require('./verify-defense.js');
 
 const TEST_GROUP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'test-group.config.js');
 const ROADTRIP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'roadtrip.config.js');
 const GALLERY_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'gallery-sample.config.js');
 const FLIGHT_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'flight-sample.config.js');
+const DEFENSE_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'defense-sample.config.js');
 
 const results = []; // { ok, label, detail }
 function record(label, ok, detail){
@@ -366,6 +368,83 @@ function checkFlightRoundTrip(){
   }
 }
 
+/* ----------------------------------------------------------------------
+   10. THE DEFENSE (template #4, see SPEC-defense.md "Verification") --
+   fully-cast + host-only-degraded playthroughs (tools/verify-defense.js's
+   own driver -- frontmost-tap canonical policy, the deliberate near-leak/
+   priority-override/pad-swap interventions, THE RALLY driven during the
+   final boss wave -- see that file's own header) plus a fragment
+   round-trip: `template` + all four `defense.*` fields survive encode/
+   decode, and an oversized waves array clamps to the schema's ceiling (6)
+   -- same methodology as checkFlightPlaythroughs/checkFlightRoundTrip
+   just above.
+   ---------------------------------------------------------------------- */
+function checkDefensePlaythroughs(){
+  try{
+    const result = verifyDefenseFile(DEFENSE_SAMPLE_EXAMPLE_PATH, {});
+    record('examples/defense-sample.config.js (full cast)', result.ok, result.ok ? ('reached ' + result.phaseReached + ', cast=' + JSON.stringify(result.flags)) : result.errors.join('; '));
+  }catch(e){
+    record('examples/defense-sample.config.js (full cast)', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    // host-only: every optional role stripped -- no sniper heckle, no
+    // savior teleport, no builder barricade, no butterfingers drops, a
+    // grand-rush finale instead of a boss (see SPEC-defense.md's cast-
+    // mapping bullet: "uncast roles simply don't exist"). This is also
+    // the round-2 winnability floor: attentive policy (priority-targeting
+    // used), still reaches the end card under the SAME BUDGET_UPTIME_
+    // FACTOR tuning the full-cast naive run above is checked against.
+    const fullSrc = fs.readFileSync(DEFENSE_SAMPLE_EXAMPLE_PATH, 'utf8');
+    const hostOnlySrc = fullSrc.replace(/cast: \{[\s\S]*?\n  \},/, 'cast: {},');
+    if(hostOnlySrc === fullSrc) throw new Error('cast block not found/replaced -- example file shape changed');
+    const result = verifyDefenseHostOnlySource(hostOnlySrc, {});
+    record('defense-sample, host-only (every optional role uncast, attentive policy -- the winnability floor)', result.ok, result.ok ? ('reached ' + result.phaseReached + ', cast=' + JSON.stringify(result.flags)) : result.errors.join('; '));
+  }catch(e){
+    record('defense-sample, host-only', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+}
+function checkDefenseRoundTrip(){
+  try{
+    const encoded = cfgEncodeConfigFragment({
+      template: 'defense',
+      defense: { defending: 'GAME NIGHT', waves: ['WAVE ONE', 'WAVE TWO', 'WAVE THREE'], firstBossHeckle: 'WRITE THAT DOWN', finalBossQuirk: 'STILL MAD' },
+      host: { name: 'ROUNDTRIP' },
+    });
+    const decoded = JSON.parse(cfgDecompress(encoded));
+    const d = decoded.defense || {};
+    const ok = decoded.template === 'defense'
+      && d.defending === 'GAME NIGHT'
+      && Array.isArray(d.waves) && d.waves.length === 3
+      && d.firstBossHeckle === 'WRITE THAT DOWN' && d.finalBossQuirk === 'STILL MAD';
+    record('round-trip: template "defense" + all four defense fields survive encode/decode', ok,
+      'got template=' + JSON.stringify(decoded.template) + ', defense=' + JSON.stringify(d));
+  }catch(e){
+    record('round-trip: template "defense" survives encode/decode', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    // waves: cfgArr(6, ...) -- CFG_DEFENSE_SCHEMA caps the ceiling only
+    // (the 3-wave minimum is wizard/generator UX, never codec-enforced --
+    // see that schema's own comment).
+    const encoded = cfgEncodeConfigFragment({
+      defense: { waves: ['1', '2', '3', '4', '5', '6', '7', '8'] },
+    });
+    const decoded = JSON.parse(cfgDecompress(encoded));
+    const d = decoded.defense || {};
+    const ok = Array.isArray(d.waves) && d.waves.length === 6;
+    record('round-trip: oversized defense.waves clamps to 6', ok, 'got waves.length=' + (d.waves && d.waves.length));
+  }catch(e){
+    record('round-trip: oversized defense.waves clamps', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    const encodedUnknown = cfgEncodeConfigFragment({ template: 'not-a-real-template' });
+    const decodedUnknown = JSON.parse(cfgDecompress(encodedUnknown));
+    const fallsBackToHangout = decodedUnknown.template === undefined && !('defense' in cfgBuildDefaultConfig('../', undefined, decodedUnknown.template));
+    record('round-trip: unknown template sanitizes away -> hangout default', fallsBackToHangout, 'got template=' + JSON.stringify(decodedUnknown.template));
+  }catch(e){
+    record('round-trip: unknown template sanitizes away', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+}
+
 function main(){
   checkExamples();
   checkSceneMatrix();
@@ -377,6 +456,8 @@ function main(){
   checkGalleryRoundTrip();
   checkFlightPlaythroughs();
   checkFlightRoundTrip();
+  checkDefensePlaythroughs();
+  checkDefenseRoundTrip();
 
   const failed = results.filter(r => !r.ok);
   console.log('');
@@ -389,4 +470,5 @@ if(require.main === module) main();
 module.exports = {
   checkExamples, checkSceneMatrix, checkHardModePlaythrough, checkRoundTrip, checkRosterAssets, checkRosterDefaults,
   checkGalleryPlaythroughs, checkGalleryRoundTrip, checkFlightPlaythroughs, checkFlightRoundTrip,
+  checkDefensePlaythroughs, checkDefenseRoundTrip,
 };

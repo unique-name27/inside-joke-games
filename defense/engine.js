@@ -482,7 +482,14 @@ function roleName(role){
    butterfingers drop offsets) are seeded per (waveIndex, attempt), same
    determinism split flight/engine.js's own LEGS plan uses.
    ====================================================================== */
-const BUDGET_UPTIME_FACTOR = 8.5; // empirical -- tuned so a host-only game (see totalPlacedDps) clears every wave with room to spare; see this file's own round-1 report for the smoke-test numbers that picked it
+const BUDGET_UPTIME_FACTOR = 8.9; // empirical, retuned round 2 (was 8.5). Per-wave enemy HP is uniform
+// within a wave by design, so this scalar's effect on outcome is a staircase, not a smooth ramp: a
+// naive (no-priority-tap) full-cast playthrough sits at a stable "2 hearts lost, 0 stalls" plateau
+// across the whole 8.5-8.943 range, then jumps straight to "5 hearts lost, 1 forced stall" at 8.944+
+// (verified by sweeping in 0.001 steps -- no intermediate value exists to land closer to the middle
+// of "2-4 hearts" without also crossing the 3-leaks-in-one-wave stall threshold). 8.9 was chosen for
+// comfortable margin from that cliff while still landing inside the target range. See
+// tools/verify-defense.js's DIFFICULTY_TUNING block for the driver assertions that pin this down.
 function waveEnemyCount(i){ return 5 + i*2; }
 function waveDuration(i){ return 24 + i*2; }
 function totalPlacedDps(){
@@ -868,9 +875,10 @@ function enterWave(waveIndex, attempt){
     showBanner((AUTHORITY_CAST?fmt(CAST.authority.name).toUpperCase():'THE AUTHORITY'), finalBossQuirkLine, 2.6);
   }
 }
-function spawnEnemy(type, hp, isBoss){
+function spawnEnemy(type, hp, isBoss, startDist){
   const label = DEFENSE_WAVE_LABELS[phaseData.waveIndex];
-  activeEnemies.push({ id: nextEnemyId++, type, hp, maxHp:hp, dist:0, pos: posAtDist(0), isBoss:!!isBoss, label, dead:false });
+  const d = startDist || 0;
+  activeEnemies.push({ id: nextEnemyId++, type, hp, maxHp:hp, dist:d, pos: posAtDist(d), isBoss:!!isBoss, label, dead:false });
 }
 function updateWaveSpawning(dt){
   phaseData.elapsedInWave += dt;
@@ -942,7 +950,19 @@ function updateTurnGood(dt){
   const sched = phaseData.schedule;
   while(phaseData.spawnedCount < sched.events.length && sched.events[phaseData.spawnedCount].t <= phaseData.elapsedInWave){
     const ev = sched.events[phaseData.spawnedCount++];
-    spawnEnemy(ev.type, ev.hp, false);
+    // "a short STRAGGLER mini-wave" (SPEC-defense.md) -- these three
+    // spawn already most of the way home (LAST_CORNER_DIST, the same
+    // near-leak threshold THE SAVIOR's own teleport trigger uses), not a
+    // fresh full lap of the whole path. A full-lap spawn (dist 0, like
+    // every normal wave) would pass straight through every other placed
+    // tower's own coverage first, especially THE FIRST BOSS's long 270px
+    // sniper range -- in a fully-cast game that reliably kills every
+    // straggler before it ever reaches the turned-good tower's position
+    // beside THE THING, so the "strongest tower on the board" would never
+    // actually get to fire a shot. Starting them this close still leaves
+    // a real (if short) window before TOTAL_PATH_LENGTH -- the turned-
+    // good tower's own high dps (TURNGOOD_STATS) comfortably clears it.
+    spawnEnemy(ev.type, ev.hp, false, LAST_CORNER_DIST);
   }
   updateTowers(dt);
   updateProjectiles(dt);
