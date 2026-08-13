@@ -5,15 +5,19 @@
    gallery-sample.config.js's (a weekend league), examples/
    flight-sample.config.js's (a ski-trip crew), and examples/
    defense-sample.config.js's (a game-night crew) own people -- this is
-   the fixture round 2's own verification pass will drive (a scripted
-   playthrough via mission/engine.js's own harness hooks,
-   tools/verify-mission.js) and the one mission/index.html itself loads
-   today. NOT wired into games/<slug>/ through tools/generate.js yet
-   (that's round 2 -- the CLI/wizard don't know about `template: 'mission'`
-   yet); point mission/index.html's <script src="config.js"> at this file
-   (or copy it over) to play it directly. games/mission-sample/ (hand-
-   built this round, see that folder's own files) is the playable,
-   path-adjusted copy of this exact content.
+   the fixture tools/verify-mission.js drives (a scripted playthrough via
+   mission/engine.js's own harness hooks) and the one mission/index.html
+   itself loads today. This file itself stays hand-authored/hand-
+   maintained (never regenerated) -- point mission/index.html's
+   <script src="config.js"> at it (or copy it over) to play it directly.
+   The SAME content, expressed as intake answers, lives in
+   tools/mission-sample-answers.json -- `node tools/generate.js tools/
+   mission-sample-answers.json --slug=mission-sample` regenerates
+   games/mission-sample/ from it (the generator's own output is canonical
+   there -- diner0 comes back as the generic "THE FOURTH FRIEND" and
+   rankNames reverts to the neutral defaults, same divergence
+   games/defense-sample/'s own generated config.js already has from this
+   file's own hand-authored cast/rankNames choices).
 
    Every optional role is cast here (judge/authority/savior/
    butterfingers/builder) so a single load exercises THE FIRST BOSS's

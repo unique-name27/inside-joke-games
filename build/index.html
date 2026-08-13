@@ -279,12 +279,13 @@ const SCENE_DEFS = [
 // joke-shape framing that recommends the template, `label` the resulting
 // game style's name. Only the BUILT templates get a card here --
 // SPEC-game-styles.md sketches a longer catalog, but this wizard only ever
-// offers what actually ships. THE DEFENSE is template #4 (SPEC-defense.md).
+// offers what actually ships. THE MISSION is template #5 (SPEC-mission.md).
 const JOKE_DEFS = [
   { key:'hangout', desc:'A place you always end up + the stories you retell', label:'The Hangout' },
   { key:'gallery', desc:'The things your group can’t stop roasting', label:'The Gallery' },
   { key:'flight', desc:'A disaster trip you keep retelling', label:'The Flight' },
   { key:'defense', desc:'A recurring annoyance the group defends against', label:'The Defense' },
+  { key:'mission', desc:'Us against the world', label:'The Mission' },
 ];
 // Per-template step SEQUENCES (keys into STEP_RENDERERS/STEP_LABELS below).
 // The joke step is always first and always shared -- a hard invariant
@@ -298,16 +299,18 @@ const HANGOUT_STEP_KEYS = ['joke', 'setting', 'group', 'punchline', 'stories', '
 const GALLERY_STEP_KEYS = ['joke', 'group', 'punchline', 'targets', 'cast', 'vibe', 'preview'];
 const FLIGHT_STEP_KEYS = ['joke', 'group', 'punchline', 'trip', 'cast', 'vibe', 'preview'];
 const DEFENSE_STEP_KEYS = ['joke', 'group', 'punchline', 'annoyance', 'cast', 'vibe', 'preview'];
+const MISSION_STEP_KEYS = ['joke', 'group', 'punchline', 'mission', 'cast', 'vibe', 'preview'];
 function stepSequence(template){
   if(template === 'gallery') return GALLERY_STEP_KEYS;
   if(template === 'flight') return FLIGHT_STEP_KEYS;
   if(template === 'defense') return DEFENSE_STEP_KEYS;
+  if(template === 'mission') return MISSION_STEP_KEYS;
   return HANGOUT_STEP_KEYS;
 }
 function stepCount(template){ return stepSequence(template).length; }
 const STEP_LABELS = {
   joke: 'What’s the joke?', setting: 'The setting', group: 'Your group', punchline: 'The catchphrase',
-  stories: 'The stories', targets: 'The targets', trip: 'The trip', annoyance: 'The annoyance', cast: 'The cast', vibe: 'The vibe', preview: 'Preview & share',
+  stories: 'The stories', targets: 'The targets', trip: 'The trip', annoyance: 'The annoyance', mission: 'The mission', cast: 'The cast', vibe: 'The vibe', preview: 'Preview & share',
 };
 // gallery.targets: 4-8 short labels -- the wizard's own UI guideline
 // (mirrors the stories step's "2-4" guideline just below it, also not a
@@ -332,6 +335,15 @@ const FLIGHT_PLANE_COLORS = [
 // pair of its own -- it's a single required 24-char field, checked
 // directly in renderStepPreview's contentOk, same as `state.host`.
 const DEFENSE_WAVES_MIN = 3, DEFENSE_WAVES_MAX = 6;
+// THE MISSION (template #5, see SPEC-mission.md's config/codec/wizard
+// section) -- same "UI guideline, not a codec limit" split as the gallery/
+// flight/defense arrays above (game/cfgcodec.js's CFG_MISSION_SCHEMA only
+// caps the ceiling at 6 for swarms). Four ship colors, a fixed enum -- see
+// CFG_MISSION_SCHEMA's shipColor field.
+const MISSION_SWARMS_MIN = 2, MISSION_SWARMS_MAX = 6;
+const MISSION_SHIP_COLORS = [
+  { key:'blue', label:'Blue' }, { key:'green', label:'Green' }, { key:'orange', label:'Orange' }, { key:'red', label:'Red' },
+];
 // Role framing: BOSS SLOTS, not personality archetypes -- the product's
 // promise is that every boss is a real person the group knows. `key`/
 // `cfgKey` (the underlying CONFIG.cast/answers-schema keys: judge,
@@ -365,7 +377,18 @@ const ROLE_DEFS = [
     // same "optional, engine has its own neutral fallback pool" spirit --
     // see defense/engine.js's FIRST_BOSS_HECKLE_FALLBACKS -- flavored as
     // the sniper's own kill line (SPEC-defense.md: "sniper line 60").
-    defenseField: { key:'heckle', label:'What do they heckle the annoyance with? (optional)', placeholder:'e.g. Finally, something worth shooting at.', maxLen:60 } },
+    defenseField: { key:'heckle', label:'What do they heckle the annoyance with? (optional)', placeholder:'e.g. Finally, something worth shooting at.', maxLen:60 },
+    // THE MISSION (template #5) -- also NOT on your side, same antagonist
+    // framing as the gallery's/flight's own THE FIRST BOSS (unlike the
+    // defense's sniper tower ally, see that field's own comment just
+    // above): the mid-mission ambush's ace fighter, cutting across with
+    // this line beamed marquee-style across the screen before peeling off.
+    // See SPEC-mission.md's cast-mapping bullet.
+    missionDesc:'Every game needs a boss fight. Pick a real person from your group -- they fly the ace fighter that ambushes the squadron mid-mission, heckling in their own words before peeling off.',
+    // mission only -- same underlying answer (mission.firstBossHeckle),
+    // same "optional, engine has its own neutral fallback pool" spirit --
+    // see mission/engine.js's FIRST_BOSS_HECKLE_FALLBACKS.
+    missionField: { key:'heckle', label:'What do they heckle you with mid-ambush? (optional)', placeholder:'e.g. Nice formation. Won\u2019t last.', maxLen:60 } },
   { key:'boss', cfgKey:'authority', title:'THE FINAL BOSS',
     desc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who storms in mad about something small, then comes around.',
     galleryDesc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who takes over the whole stall, then comes around at the end.',
@@ -383,7 +406,17 @@ const ROLE_DEFS = [
     // tell like the gallery's/flight's own quirk field -- see defense/
     // engine.js's FINAL_BOSS_QUIRK_FALLBACKS and SPEC-defense.md's
     // "mad-about line 60".
-    defenseField: { key:'quirk', label:'What are they still mad about? (optional)', placeholder:'e.g. Still mad about the parking spot.', maxLen:60 } },
+    defenseField: { key:'quirk', label:'What are they still mad about? (optional)', placeholder:'e.g. Still mad about the parking spot.', maxLen:60 },
+    // THE MISSION (template #5) -- commands the flagship at the end (multi-
+    // part, seeded volley phases), this line beamed between volleys, then
+    // turns good: powers down, ejects in a tiny pod, beams one warm line,
+    // and joins the victory flyby.
+    missionDesc:'Someone with actual authority in your world -- a manager, a parent, a coach, a landlord -- who commands the flagship at the end, still mad about something small, then turns good and joins the flyby.',
+    // mission only -- same underlying answer (mission.finalBossQuirk), same
+    // "typed verbatim as their entrance line" shape as the defense's own
+    // quirk field just above -- see mission/engine.js's
+    // FINAL_BOSS_QUIRK_FALLBACKS.
+    missionField: { key:'quirk', label:'What are they still mad about? (optional)', placeholder:'e.g. Still mad about the flight plan.', maxLen:60 } },
   { key:'savior', cfgKey:'savior', title:'THE SAVIOR',
     desc:'The sincere one who saves the day -- shows up right when things look bad.',
     galleryDesc:'The sincere one who saves the day -- shows up right when a round is about to be lost.',
@@ -493,6 +526,13 @@ const REVIEW_ROWS = [
       if(!state.defending.trim() || filled.length < DEFENSE_WAVES_MIN) return 'Not filled in yet';
       return 'Defending ' + state.defending.trim() + ' -- ' + filled.length + ' waves: ' + filled.slice(0,3).map(w=>w.trim()).join(' / ') + (filled.length>3 ? '…' : '');
     } },
+  // THE MISSION (template #5) -- Mission-path only, this template's own
+  // content row (what targets/trip/annoyance are to the other three).
+  { stepKey:'mission', showFor:['mission'], label:'The mission', summary(state){
+      const filled = state.swarms.filter(sw => sw && sw.trim());
+      if(!state.mission.trim() || filled.length < MISSION_SWARMS_MIN) return 'Not filled in yet';
+      return state.mission.trim() + ' -- ' + filled.length + ' swarms: ' + filled.slice(0,3).map(sw=>sw.trim()).join(' / ') + (filled.length>3 ? '…' : '');
+    } },
   { stepKey:'cast', label:'The cast', summary(state){
       const cast = ROLE_DEFS.filter(r => state.cast[r.key] && state.cast[r.key].cast && state.cast[r.key].name && state.cast[r.key].name.trim());
       if(!cast.length) return 'Nobody cast -- the game adapts.';
@@ -523,6 +563,7 @@ function defaultWizardState(){
     if(r.galleryField) cast[r.key][r.galleryField.key] = '';
     if(r.flightField) cast[r.key][r.flightField.key] = '';
     if(r.defenseField) cast[r.key][r.defenseField.key] = '';
+    if(r.missionField) cast[r.key][r.missionField.key] = '';
   }
   return {
     step: 0,
@@ -538,6 +579,9 @@ function defaultWizardState(){
     planeColor: 'yellow', // flight only -- see FLIGHT_PLANE_COLORS
     defending: '', // defense only -- see DEFENSE_WAVES_MIN's own comment
     waves: ['', '', ''], // defense only -- see DEFENSE_WAVES_MIN
+    mission: '', // mission only -- the mission-objective banner line
+    swarms: ['', ''], // mission only -- see MISSION_SWARMS_MIN
+    shipColor: 'blue', // mission only -- see MISSION_SHIP_COLORS
     cast: cast,
     vibe: null,
   };
@@ -559,7 +603,7 @@ function normalizeWizardState(saved){
   // for that case. Anything else unrecognized also falls back to
   // 'hangout', same "fail closed to the safe default" convention as
   // scene/sprite picks just below.
-  if(['hangout', 'gallery', 'flight', 'defense'].indexOf(out.template) === -1) out.template = 'hangout';
+  if(['hangout', 'gallery', 'flight', 'defense', 'mission'].indexOf(out.template) === -1) out.template = 'hangout';
   // a pre-Gallery draft's saved `step` was an index into the OLD 7-step
   // Hangout sequence (no joke step existed yet) -- reinterpreting that same
   // number against today's 8-step HANGOUT_STEP_KEYS would silently land a
@@ -592,6 +636,16 @@ function normalizeWizardState(saved){
   if(!Array.isArray(out.waves) || out.waves.length < DEFENSE_WAVES_MIN) out.waves = base.waves;
   out.waves = out.waves.slice(0, DEFENSE_WAVES_MAX).map(w => (typeof w==='string') ? w.slice(0,24) : '');
   while(out.waves.length < DEFENSE_WAVES_MIN) out.waves.push('');
+  // THE MISSION (template #5) -- `mission` is a plain capped string, same
+  // shape as `defending`; `swarms` clamps the same way waves/targets/beats/
+  // hazards do just above; `shipColor` falls back to 'blue' the same way
+  // `planeColor` falls back to 'yellow'.
+  if(typeof out.mission !== 'string') out.mission = base.mission;
+  out.mission = out.mission.slice(0, 40);
+  if(!Array.isArray(out.swarms) || out.swarms.length < MISSION_SWARMS_MIN) out.swarms = base.swarms;
+  out.swarms = out.swarms.slice(0, MISSION_SWARMS_MAX).map(s => (typeof s==='string') ? s.slice(0,24) : '');
+  while(out.swarms.length < MISSION_SWARMS_MIN) out.swarms.push('');
+  if(!MISSION_SHIP_COLORS.some(c => c.key === out.shipColor)) out.shipColor = 'blue';
   out.cast = Object.assign({}, base.cast, saved.cast || {});
   for(const r of ROLE_DEFS){
     out.cast[r.key] = Object.assign({}, base.cast[r.key], (saved.cast && saved.cast[r.key]) || {});
@@ -599,6 +653,7 @@ function normalizeWizardState(saved){
     if(r.galleryField && typeof out.cast[r.key][r.galleryField.key] !== 'string') out.cast[r.key][r.galleryField.key] = '';
     if(r.flightField && typeof out.cast[r.key][r.flightField.key] !== 'string') out.cast[r.key][r.flightField.key] = '';
     if(r.defenseField && typeof out.cast[r.key][r.defenseField.key] !== 'string') out.cast[r.key][r.defenseField.key] = '';
+    if(r.missionField && typeof out.cast[r.key][r.missionField.key] !== 'string') out.cast[r.key][r.missionField.key] = '';
   }
   if(!ROSTER_BY_KEY[out.hostSprite]) out.hostSprite = null;
   if(!ROSTER_BY_KEY[out.otherFriendSprite]) out.otherFriendSprite = null;
@@ -661,6 +716,9 @@ function checkStateForbidden(state){
   } else if(state.template === 'defense'){
     fields.push(state.defending);
     for(const w of state.waves) fields.push(w);
+  } else if(state.template === 'mission'){
+    fields.push(state.mission);
+    for(const sw of state.swarms) fields.push(sw);
   } else {
     for(const s of state.stories){ fields.push(s.l1); fields.push(s.l2); }
   }
@@ -671,6 +729,7 @@ function checkStateForbidden(state){
       if(state.template === 'gallery' && r.galleryField) fields.push(c[r.galleryField.key]);
       if(state.template === 'flight' && r.flightField) fields.push(c[r.flightField.key]);
       if(state.template === 'defense' && r.defenseField) fields.push(c[r.defenseField.key]);
+      if(state.template === 'mission' && r.missionField) fields.push(c[r.missionField.key]);
     }
   }
   const all = [];
@@ -720,11 +779,12 @@ function buildOverridesFromState(state){
   const isGallery = state.template === 'gallery';
   const isFlight = state.template === 'flight';
   const isDefense = state.template === 'defense';
+  const isMission = state.template === 'mission';
   const overrides = {
     // absent -> 'hangout' (cfgBuildDefaultConfig's own default templateKey)
     // -- same "no explicit default value on the wire" convention musicVibe
     // just below already uses. Four-way now (THE DEFENSE is template #4).
-    template: isGallery ? 'gallery' : (isFlight ? 'flight' : (isDefense ? 'defense' : undefined)),
+    template: isGallery ? 'gallery' : (isFlight ? 'flight' : (isDefense ? 'defense' : (isMission ? 'mission' : undefined))),
     // an ENUM pick among a fixed set of built-in stock tracks -- see
     // game/cfgcodec.js's cfgApplyMusicVibe for why this is the one
     // narrow exception to "no music from a fragment, ever" (never an
@@ -772,6 +832,20 @@ function buildOverridesFromState(state){
       defending: wrapLine(state.defending || 'THE COUCH', 24),
       waves: state.waves.filter(w => w && w.trim()).slice(0, DEFENSE_WAVES_MAX).map(w => wrapLine(w, 24)),
     };
+  } else if(isMission){
+    // THE MISSION (template #5, see SPEC-mission.md's config/codec/wizard
+    // section) -- mission/swarms both uppercase like targets/waves (this
+    // template has no "keep typed case" field the way the flight's beats
+    // do -- the mission line is a shouted banner, not narrated prose).
+    // `mission` falls back to cfgBuildMissionDefaultConfig's own neutral
+    // default ('GET EVERYONE HOME') the same defensive way `defending`
+    // does just above, even though the real required-field gate lives in
+    // renderStepPreview's contentOk.
+    overrides.mission = {
+      mission: wrapLine(state.mission || 'GET EVERYONE HOME', 40),
+      swarms: state.swarms.filter(sw => sw && sw.trim()).slice(0, MISSION_SWARMS_MAX).map(sw => wrapLine(sw, 24)),
+      shipColor: MISSION_SHIP_COLORS.some(c => c.key === state.shipColor) ? state.shipColor : 'blue',
+    };
   } else {
     overrides.lengthPreset = 'five_min';
     // STORY SKELETONS: which of the four settings (see SCENE_DEFS above) --
@@ -799,7 +873,7 @@ function buildOverridesFromState(state){
       if(DEFAULT_SPRITE[r.cfgKey]) Object.assign(entry, DEFAULT_SPRITE[r.cfgKey]);
       if(c.sprite && ROSTER_BY_KEY[c.sprite]) entry.sprite = c.sprite;
       overrides.cast[r.cfgKey] = entry;
-      if(!isGallery && !isFlight && !isDefense){
+      if(!isGallery && !isFlight && !isDefense && !isMission){
         // BOSS SLOTS: the boss HP bar / entrance card should read the
         // actual person's name, not the generic "THE CRITIC"/"THE BOSS HAS
         // ARRIVED" default text (see cfgBuildDefaultConfig, which those
@@ -832,6 +906,14 @@ function buildOverridesFromState(state){
         // fallback pools (see that file's header).
         overrides.defense = overrides.defense || {};
         overrides.defense[r.defenseField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(c[r.defenseField.key], r.defenseField.maxLen);
+      } else if(isMission && r.missionField && c[r.missionField.key] && c[r.missionField.key].trim()){
+        // THE MISSION: same shape as the gallery/flight/defense branches
+        // above, but mission.firstBossHeckle/finalBossQuirk
+        // (CFG_MISSION_SCHEMA) -- blank/skipped falls back to
+        // mission/engine.js's own neutral fallback pools (see that file's
+        // header).
+        overrides.mission = overrides.mission || {};
+        overrides.mission[r.missionField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(c[r.missionField.key], r.missionField.maxLen);
       }
     } else {
       overrides.cast[r.cfgKey] = null;
@@ -1418,6 +1500,88 @@ function initWizard(){
     }
   }
 
+  /* THE MISSION -- Mission-path only, this template's content step (what
+     the stories/targets/trip/annoyance steps are to the other four paths).
+     One required "what's the mission?" banner line (40 chars) plus 2-6
+     swarm rows (uppercased like targets/waves) plus a 4-swatch ship-color
+     pick, same "structural cap here, UX guidance there" split every array
+     field in this wizard already draws (game/cfgcodec.js's
+     CFG_MISSION_SCHEMA caps the ceiling only). */
+  function renderSwarmCard(idx){
+    const card = document.createElement('div');
+    card.className = 'card story-card';
+    card.innerHTML =
+      (state.swarms.length > MISSION_SWARMS_MIN ? '<button type="button" class="story-remove" data-idx="'+idx+'" aria-label="Remove swarm '+(idx+1)+'">Remove</button>' : '') +
+      '<div class="field"><label for="sw-'+idx+'">Swarm ' + (idx+1) + '</label><input type="text" id="sw-'+idx+'" class="sw-label" maxlength="24" placeholder="e.g. The Group Chat" value=""></div>';
+    const input = card.querySelector('.sw-label');
+    input.value = state.swarms[idx] || '';
+    const wrap = document.createElement('div'); input.after(wrap);
+    makeCharCounter(input, 24, wrap);
+    input.addEventListener('input', ()=>{
+      state.swarms[idx] = input.value; persist();
+      fieldWarning(wrap, checkForbidden(input.value, parseOffLimits(state.offLimits))[0]||null);
+    });
+    const removeBtn = card.querySelector('.story-remove');
+    if(removeBtn) removeBtn.addEventListener('click', ()=>{ state.swarms.splice(idx,1); persist(); renderStep(); });
+    return card;
+  }
+  function renderStepMission(){
+    const el = document.createElement('div');
+    el.innerHTML =
+      '<h2>The mission</h2>' +
+      '<p class="step-sub">What\u2019s the mission? The sillier the better -- it goes on the banner.</p>' +
+      '<div class="field"><label for="fMission">What\u2019s the mission?</label>' +
+      '<input type="text" id="fMission" maxlength="40" placeholder="e.g. Find The Best Taco"></div>';
+    stepsContainer.appendChild(el);
+    const missionInput = el.querySelector('#fMission');
+    missionInput.value = state.mission;
+    const missionWrap = document.createElement('div'); missionInput.after(missionWrap);
+    makeCharCounter(missionInput, 40, missionWrap);
+    missionInput.addEventListener('input', ()=>{
+      state.mission = missionInput.value; persist();
+      fieldWarning(missionWrap, checkForbidden(missionInput.value, parseOffLimits(state.offLimits))[0]||null);
+    });
+
+    const swarmHead = document.createElement('div');
+    swarmHead.innerHTML =
+      '<h2 style="margin-top:28px;">What are you up against?</h2>' +
+      '<p class="step-sub">Short labels -- they fly at you in swarms. 2-6 swarms.</p>';
+    stepsContainer.appendChild(swarmHead);
+    const swarmList = document.createElement('div');
+    swarmList.id = 'swarmList';
+    stepsContainer.appendChild(swarmList);
+    for(let i=0;i<state.swarms.length;i++) swarmList.appendChild(renderSwarmCard(i));
+    if(state.swarms.length < MISSION_SWARMS_MAX){
+      const addSwarmBtn = document.createElement('button');
+      addSwarmBtn.type = 'button'; addSwarmBtn.className = 'btn btn-secondary btn-sm';
+      addSwarmBtn.textContent = '+ Add another swarm';
+      addSwarmBtn.addEventListener('click', ()=>{ state.swarms.push(''); persist(); renderStep(); });
+      stepsContainer.appendChild(addSwarmBtn);
+    }
+
+    const colorHead = document.createElement('div');
+    colorHead.innerHTML = '<h2 style="margin-top:28px;">Ship color</h2>';
+    stepsContainer.appendChild(colorHead);
+    for(const c of MISSION_SHIP_COLORS){
+      const card = document.createElement('div');
+      card.className = 'card scene-card' + (state.shipColor === c.key ? ' selected' : '');
+      card.setAttribute('role', 'button');
+      card.tabIndex = 0;
+      card.setAttribute('aria-pressed', state.shipColor === c.key ? 'true' : 'false');
+      card.innerHTML = '<div><div class="scene-label">'+c.label+'</div></div>';
+      card.addEventListener('click', ()=>{
+        state.shipColor = c.key; persist();
+        stepsContainer.querySelectorAll('.scene-card').forEach(c2=>{ c2.classList.remove('selected'); c2.setAttribute('aria-pressed','false'); });
+        card.classList.add('selected');
+        card.setAttribute('aria-pressed', 'true');
+      });
+      card.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); card.click(); }
+      });
+      stepsContainer.appendChild(card);
+    }
+  }
+
   function renderRoleCard(role){
     const c = state.cast[role.key];
     const card = document.createElement('div');
@@ -1433,8 +1597,9 @@ function initWizard(){
     const isGallery = state.template === 'gallery';
     const isFlight = state.template === 'flight';
     const isDefense = state.template === 'defense';
-    const descText = (isGallery && role.galleryDesc) ? role.galleryDesc : (isFlight && role.flightDesc) ? role.flightDesc : (isDefense && role.defenseDesc) ? role.defenseDesc : role.desc;
-    const gf = isGallery ? role.galleryField : (isFlight ? role.flightField : (isDefense ? role.defenseField : null));
+    const isMission = state.template === 'mission';
+    const descText = (isGallery && role.galleryDesc) ? role.galleryDesc : (isFlight && role.flightDesc) ? role.flightDesc : (isDefense && role.defenseDesc) ? role.defenseDesc : (isMission && role.missionDesc) ? role.missionDesc : role.desc;
+    const gf = isGallery ? role.galleryField : (isFlight ? role.flightField : (isDefense ? role.defenseField : (isMission ? role.missionField : null)));
     const gfId = gf ? 'role-gf-' + role.key : null;
     body.innerHTML =
       '<div class="role-title-row"><h2>'+role.title+'</h2>' +
@@ -1639,13 +1804,16 @@ function initWizard(){
     const isGallery = state.template === 'gallery';
     const isFlight = state.template === 'flight';
     const isDefense = state.template === 'defense';
+    const isMission = state.template === 'mission';
     const contentOk = isGallery
       ? state.targets.filter(t => t && t.trim()).length >= GALLERY_TARGETS_MIN
       : isFlight
         ? state.beats.filter(b => b && b.trim()).length >= FLIGHT_BEATS_MIN && state.hazards.filter(h => h && h.trim()).length >= FLIGHT_HAZARDS_MIN
         : isDefense
           ? state.defending.trim().length > 0 && state.waves.filter(w => w && w.trim()).length >= DEFENSE_WAVES_MIN
-          : state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim())).length >= 1;
+          : isMission
+            ? state.mission.trim().length > 0 && state.swarms.filter(sw => sw && sw.trim()).length >= MISSION_SWARMS_MIN
+            : state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim())).length >= 1;
     if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim() || !contentOk){
       const missing = document.createElement('div');
       missing.className = 'warning-banner show';
@@ -1655,7 +1823,9 @@ function initWizard(){
           ? 'Main character name, catchphrase, title, at least ' + FLIGHT_BEATS_MIN + ' trip legs, and at least ' + FLIGHT_HAZARDS_MIN + ' hazards are all required -- go back and fill those in.'
           : isDefense
             ? 'Main character name, catchphrase, title, what you defend, and at least ' + DEFENSE_WAVES_MIN + ' waves are all required -- go back and fill those in.'
-            : 'Main character name, catchphrase, title, and at least one story are all required -- go back and fill those in.';
+            : isMission
+              ? 'Main character name, catchphrase, title, the mission, and at least ' + MISSION_SWARMS_MIN + ' swarms are all required -- go back and fill those in.'
+              : 'Main character name, catchphrase, title, and at least one story are all required -- go back and fill those in.';
       stepsContainer.appendChild(missing);
       return;
     }
@@ -1694,8 +1864,10 @@ function initWizard(){
         ? new URL('../flight/#cfg=' + fragment, document.location.href).href
         : isDefense
           ? new URL('../defense/#cfg=' + fragment, document.location.href).href
-          : new URL('../game/#cfg=' + fragment, document.location.href).href;
-    const shareUrl = (isGallery || isFlight || isDefense)
+          : isMission
+            ? new URL('../mission/#cfg=' + fragment, document.location.href).href
+            : new URL('../game/#cfg=' + fragment, document.location.href).href;
+    const shareUrl = (isGallery || isFlight || isDefense || isMission)
       ? playUrl
       : new URL('../intro/#cfg=' + fragment, document.location.href).href;
 
@@ -1744,7 +1916,7 @@ function initWizard(){
   // function's own header comment).
   const STEP_RENDERERS = {
     joke: renderStepJoke, setting: renderStepSetting, group: renderStepHost, punchline: renderStepPunchline,
-    stories: renderStepStories, targets: renderStepTargets, trip: renderStepTrip, annoyance: renderStepAnnoyance,
+    stories: renderStepStories, targets: renderStepTargets, trip: renderStepTrip, annoyance: renderStepAnnoyance, mission: renderStepMission,
     cast: renderStepCast, vibe: renderStepVibe, preview: renderStepPreview,
   };
 

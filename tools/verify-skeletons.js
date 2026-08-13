@@ -52,12 +52,14 @@ const {
 const { verifyGalleryFile, verifyGallerySource } = require('./verify-gallery.js');
 const { verifyFlightFile, verifyFlightSource, verifyFlightHostOnlySource } = require('./verify-flight.js');
 const { verifyDefenseFile, verifyDefenseSource, verifyDefenseHostOnlySource } = require('./verify-defense.js');
+const { verifyMissionFile, verifyMissionSource, verifyMissionHostOnlySource } = require('./verify-mission.js');
 
 const TEST_GROUP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'test-group.config.js');
 const ROADTRIP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'roadtrip.config.js');
 const GALLERY_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'gallery-sample.config.js');
 const FLIGHT_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'flight-sample.config.js');
 const DEFENSE_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'defense-sample.config.js');
+const MISSION_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'mission-sample.config.js');
 
 const results = []; // { ok, label, detail }
 function record(label, ok, detail){
@@ -445,6 +447,87 @@ function checkDefenseRoundTrip(){
   }
 }
 
+/* ----------------------------------------------------------------------
+   11. THE MISSION (template #5, see SPEC-mission.md "Verification") --
+   fully-cast + host-only-degraded playthroughs (tools/verify-mission.js's
+   own driver -- dodge-autopilot steering to the widest safe x-corridor
+   read off the engine's own live entity list, THE BEAM fired deliberately
+   mid-stage AND during the ambush/flagship via the charge-carry-over
+   mechanic, the ambush/flagship marquee lines, turn-good + flyby -- see
+   that file's own header) plus a fragment round-trip: `template` + all
+   five `mission.*` fields survive encode/decode, and an oversized swarms
+   array clamps to the schema's ceiling (6) -- same methodology as
+   checkDefensePlaythroughs/checkDefenseRoundTrip just above.
+   ---------------------------------------------------------------------- */
+function checkMissionPlaythroughs(){
+  try{
+    const result = verifyMissionFile(MISSION_SAMPLE_EXAMPLE_PATH, {});
+    record('examples/mission-sample.config.js (full cast)', result.ok, result.ok ? ('reached ' + result.phaseReached + ', cast=' + JSON.stringify(result.flags)) : result.errors.join('; '));
+  }catch(e){
+    record('examples/mission-sample.config.js (full cast)', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    // host-only: every optional role stripped -- no shield/wingmate crate
+    // fumbles/turret drone, an elite swarm volley instead of the ambush, a
+    // grand meteor-and-swarm finale instead of the flagship (see
+    // SPEC-mission.md's cast-mapping bullet: "uncast roles simply don't
+    // exist"). This is also the round-2 winnability floor: dodge-autopilot
+    // policy, still reaches the end card under the SAME BUDGET_DPS/
+    // enemyHpScale tuning the full-cast naive run above is checked
+    // against, and THE BEAM still stays reachable via the neutral seeded
+    // crate schedule (SPEC-mission.md's own host-only decision).
+    const fullSrc = fs.readFileSync(MISSION_SAMPLE_EXAMPLE_PATH, 'utf8');
+    const hostOnlySrc = fullSrc.replace(/cast: \{[\s\S]*?\n  \},/, 'cast: {},');
+    if(hostOnlySrc === fullSrc) throw new Error('cast block not found/replaced -- example file shape changed');
+    const result = verifyMissionHostOnlySource(hostOnlySrc, {});
+    record('mission-sample, host-only (every optional role uncast, dodge-autopilot -- the winnability floor)', result.ok, result.ok ? ('reached ' + result.phaseReached + ', cast=' + JSON.stringify(result.flags)) : result.errors.join('; '));
+  }catch(e){
+    record('mission-sample, host-only', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+}
+function checkMissionRoundTrip(){
+  try{
+    const encoded = cfgEncodeConfigFragment({
+      template: 'mission',
+      mission: { mission: 'FIND THE BEST TACO', swarms: ['SWARM ONE', 'SWARM TWO', 'SWARM THREE'], shipColor: 'green', firstBossHeckle: 'NICE TRY', finalBossQuirk: 'STILL MAD' },
+      host: { name: 'ROUNDTRIP' },
+    });
+    const decoded = JSON.parse(cfgDecompress(encoded));
+    const m = decoded.mission || {};
+    const ok = decoded.template === 'mission'
+      && m.mission === 'FIND THE BEST TACO'
+      && Array.isArray(m.swarms) && m.swarms.length === 3
+      && m.shipColor === 'green'
+      && m.firstBossHeckle === 'NICE TRY' && m.finalBossQuirk === 'STILL MAD';
+    record('round-trip: template "mission" + all five mission fields survive encode/decode', ok,
+      'got template=' + JSON.stringify(decoded.template) + ', mission=' + JSON.stringify(m));
+  }catch(e){
+    record('round-trip: template "mission" survives encode/decode', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    // swarms: cfgArr(6, ...) -- CFG_MISSION_SCHEMA caps the ceiling only
+    // (the 2-swarm minimum is wizard/generator UX, never codec-enforced --
+    // see that schema's own comment).
+    const encoded = cfgEncodeConfigFragment({
+      mission: { swarms: ['1', '2', '3', '4', '5', '6', '7', '8'] },
+    });
+    const decoded = JSON.parse(cfgDecompress(encoded));
+    const m = decoded.mission || {};
+    const ok = Array.isArray(m.swarms) && m.swarms.length === 6;
+    record('round-trip: oversized mission.swarms clamps to 6', ok, 'got swarms.length=' + (m.swarms && m.swarms.length));
+  }catch(e){
+    record('round-trip: oversized mission.swarms clamps', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    const encodedUnknown = cfgEncodeConfigFragment({ template: 'not-a-real-template' });
+    const decodedUnknown = JSON.parse(cfgDecompress(encodedUnknown));
+    const fallsBackToHangout = decodedUnknown.template === undefined && !('mission' in cfgBuildDefaultConfig('../', undefined, decodedUnknown.template));
+    record('round-trip: unknown template sanitizes away -> hangout default', fallsBackToHangout, 'got template=' + JSON.stringify(decodedUnknown.template));
+  }catch(e){
+    record('round-trip: unknown template sanitizes away', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+}
+
 function main(){
   checkExamples();
   checkSceneMatrix();
@@ -458,6 +541,8 @@ function main(){
   checkFlightRoundTrip();
   checkDefensePlaythroughs();
   checkDefenseRoundTrip();
+  checkMissionPlaythroughs();
+  checkMissionRoundTrip();
 
   const failed = results.filter(r => !r.ok);
   console.log('');
@@ -470,5 +555,5 @@ if(require.main === module) main();
 module.exports = {
   checkExamples, checkSceneMatrix, checkHardModePlaythrough, checkRoundTrip, checkRosterAssets, checkRosterDefaults,
   checkGalleryPlaythroughs, checkGalleryRoundTrip, checkFlightPlaythroughs, checkFlightRoundTrip,
-  checkDefensePlaythroughs, checkDefenseRoundTrip,
+  checkDefensePlaythroughs, checkDefenseRoundTrip, checkMissionPlaythroughs, checkMissionRoundTrip,
 };

@@ -51,6 +51,7 @@ const { verifyConfigSource } = require('./verify-config.js');
 const { verifyGallerySource } = require('./verify-gallery.js');
 const { verifyFlightSource } = require('./verify-flight.js');
 const { verifyDefenseSource } = require('./verify-defense.js');
+const { verifyMissionSource } = require('./verify-mission.js');
 
 /* ---------------------------------------------------------------------
    CLI args
@@ -145,6 +146,7 @@ function wrapLineKeepCase(raw, maxLen){
   return String(raw).trim().replace(/\s+/g, ' ').slice(0, maxLen);
 }
 const FLIGHT_PLANE_COLORS = ['yellow', 'red', 'blue', 'green'];
+const MISSION_SHIP_COLORS = ['blue', 'green', 'orange', 'red'];
 
 function slugify(title){
   return String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'game';
@@ -182,12 +184,13 @@ function buildOverrides(answers, slug){
   const isGallery = answers.template === 'gallery';
   const isFlight = answers.template === 'flight';
   const isDefense = answers.template === 'defense';
+  const isMission = answers.template === 'mission';
 
   const overrides = {
     gameId: slug,
-    // absent -> cfgBuildDefaultConfig's own 'hangout' default; a four-way
-    // pick now (THE DEFENSE is template #4, see SPEC-defense.md).
-    template: isGallery ? 'gallery' : (isFlight ? 'flight' : (isDefense ? 'defense' : undefined)),
+    // absent -> cfgBuildDefaultConfig's own 'hangout' default; a five-way
+    // pick now (THE MISSION is template #5, see SPEC-mission.md).
+    template: isGallery ? 'gallery' : (isFlight ? 'flight' : (isDefense ? 'defense' : (isMission ? 'mission' : undefined))),
     title: {
       lockupLines: wrapTitleLines(title, 14, 2),
       introPageTitle: String(title),
@@ -235,6 +238,23 @@ function buildOverrides(answers, slug){
     };
     if(answers.firstBossHeckle) overrides.defense.firstBossHeckle = String(answers.firstBossHeckle).toUpperCase().trim().slice(0, 60);
     if(answers.finalBossQuirk) overrides.defense.finalBossQuirk = String(answers.finalBossQuirk).toUpperCase().trim().slice(0, 60);
+  } else if(isMission){
+    // THE MISSION (template #5, see SPEC-mission.md's config/codec/wizard
+    // section) -- mission + swarms instead of stories/targets/beats/
+    // defending+waves, no `scene` (the mission has no scene skeleton
+    // either). Both fields uppercase like the defense's own (this template
+    // has no "keep typed case" field the way the flight's beats do -- the
+    // mission line is a shouted banner, not narrated prose).
+    const missionIn = requireField(answers, 'mission', 'Mission Q4: what\'s the mission? (a short banner line, the sillier the better)');
+    const swarmsIn = requireField(answers, 'swarms', 'Mission Q4b: 2-6 short labels for what you\'re up against, as an array of strings');
+    if(!Array.isArray(swarmsIn) || swarmsIn.length < 2) throw new GenerateError('answers.swarms must be an array of at least 2 strings (mission.swarms wants 2-6)');
+    overrides.mission = {
+      mission: String(missionIn).toUpperCase().trim().replace(/\s+/g, ' ').slice(0, 40),
+      swarms: swarmsIn.slice(0, 6).map(sw => String(sw).toUpperCase().trim().replace(/\s+/g, ' ').slice(0, 24)),
+      shipColor: MISSION_SHIP_COLORS.indexOf(answers.shipColor) !== -1 ? answers.shipColor : 'blue',
+    };
+    if(answers.firstBossHeckle) overrides.mission.firstBossHeckle = String(answers.firstBossHeckle).toUpperCase().trim().slice(0, 60);
+    if(answers.finalBossQuirk) overrides.mission.finalBossQuirk = String(answers.finalBossQuirk).toUpperCase().trim().slice(0, 60);
   } else {
     const storiesIn = requireField(answers, 'stories', 'Q4: 2-4 real, boring stories, as an array of strings');
     if(!Array.isArray(storiesIn) || storiesIn.length === 0) throw new GenerateError('answers.stories must be a non-empty array of strings');
@@ -288,7 +308,7 @@ function buildOverrides(answers, slug){
         entry.sprite = spriteCast[introKey];
       }
       overrides.cast[cfgKey] = entry;
-      if(!isGallery && !isFlight && !isDefense){
+      if(!isGallery && !isFlight && !isDefense && !isMission){
         // BOSS SLOTS (Hangout only -- see this function's own header): the
         // boss HP bar / entrance card reads the actual person's name, not
         // cfgBuildDefaultConfig's generic "THE CRITIC"/"THE BOSS HAS
@@ -416,17 +436,18 @@ function main(){
     const isGallery = overrides.template === 'gallery';
     const isFlight = overrides.template === 'flight';
     const isDefense = overrides.template === 'defense';
+    const isMission = overrides.template === 'mission';
     // page-relative root matching this template's own shell nesting depth:
     // the Hangout writes games/<slug>/{game,intro}/ (3 levels deep -- see
     // games/test-group/config.js for the identical convention); THE
-    // GALLERY, THE FLIGHT, and THE DEFENSE each write a single
+    // GALLERY, THE FLIGHT, THE DEFENSE, and THE MISSION each write a single
     // games/<slug>/index.html (2 levels deep, mirroring gallery/
-    // index.html's/flight/index.html's/defense/index.html's own page --
-    // see below). `overrides.scene` picks up CFG_SCENE_DEFAULTS' text
-    // overlay here, same as the wizard's own assembleConfig/
-    // cfgLoadFragmentOverride; overrides (below) still wins over it for
-    // anything answers.json specifies itself.
-    const engineRoot = (isGallery || isFlight || isDefense) ? '../../' : '../../../';
+    // index.html's/flight/index.html's/defense/index.html's/mission/
+    // index.html's own page -- see below). `overrides.scene` picks up
+    // CFG_SCENE_DEFAULTS' text overlay here, same as the wizard's own
+    // assembleConfig/cfgLoadFragmentOverride; overrides (below) still wins
+    // over it for anything answers.json specifies itself.
+    const engineRoot = (isGallery || isFlight || isDefense || isMission) ? '../../' : '../../../';
     const base = cfgBuildDefaultConfig(engineRoot, overrides.scene, overrides.template);
     merged = cfgDeepMerge(base, overrides);
     merged = applySpellings(merged, spellings);
@@ -471,15 +492,17 @@ function main(){
   const isGallery = merged.template === 'gallery';
   const isFlight = merged.template === 'flight';
   const isDefense = merged.template === 'defense';
-  const templateLabel = isGallery ? 'gallery' : (isFlight ? 'flight' : (isDefense ? 'defense' : 'hangout'));
+  const isMission = merged.template === 'mission';
+  const templateLabel = isGallery ? 'gallery' : (isFlight ? 'flight' : (isDefense ? 'defense' : (isMission ? 'mission' : 'hangout')));
   console.log('Verifying generated config for "' + merged.title.introPageTitle + '" (slug: ' + slug + ', template: ' + templateLabel + ')...');
-  // THE GALLERY / THE FLIGHT / THE DEFENSE: each template's own driver
-  // (tick/fireAt through the seeded rounds/boss/finale for the gallery;
-  // tick/flap through the seeded legs/boss gate for the flight; tick/
-  // priority-tap through the seeded waves/boss for the defense) in place
-  // of verify-config.js's beat-by-beat one -- see any of those files' own
-  // header for why.
-  const verifyFn = isGallery ? verifyGallerySource : (isFlight ? verifyFlightSource : (isDefense ? verifyDefenseSource : verifyConfigSource));
+  // THE GALLERY / THE FLIGHT / THE DEFENSE / THE MISSION: each template's
+  // own driver (tick/fireAt through the seeded rounds/boss/finale for the
+  // gallery; tick/flap through the seeded legs/boss gate for the flight;
+  // tick/priority-tap through the seeded waves/boss for the defense;
+  // tick/handleAction/fireBeam through the seeded stages/ambush/flagship
+  // for the mission) in place of verify-config.js's beat-by-beat one -- see
+  // any of those files' own header for why.
+  const verifyFn = isGallery ? verifyGallerySource : (isFlight ? verifyFlightSource : (isDefense ? verifyDefenseSource : (isMission ? verifyMissionSource : verifyConfigSource)));
   let result;
   try{
     result = verifyFn(configSource, { extraForbidden: merged.forbiddenWords });
@@ -572,6 +595,28 @@ function main(){
       console.error('  ' + (e && e.message ? e.message : e));
       process.exit(1);
     }
+  } else if(isMission){
+    // THE MISSION writes ONE page (no separate intro), same shape as THE
+    // GALLERY/THE FLIGHT/THE DEFENSE above -- mirror mission/index.html's
+    // own current script tags verbatim, shifted one directory level deeper
+    // and pointed at the ONE shared mission/engine.js. Every replacement
+    // here is verified to have actually matched something (see
+    // safeReplace's own header) -- these five strings MUST match
+    // mission/index.html byte-for-byte or this throws instead of silently
+    // shipping a shell with the wrong paths/title.
+    try{
+      let missionShell = fs.readFileSync(path.join(REPO_ROOT, 'mission', 'index.html'), 'utf8');
+      missionShell = safeReplace(missionShell, '<title>The Mission -- Playable Demo</title>', '<title>' + merged.title.gamePageTitle + '</title>', 'title');
+      missionShell = safeReplace(missionShell, '<script src="../game/roster.js"></script>', '<script src="../../game/roster.js"></script>', 'roster.js src');
+      missionShell = safeReplace(missionShell, '<script src="../game/cfgcodec.js"></script>', '<script src="../../game/cfgcodec.js"></script>', 'cfgcodec.js src');
+      missionShell = safeReplace(missionShell, '<script src="../shared/framework.js"></script>', '<script src="../../shared/framework.js"></script>', 'framework.js src');
+      missionShell = safeReplace(missionShell, '<script src="engine.js"></script>', '<script src="../../mission/engine.js"></script>', 'engine.js src');
+      fs.writeFileSync(path.join(gameDir, 'index.html'), missionShell);
+    }catch(e){
+      console.error('REFUSING TO EMIT -- could not build the mission shell for "' + merged.title.introPageTitle + '":');
+      console.error('  ' + (e && e.message ? e.message : e));
+      process.exit(1);
+    }
   } else {
     const gameSubDir = path.join(gameDir, 'game');
     const introSubDir = path.join(gameDir, 'intro');
@@ -599,17 +644,20 @@ function main(){
 
   const fragment = cfgEncodeConfigFragment(fragmentPayload);
   const hostedUrl = baseUrl.replace(/\/$/, '') + '/' + outDir + '/' + slug + '/';
-  // THE GALLERY / THE FLIGHT / THE DEFENSE: one page each, no separate
-  // intro -- the instant link goes straight at /gallery/#cfg=.../
-  // /flight/#cfg=.../ /defense/#cfg=..., matching /build/'s own
-  // single-page preview links (see build/index.html's renderStepPreview).
+  // THE GALLERY / THE FLIGHT / THE DEFENSE / THE MISSION: one page each, no
+  // separate intro -- the instant link goes straight at /gallery/#cfg=.../
+  // /flight/#cfg=.../ /defense/#cfg=.../ /mission/#cfg=..., matching
+  // /build/'s own single-page preview links (see build/index.html's
+  // renderStepPreview).
   const instantUrl = isGallery
     ? baseUrl.replace(/\/$/, '') + '/gallery/#cfg=' + fragment
     : isFlight
       ? baseUrl.replace(/\/$/, '') + '/flight/#cfg=' + fragment
       : isDefense
         ? baseUrl.replace(/\/$/, '') + '/defense/#cfg=' + fragment
-        : baseUrl.replace(/\/$/, '') + '/intro/#cfg=' + fragment;
+        : isMission
+          ? baseUrl.replace(/\/$/, '') + '/mission/#cfg=' + fragment
+          : baseUrl.replace(/\/$/, '') + '/intro/#cfg=' + fragment;
 
   console.log('');
   console.log('Wrote ' + path.relative(REPO_ROOT, gameDir));

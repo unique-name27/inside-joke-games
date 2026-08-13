@@ -455,6 +455,7 @@ const PLAY_Y_MIN = CH/3, PLAY_Y_MAX = CH-40; // "clamped to the lower 2/3" -- SP
 const PLAYER_SPEED = 260;
 const PLAYER_R = 16, ENEMY_R_SMALL = 15, ENEMY_R_BIG = 26, ENEMY_R_UFO = 17;
 const METEOR_R_BIG = 22, METEOR_R_SMALL = 13, BULLET_R = 5, CRATE_R = 13, DRONE_R = 14;
+const CRATE_FALL_SPEED = 65; // ~7s spawn-to-catch fall time -- see buildStageSchedule's crateInterval comment for why this and the interval are tuned together
 const PLAYER_FIRE_COOLDOWN = 0.22, PLAYER_DMG = 11;
 const DINER0_FIRE_COOLDOWN = 0.34, DINER0_DMG = 8;
 const BUTTERFINGERS_FIRE_COOLDOWN = 0.27, BUTTERFINGERS_DMG = 6;
@@ -677,7 +678,15 @@ function buildStageSchedule(stageIndex, attempt){
     });
     mt += rngRange(rng, 3.5, 6.5);
   }
-  const crateInterval = BUTTERFINGERS_CAST ? 9 : 14; // "a lower rate so THE BEAM stays reachable" -- SPEC-mission.md
+  // "a lower rate so THE BEAM stays reachable" -- SPEC-mission.md. 11s
+  // (vs. butterfingers' 9s) is deliberately a MODEST slowdown, not a
+  // drastic one -- 3 full charge-and-fire cycles still need to fit inside
+  // a single stage's own duration (36-46s) alongside each crate's ~7s
+  // fall-and-catch-up window (see updateCrates' CRATE_FALL_SPEED), or the
+  // neutral fallback would never actually complete a charge before the
+  // stage rolls over and resets it -- round 2's own verify-mission.js
+  // host-only run proved 14s too slow to ever reach 3/3 in time.
+  const crateInterval = BUTTERFINGERS_CAST ? 9 : 11;
   const crateEvents = [];
   let ct = rngRange(rng, crateInterval*0.5, crateInterval);
   while(ct < duration){
@@ -920,8 +929,8 @@ function updateEnemyBullets(dt){
 function updateCrates(dt){
   for(const c of crates){
     if(c.dead) continue;
-    c.y += 46*dt;
-    c.x += (player.x - c.x) * Math.min(1, dt*0.6);
+    c.y += CRATE_FALL_SPEED*dt;
+    c.x += (player.x - c.x) * Math.min(1, dt*1.5); // "drifts to the player" -- tight enough tracking to stay collectible against a moving target, not just a slowly-decaying lag
     if(dist2(c.x,c.y,player.x,player.y) < CRATE_R+PLAYER_R){
       c.dead = true;
       if(crateCount < 3 && !beamUsedThisEncounter){
@@ -1042,7 +1051,18 @@ function updateStage(dt){
     phaseData.crateIdx++;
     if(crateCount < 3 && !beamUsedThisEncounter){
       const viaButterfingers = BUTTERFINGERS_CAST;
-      const from = viaButterfingers ? wingmatePos('butterfingers') : { x: rngRange(gameRng, 100, CW-100), y: -20 };
+      // host-only fallback: "neutral seeded drops ... so THE BEAM stays
+      // reachable" (SPEC-mission.md) -- anchored near the player's OWN
+      // current x (a seeded offset off a live position, same pattern
+      // butterfingers' own wingmatePos('butterfingers') anchor uses, and
+      // defense/engine.js's nearestPathDistToPoint(towerPos(...)) before
+      // it), not a uniformly random spawn clear across the play width --
+      // a crate that starts 400+px from the player has to fully home
+      // across that gap during its ~12s fall while ALSO chasing a moving
+      // target, which round-2's own verify-mission.js proved unreliable
+      // (the host-only crate-charge assertion failed under a plain
+      // dodge-autopilot before this fix).
+      const from = viaButterfingers ? wingmatePos('butterfingers') : { x: clamp(player.x + rngRange(gameRng, -90, 90), 60, CW-60), y: -20 };
       crates.push({ x: from.x, y: -20, kind: rngPick(gameRng, ['crateBolt','crateShield','crateStar']) });
       if(viaButterfingers){
         showBubble('OOPS. THAT\'S YOURS.', from.x, 20, 1.6);
@@ -1090,7 +1110,7 @@ function onStageComplete(i){
 
 function enterAmbush(attempt){
   const schedule = buildAmbushSchedule(attempt);
-  pips = 3; saviorUsedThisStage = false; crateCount = 0; beamUsedThisEncounter = false;
+  pips = 3; saviorUsedThisStage = false; // THE BEAM: crateCount/beamUsedThisEncounter deliberately NOT reset here -- a charge earned during the preceding stage carries into this encounter unspent (see fireBeam's own stage-vs-boss-phase split); only enterStage starts a fresh charge cycle.
   activeEnemies = []; activeMeteors = []; enemyBullets = []; crates = []; builderDrone = null;
   phase = 'ambush'; phaseElapsed = 0;
   phaseData = {
@@ -1154,7 +1174,7 @@ function updateAmbush(dt){
 }
 function enterEliteVolley(attempt){
   const schedule = buildEliteVolleySchedule(attempt);
-  pips = 3; saviorUsedThisStage = false; crateCount = 0; beamUsedThisEncounter = false;
+  pips = 3; saviorUsedThisStage = false; // THE BEAM: crateCount/beamUsedThisEncounter deliberately NOT reset here -- a charge earned during the preceding stage carries into this encounter unspent (see fireBeam's own stage-vs-boss-phase split); only enterStage starts a fresh charge cycle.
   activeEnemies = []; activeMeteors = []; enemyBullets = []; crates = [];
   phase = 'eliteVolley'; phaseElapsed = 0;
   phaseData = { attempt, schedule, duration: schedule.duration, spawnIdx:0, awaitingRetry:false };
@@ -1191,7 +1211,7 @@ function updateLull(dt){
 }
 
 function enterFlagship(attempt){
-  pips = 3; saviorUsedThisStage = false; crateCount = 0; beamUsedThisEncounter = false;
+  pips = 3; saviorUsedThisStage = false; // THE BEAM: crateCount/beamUsedThisEncounter deliberately NOT reset here -- a charge earned during the preceding stage carries into this encounter unspent (see fireBeam's own stage-vs-boss-phase split); only enterStage starts a fresh charge cycle.
   activeEnemies = []; activeMeteors = []; enemyBullets = []; crates = []; builderDrone = null;
   const baseHp = 420 * enemyHpScale();
   phase = 'flagship'; phaseElapsed = 0;
@@ -1292,7 +1312,7 @@ function updateTurnGood(dt){
 }
 function enterFinaleVolley(attempt){
   const schedule = buildFinaleVolleySchedule(attempt);
-  pips = 3; saviorUsedThisStage = false; crateCount = 0; beamUsedThisEncounter = false;
+  pips = 3; saviorUsedThisStage = false; // THE BEAM: crateCount/beamUsedThisEncounter deliberately NOT reset here -- a charge earned during the preceding stage carries into this encounter unspent (see fireBeam's own stage-vs-boss-phase split); only enterStage starts a fresh charge cycle.
   activeEnemies = []; activeMeteors = []; enemyBullets = []; crates = [];
   phase = 'finaleVolley'; phaseElapsed = 0;
   phaseData = { attempt, schedule, duration: schedule.duration, spawnIdx:0, meteorIdx:0, awaitingRetry:false };

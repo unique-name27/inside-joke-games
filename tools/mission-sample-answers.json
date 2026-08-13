@@ -1,0 +1,42 @@
+{
+  "template": "mission",
+  "email": "mission-sample@example.test",
+  "title": "The Apartment Hunters",
+  "host": "Deshawn",
+  "catchphrase": "We found it. It has laundry.",
+  "mission": "Find a place with in-unit laundry",
+  "swarms": [
+    "The Bad Listings",
+    "Ghosting Landlords",
+    "Surprise Fees",
+    "The Brutal Commute",
+    "Roommate Red Flags"
+  ],
+  "shipColor": "orange",
+  "firstBossHeckle": "It won't last at this price.",
+  "finalBossQuirk": "Still mad about that one email.",
+  "cast": {
+    "critic": "The Broker",
+    "boss": "The Landlord",
+    "savior": "The Co-Signer",
+    "butterfingers": "The One Who Drops The Keys",
+    "builder": "The Spreadsheet"
+  },
+  "anecdotes": {
+    "critic": "Charges a fee for texting back.",
+    "boss": "Has never once fixed the radiator.",
+    "savior": "Always has a backup plan and a spare key.",
+    "butterfingers": "Has been locked out three times this month.",
+    "builder": "Built a spreadsheet ranking every listing by laundry access."
+  },
+  "spriteCast": {
+    "critic": "grandma",
+    "boss": "beard",
+    "savior": "vest",
+    "butterfingers": "braid",
+    "builder": "squire"
+  },
+  "hostSprite": "overalls",
+  "offLimits": [],
+  "music": { "vibe": "chase" }
+}
