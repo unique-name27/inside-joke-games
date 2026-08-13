@@ -1,0 +1,83 @@
+Defense asset credits — The Defense template
+=============================================
+
+Every PNG in this folder is one tile from Kenney's "Tower Defense" pack
+(www.kenney.nl), released under Creative Commons Zero (CC0 1.0):
+https://creativecommons.org/publicdomain/zero/1.0/ -- see License.txt
+(copied verbatim from the pack). CC0 means these files are free to use in
+personal, educational, and commercial projects with no attribution
+required; this credit is included anyway.
+
+The pack ships 299 numbered, undescribed 64x64 tiles
+(towerDefense_tile001.png ... towerDefense_tile299.png, PNG/Default size/)
+with no names or an indexed spritesheet XML -- these 13 were identified
+by eye (reading Preview.png/Sample.png, then individual tile images) and
+renamed to what they draw as in flight/engine.js's own descriptive-name
+convention (assets/flight/'s files kept Kenney's original names since
+those were already descriptive; this pack's numbered names aren't, so
+the copies here are renamed at copy time instead). Source tile number is
+listed for anyone who wants to go find something else in the pack later.
+
+  pathEdgeStraight.png  (tile001)  dirt path meeting grass, straight edge --
+                                    rotated in flight/engine.js-style via
+                                    canvas transforms for all 4 orientations,
+                                    not sourced as 4 separate tiles
+  pathEdgeCorner.png    (tile002)  dirt path meeting grass, corner --
+                                    same rotate-don't-re-source approach
+  pathFill.png           (tile050) plain dirt/path fill (no border) --
+                                    tiled along the path's interior/straights
+  pad.png                (tile114) cream target-reticle square -- the tower
+                                    placement pad marker, all 6 fixed spots
+
+  turretCannon.png       (tile250) red rounded cannon, twin small barrels
+  turretTank.png          (tile249) green tank-style base, single grey barrel
+  turretMissile.png       (tile205) grey angular launcher, twin loaded rockets
+                                    -- the 3 turret tops (SPEC-defense.md
+                                    asks for 3-4); assigned to tower
+                                    personalities in defense/engine.js
+                                    (see TOWER_LOOK), not fixed 1:1 forever
+
+  enemyGrunt.png          (tile245) green shielded/pod ground unit -- early-
+                                    wave "soldier" tier
+  enemyGruntHeavy.png     (tile247) orange shielded/pod ground unit variant --
+                                    tougher soldier-tier reskin
+  enemyPlaneGreen.png     (tile270) green biplane -- later-wave "vehicle"
+                                    tier (soldiers -> vehicles escalation,
+                                    see SPEC-defense.md's "Waves" bullet)
+  enemyPlaneGrey.png      (tile271) grey/red biplane, second vehicle-tier
+                                    variant
+
+  projectileRocket.png    (tile252) red rocket with flame trail -- fired by
+                                    turretMissile/turretCannon
+  projectileOrb.png       (tile256) green orb -- fired by turretTank
+
+Not used from this pack (299 tiles total; only 13 copied): the many other
+grass/dirt/sand/stone/water edge-corner terrain variants (this template's
+board only ever needs one biome pairing, grass-vs-dirt-path, not the
+pack's full sand/water/snow terrain matrix), the wrench/X/other UI icon
+tiles (this project's own procedural chunky/reading text renderers and
+card system cover every UI need already, same convention as every other
+template), the coin/gem pickup tiles (The Defense has no currency/pickup
+mechanic), the digit-glyph tiles 0-9 and %/$/:/+/. (again, the house
+text renderers draw every verbatim string), and the bush/rock/crate
+decoration tiles (skipped for round 1 -- the board reads fine without
+them; a later round could add one or two as pure decoration if the
+board ever looks too bare).
+
+Not from this pack, drawn procedurally instead (matching this project's
+existing convention for small custom props -- see gallery/engine.js's
+PLATE_ROWS/PLUSH_ROWS, flight/engine.js's HEART_ROWS/PHONE_ROWS): the
+grass FIELD itself (solid fill, since the pack only ships grass bundled
+into edge tiles, never a plain grass fill tile -- the path edge/corner
+tiles above already carry their own grass corner, so they blend directly
+against the procedural fill; see defense/engine.js's PAL.grass, sampled
+to match the pack's own green), THE THING's pedestal/shrine (no matching
+prop shape exists in this pack's 299 tiles), the roster-face-on-a-stick
+chip every tower shows (reuses game/roster.js exactly like every other
+template), the barricade, the confetti (THE RALLY), and every impact/
+explosion puff (procedural, plus existing SFX -- house style, per
+SPEC-defense.md: "don't hunt the pack for VFX").
+
+Audio: The Defense reuses this project's existing assets/audio/sfx/ and
+assets/audio/music/ files verbatim (see assets/audio/CREDITS.txt) -- no
+new audio assets were added for this template.

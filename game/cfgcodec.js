@@ -437,17 +437,79 @@ function cfgBuildFlightDefaultConfig(engineRoot){
   };
 }
 
+/* THE DEFENSE (template #4, see SPEC-defense.md) -- its own neutral
+   default base, dispatched to by cfgBuildDefaultConfig below when
+   templateKey is 'defense'. Modeled line-by-line on
+   cfgBuildFlightDefaultConfig just above (separate small object, not an
+   overlay on the hangout base -- defense/engine.js never reads stories/
+   introStory/judge/authority/savior/butterfingers/builder CONTENT BLOCKS
+   or `scene` either, same rationale as the flight's own header comment --
+   it does still read `cast.judge`/`cast.authority`/etc. themselves, same
+   as every template). firstBossHeckle/finalBossQuirk are deliberately
+   ABSENT (not even empty strings) -- defense/engine.js has its own
+   neutral fallback pools for exactly this case, same pattern as flight's
+   FIRST_BOSS_HECKLE_FALLBACKS/FINAL_BOSS_QUIRK_FALLBACKS. `waves` gets
+   four neutral placeholders (the wizard's own 3-wave minimum is UX
+   guidance, never codec-enforced -- see CFG_DEFENSE_SCHEMA's own
+   comment) so an absent-content defense game still plays a complete (if
+   generic) defense end to end. */
+function cfgBuildDefenseDefaultConfig(engineRoot){
+  var root = engineRoot || '';
+  return {
+    gameId: 'shared',
+    template: 'defense',
+    title: {
+      lockupLines: ['YOUR', 'GROUP'],
+      introPageTitle: 'A Tiny Game',
+      gamePageTitle: 'A Tiny Game -- Playable Demo',
+    },
+    punchline: 'CLASSIC.',
+    host: { name: 'HOST' },
+    music: {
+      customSongPath: null,
+      loops: {
+        dinner: root + 'assets/audio/music/wacky-waiting.ogg',
+        boss: root + 'assets/audio/music/mission-plausible.ogg',
+        chase: root + 'assets/audio/music/time-driving.ogg',
+        celebration: root + 'assets/audio/music/farm-frolics.ogg',
+        sad: root + 'assets/audio/music/sad-descent.ogg',
+        gameover: root + 'assets/audio/music/game-over.ogg',
+      },
+      introFallback: root + 'assets/audio/music/night-at-the-beach.ogg', // unused (no separate intro) -- kept for schema parity with the shared music block
+    },
+    forbiddenWords: [],
+    defense: {
+      defending: 'THE COUCH',
+      waves: ['THE NOTIFICATIONS', 'THE LATECOMERS', 'THE LEFTOVER DISHES', 'THE GROUP CHAT'],
+    },
+    cast: {
+      diner0: { name: 'THE FOURTH FRIEND', spriteCol: 1, spriteRow: 7, anecdote: 'Always up for anything.' },
+      judge: null,
+      authority: null,
+      savior: null,
+      butterfingers: null,
+      builder: null,
+    },
+    rankNames: {
+      immaculate: 'IMMACULATE',
+      comicTiming: 'COMIC TIMING',
+      worst: 'COULD USE MORE PRACTICE',
+    },
+  };
+}
+
 /* `templateKey` is the THIRD, OPTIONAL argument -- default `'hangout'`. Any
-   value other than the literal strings `'gallery'`/`'flight'` (absent,
-   `'hangout'`, or anything an already-sanitized fragment/order could never
-   produce since the enum whitelist below drops anything else first)
-   returns exactly what this function has always returned -- see
-   cfgBuildGalleryDefaultConfig's own header for why 'gallery'/'flight'
-   each dispatch to a wholly separate object instead of an overlay on the
-   hangout base. */
+   value other than the literal strings `'gallery'`/`'flight'`/`'defense'`
+   (absent, `'hangout'`, or anything an already-sanitized fragment/order
+   could never produce since the enum whitelist below drops anything else
+   first) returns exactly what this function has always returned -- see
+   cfgBuildGalleryDefaultConfig's own header for why 'gallery'/'flight'/
+   'defense' each dispatch to a wholly separate object instead of an
+   overlay on the hangout base. */
 function cfgBuildDefaultConfig(engineRoot, sceneKey, templateKey){
   if(templateKey === 'gallery') return cfgBuildGalleryDefaultConfig(engineRoot);
   if(templateKey === 'flight') return cfgBuildFlightDefaultConfig(engineRoot);
+  if(templateKey === 'defense') return cfgBuildDefenseDefaultConfig(engineRoot);
   var root = engineRoot || '';
   var scene = (sceneKey && sceneKey !== 'dinner' && Object.prototype.hasOwnProperty.call(CFG_SCENE_DEFAULTS, sceneKey)) ? sceneKey : null;
   var cfg = {
@@ -691,7 +753,7 @@ function cfgApplyMusicVibe(mergedConfig, vibeKey, engineRoot, hashSeed){
    sanitizes away entirely -- cfgBuildDefaultConfig's own templateKey
    default ('hangout') is what an absent key actually resolves to, so old
    links/orders keep playing the Hangout, byte-identically, forever. */
-var CFG_TEMPLATE_KEYS = ['hangout', 'gallery', 'flight'];
+var CFG_TEMPLATE_KEYS = ['hangout', 'gallery', 'flight', 'defense'];
 /* gallery.targets: 4-8 short labels is the WIZARD/authoring-time guideline
    (mirrors `stories`' own "2-4" guideline just below, also not enforced
    here) -- this schema only caps the CEILING (8) and per-string length
@@ -725,10 +787,26 @@ var CFG_FLIGHT_SCHEMA = {
   finalBossQuirk: cfgStr(60),
 };
 
+/* THE DEFENSE (template #4) -- defending: the 24-char label for THE
+   THING everyone protects (a plaque on its pedestal). waves: 3-6 short
+   annoyance labels, in order (wizard/authoring minimum of 3 is UX
+   guidance, never codec-enforced -- same "cap the ceiling only" split
+   every array field in this schema draws). firstBossHeckle/
+   finalBossQuirk are optional for the same reason CFG_GALLERY_SCHEMA's/
+   CFG_FLIGHT_SCHEMA's own are -- defense/engine.js's own neutral
+   fallback pools cover their absence. */
+var CFG_DEFENSE_SCHEMA = {
+  defending: cfgStr(24),
+  waves: cfgArr(6, cfgStr(24)),
+  firstBossHeckle: cfgStr(60),
+  finalBossQuirk: cfgStr(60),
+};
+
 var CFG_FRAGMENT_SCHEMA = {
   template: cfgEnum(CFG_TEMPLATE_KEYS),
   gallery: cfgObj(CFG_GALLERY_SCHEMA),
   flight: cfgObj(CFG_FLIGHT_SCHEMA),
+  defense: cfgObj(CFG_DEFENSE_SCHEMA),
   lengthPreset: cfgEnum(['full', 'five_min']),
   // STORY SKELETONS: enum-only, same "pick a fixed built-in by key, never a
   // path/URL/free string" shape as musicVibe just below -- see
@@ -981,9 +1059,11 @@ if(typeof module !== 'undefined' && module.exports){
     cfgBuildDefaultConfig: cfgBuildDefaultConfig,
     cfgBuildGalleryDefaultConfig: cfgBuildGalleryDefaultConfig,
     cfgBuildFlightDefaultConfig: cfgBuildFlightDefaultConfig,
+    cfgBuildDefenseDefaultConfig: cfgBuildDefenseDefaultConfig,
     CFG_TEMPLATE_KEYS: CFG_TEMPLATE_KEYS,
     CFG_GALLERY_SCHEMA: CFG_GALLERY_SCHEMA,
     CFG_FLIGHT_SCHEMA: CFG_FLIGHT_SCHEMA,
+    CFG_DEFENSE_SCHEMA: CFG_DEFENSE_SCHEMA,
     CFG_FRAGMENT_SCHEMA: CFG_FRAGMENT_SCHEMA,
     cfgSanitizeConfig: cfgSanitizeConfig,
     cfgDeepMerge: cfgDeepMerge,
