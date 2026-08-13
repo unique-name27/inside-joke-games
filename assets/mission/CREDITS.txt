@@ -1,0 +1,117 @@
+Mission asset credits — The Mission template
+=============================================
+
+Every PNG in this folder is copied from Kenney's "Space Shooter Remastered"
+pack (www.kenney.nl), released under Creative Commons Zero (CC0 1.0):
+https://creativecommons.org/publicdomain/zero/1.0/ -- see License.txt
+(copied verbatim from the pack). CC0 means these files are free to use in
+personal, educational, and commercial projects with no attribution
+required; this credit is included anyway.
+
+Unlike assets/defense/'s pack, Space Shooter Remastered ships descriptive
+filenames already (no tile-number hunting needed, per SPEC-mission.md) --
+every file below keeps Kenney's own name, same convention assets/flight/
+already established for a descriptively-named pack.
+
+  playerShip1_blue.png    the host's ship in each of the 4 selectable
+  playerShip1_green.png   mission.shipColor picks -- see mission/engine.js's
+  playerShip1_orange.png  MISSION_SHIP_COLOR
+  playerShip1_red.png
+
+  enemyGreen1.png .. enemyGreen5.png   the regular swarm -- ONE non-black
+                                        color family (SPEC-mission.md asks
+                                        for 4-5; all 5 copied for variety),
+                                        one shape per seeded spawn roll
+  enemyBlack1.png .. enemyBlack5.png   the boss fleet -- THE FIRST BOSS's
+                                        ace fighter (jumbo) and THE FINAL
+                                        BOSS's flagship (composed from
+                                        multiple of these at different
+                                        scales/offsets -- "compose from
+                                        pack parts" read as composing from
+                                        these already-copied enemy shapes,
+                                        not the pack's separate PNG/Parts/
+                                        ship-building set, which this round
+                                        does not copy at all)
+  ufoGreen.png                         the one "ufo for variety" enemy,
+                                        matching the swarm's own green
+                                        family -- an occasional weaving
+                                        spawn among the regular formation
+
+  laserBlue01.png   player + wingmate shots (diner0, builder's drone) --
+                     one color regardless of the host's own hull color pick,
+                     same "doesn't need to match every ship tint" call
+                     flight/engine.js's own boss-plane-color comment makes
+  laserGreen01.png   BUTTERFINGERS' wild scattershot -- its own distinct
+                     color so "hits things mostly by luck" reads visually
+                     as a different, messier spread
+  laserRed01.png     enemy fire (swarm + boss fleet alike)
+
+  meteorBrown_big1.png    seeded meteor drifts -- 2 sizes x 2 tints, per
+  meteorBrown_small1.png  SPEC-mission.md's asset paragraph
+  meteorGrey_big1.png
+  meteorGrey_small1.png
+
+  darkPurple.png     the one background -- tiled behind this engine's own
+                      procedural seeded scrolling starfield (the pack's
+                      background already carries a few faint decorative
+                      sparkles of its own; the moving starfield layer is
+                      drawn on top, seeded off `<gameId>:mission:stars`)
+
+  shield1.png    THE SAVIOR's shield-absorb effect (one ring sprite, per
+                 SPEC-mission.md's "shield effect x1")
+  fire00.png     enemy/meteor destruction puff ("fire/engine effect x2",
+                 half 1 of 2) -- also THE BEAM's wipe/impact flash
+  engine1.png    from PNG/Parts/ (not the ship-composition set otherwise
+                 skipped this round -- see enemyBlack's own note above) --
+                 the host's engine thrust trail ("fire/engine effect x2",
+                 half 2 of 2)
+
+  bolt_gold.png    THE BEAM's 3 charge crates -- one icon per crate,
+  shield_gold.png  cycling as BUTTERFINGERS fumbles them in (or the
+  star_gold.png    host-only neutral seeded drop schedule substitutes)
+
+Not used from this pack (this round's own curated budget, per
+SPEC-mission.md's Assets paragraph -- the pack is one of Kenney's richest,
+most of it deliberately left on the table): PNG/Damage/ (damage overlays
+explicitly skipped -- "procedural flicker instead", per spec), PNG/UI/
+(numerals/buttons/cursor/player-life icons -- this project's own procedural
+chunky/reading text renderers and card system cover every UI need already,
+same convention as every other template), PNG/Parts/'s cockpit/wing/gun/
+turretBase/scratch pieces and the beam/beamLong sprites (ship-building set,
+not used for composing the flagship -- see enemyBlack's own note above;
+"THE BEAM" itself is drawn procedurally, a full-screen wipe/flash + house
+chunky text + shake, not sourced from this pack's own beam0-6.png sprites),
+PNG/Power-ups/'s pill_*/powerup*_bolt/powerup*_shield/powerup*_star/
+bold_silver/bolt_bronze/shield_bronze/shield_silver/star_bronze/star_silver/
+things_* variants (only the 3 gold icons above are needed -- one per BEAM
+crate, no rarity tiers in this template), the blue/red enemy families and
+the remaining Enemies black/green shapes not listed above were all copied
+in full already, the extra laser frames (02-16 per color -- one shape per
+color is enough, same "rotate/reuse, don't re-source" economy every other
+template's own CREDITS.txt already documents), Backgrounds/black.png,
+blue.png, purple.png (three unused alternate tints -- darkPurple read best
+against the gold/cream HUD palette every template shares), the meteor med
+tiles and the extra big/small numbered variants (one of each size/tint is
+enough for a seeded drift, cycling color+rotation does the rest),
+Spritesheet/ (a packed atlas of everything above -- this project always
+loads individual PNGs, per house convention), and Vector/ (source vector
+art, not a runtime asset).
+
+Not from this pack, drawn procedurally instead (matching this project's
+existing convention for small custom props -- see gallery/engine.js's
+PLATE_ROWS/PLUSH_ROWS, flight/engine.js's HEART_ROWS/PHONE_ROWS,
+defense/engine.js's THING_ROWS/BARRICADE_ROWS): the seeded scrolling
+starfield layer itself (small filled-pixel dots, not a sprite), the 3
+shield pips (a small pixel shield-silhouette icon, distinct from every
+other template's own heart icon), THE BEAM's full-screen wipe/flash and
+its chunky punchline slam text, THE FIRST BOSS's / THE FINAL BOSS's beamed
+marquee-scroll text banner (the "beams their lines" moment -- scrolling
+chunky text, not a pack sprite), THE BUILDER's little hammer-tap wind-up
+animation before the turret drone fires, and every impact/explosion puff
+beyond fire00.png itself (procedural, plus existing SFX -- house style,
+same "don't hunt the pack for VFX" instruction SPEC-defense.md already
+gave and SPEC-mission.md repeats for the damage overlays specifically).
+
+Audio: The Mission reuses this project's existing assets/audio/sfx/ and
+assets/audio/music/ files verbatim (see assets/audio/CREDITS.txt) -- no
+new audio assets were added for this template.

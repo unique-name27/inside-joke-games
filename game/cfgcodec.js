@@ -498,18 +498,82 @@ function cfgBuildDefenseDefaultConfig(engineRoot){
   };
 }
 
+/* THE MISSION (template #5, see SPEC-mission.md) -- its own neutral
+   default base, dispatched to by cfgBuildDefaultConfig below when
+   templateKey is 'mission'. Modeled line-by-line on
+   cfgBuildDefenseDefaultConfig just above (separate small object, not an
+   overlay on the hangout base -- mission/engine.js never reads stories/
+   introStory/judge/authority/savior/butterfingers/builder CONTENT BLOCKS
+   or `scene` either, same rationale as the defense's own header comment --
+   it does still read `cast.judge`/`cast.authority`/etc. themselves, same
+   as every template; unlike defense, judge/authority are the BOSS FLEET
+   here, not player-side towers). firstBossHeckle/finalBossQuirk are
+   deliberately ABSENT (not even empty strings) -- mission/engine.js has
+   its own neutral fallback pools for exactly this case, same pattern as
+   defense's FIRST_BOSS_HECKLE_FALLBACKS/FINAL_BOSS_QUIRK_FALLBACKS.
+   `swarms` gets three neutral placeholder labels (the wizard's own 2-swarm
+   minimum is UX guidance, never codec-enforced -- see CFG_MISSION_SCHEMA's
+   own comment) so an absent-content mission game still plays a complete
+   (if generic) squadron run end to end. */
+function cfgBuildMissionDefaultConfig(engineRoot){
+  var root = engineRoot || '';
+  return {
+    gameId: 'shared',
+    template: 'mission',
+    title: {
+      lockupLines: ['YOUR', 'GROUP'],
+      introPageTitle: 'A Tiny Game',
+      gamePageTitle: 'A Tiny Game -- Playable Demo',
+    },
+    punchline: 'CLASSIC.',
+    host: { name: 'HOST' },
+    music: {
+      customSongPath: null,
+      loops: {
+        dinner: root + 'assets/audio/music/wacky-waiting.ogg',
+        boss: root + 'assets/audio/music/mission-plausible.ogg',
+        chase: root + 'assets/audio/music/time-driving.ogg',
+        celebration: root + 'assets/audio/music/farm-frolics.ogg',
+        sad: root + 'assets/audio/music/sad-descent.ogg',
+        gameover: root + 'assets/audio/music/game-over.ogg',
+      },
+      introFallback: root + 'assets/audio/music/night-at-the-beach.ogg', // unused (no separate intro) -- kept for schema parity with the shared music block
+    },
+    forbiddenWords: [],
+    mission: {
+      mission: 'GET EVERYONE HOME',
+      swarms: ['THE USUAL SUSPECTS', 'THE LATECOMERS', 'THE WHOLE SITUATION'],
+      shipColor: 'blue',
+    },
+    cast: {
+      diner0: { name: 'THE FOURTH FRIEND', spriteCol: 1, spriteRow: 7, anecdote: 'Always up for anything.' },
+      judge: null,
+      authority: null,
+      savior: null,
+      butterfingers: null,
+      builder: null,
+    },
+    rankNames: {
+      immaculate: 'IMMACULATE',
+      comicTiming: 'COMIC TIMING',
+      worst: 'COULD USE MORE PRACTICE',
+    },
+  };
+}
+
 /* `templateKey` is the THIRD, OPTIONAL argument -- default `'hangout'`. Any
-   value other than the literal strings `'gallery'`/`'flight'`/`'defense'`
-   (absent, `'hangout'`, or anything an already-sanitized fragment/order
-   could never produce since the enum whitelist below drops anything else
-   first) returns exactly what this function has always returned -- see
-   cfgBuildGalleryDefaultConfig's own header for why 'gallery'/'flight'/
-   'defense' each dispatch to a wholly separate object instead of an
-   overlay on the hangout base. */
+   value other than the literal strings `'gallery'`/`'flight'`/`'defense'`/
+   `'mission'` (absent, `'hangout'`, or anything an already-sanitized
+   fragment/order could never produce since the enum whitelist below drops
+   anything else first) returns exactly what this function has always
+   returned -- see cfgBuildGalleryDefaultConfig's own header for why
+   'gallery'/'flight'/'defense'/'mission' each dispatch to a wholly
+   separate object instead of an overlay on the hangout base. */
 function cfgBuildDefaultConfig(engineRoot, sceneKey, templateKey){
   if(templateKey === 'gallery') return cfgBuildGalleryDefaultConfig(engineRoot);
   if(templateKey === 'flight') return cfgBuildFlightDefaultConfig(engineRoot);
   if(templateKey === 'defense') return cfgBuildDefenseDefaultConfig(engineRoot);
+  if(templateKey === 'mission') return cfgBuildMissionDefaultConfig(engineRoot);
   var root = engineRoot || '';
   var scene = (sceneKey && sceneKey !== 'dinner' && Object.prototype.hasOwnProperty.call(CFG_SCENE_DEFAULTS, sceneKey)) ? sceneKey : null;
   var cfg = {
@@ -753,7 +817,7 @@ function cfgApplyMusicVibe(mergedConfig, vibeKey, engineRoot, hashSeed){
    sanitizes away entirely -- cfgBuildDefaultConfig's own templateKey
    default ('hangout') is what an absent key actually resolves to, so old
    links/orders keep playing the Hangout, byte-identically, forever. */
-var CFG_TEMPLATE_KEYS = ['hangout', 'gallery', 'flight', 'defense'];
+var CFG_TEMPLATE_KEYS = ['hangout', 'gallery', 'flight', 'defense', 'mission'];
 /* gallery.targets: 4-8 short labels is the WIZARD/authoring-time guideline
    (mirrors `stories`' own "2-4" guideline just below, also not enforced
    here) -- this schema only caps the CEILING (8) and per-string length
@@ -802,11 +866,31 @@ var CFG_DEFENSE_SCHEMA = {
   finalBossQuirk: cfgStr(60),
 };
 
+/* THE MISSION (template #5) -- mission: the 40-char mission-objective
+   line, banner-rendered verbatim ("MISSION: FIND THE BEST TACO"). swarms:
+   2-6 short enemy-swarm labels, in order, one per stage (wizard/authoring
+   minimum of 2 is UX guidance, never codec-enforced -- same "cap the
+   ceiling only" split every other array field in this schema draws).
+   shipColor: a fixed enum, same "pick among a whitelisted set, never a
+   free string" shape as `scene`/`musicVibe`/`template`/flight's own
+   planeColor elsewhere in this file. firstBossHeckle/finalBossQuirk are
+   optional for the same reason CFG_GALLERY_SCHEMA's/CFG_FLIGHT_SCHEMA's/
+   CFG_DEFENSE_SCHEMA's own are -- mission/engine.js's own neutral fallback
+   pools cover their absence. */
+var CFG_MISSION_SCHEMA = {
+  mission: cfgStr(40),
+  swarms: cfgArr(6, cfgStr(24)),
+  shipColor: cfgEnum(['blue', 'green', 'orange', 'red']),
+  firstBossHeckle: cfgStr(60),
+  finalBossQuirk: cfgStr(60),
+};
+
 var CFG_FRAGMENT_SCHEMA = {
   template: cfgEnum(CFG_TEMPLATE_KEYS),
   gallery: cfgObj(CFG_GALLERY_SCHEMA),
   flight: cfgObj(CFG_FLIGHT_SCHEMA),
   defense: cfgObj(CFG_DEFENSE_SCHEMA),
+  mission: cfgObj(CFG_MISSION_SCHEMA),
   lengthPreset: cfgEnum(['full', 'five_min']),
   // STORY SKELETONS: enum-only, same "pick a fixed built-in by key, never a
   // path/URL/free string" shape as musicVibe just below -- see
@@ -1060,10 +1144,12 @@ if(typeof module !== 'undefined' && module.exports){
     cfgBuildGalleryDefaultConfig: cfgBuildGalleryDefaultConfig,
     cfgBuildFlightDefaultConfig: cfgBuildFlightDefaultConfig,
     cfgBuildDefenseDefaultConfig: cfgBuildDefenseDefaultConfig,
+    cfgBuildMissionDefaultConfig: cfgBuildMissionDefaultConfig,
     CFG_TEMPLATE_KEYS: CFG_TEMPLATE_KEYS,
     CFG_GALLERY_SCHEMA: CFG_GALLERY_SCHEMA,
     CFG_FLIGHT_SCHEMA: CFG_FLIGHT_SCHEMA,
     CFG_DEFENSE_SCHEMA: CFG_DEFENSE_SCHEMA,
+    CFG_MISSION_SCHEMA: CFG_MISSION_SCHEMA,
     CFG_FRAGMENT_SCHEMA: CFG_FRAGMENT_SCHEMA,
     cfgSanitizeConfig: cfgSanitizeConfig,
     cfgDeepMerge: cfgDeepMerge,
