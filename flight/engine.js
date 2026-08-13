@@ -650,6 +650,13 @@ function collectStar(gate){
   }
 }
 function shoutCharged(){ return starsCollectedThisRun >= STAR_CHARGE_NEEDED && !shoutUsedThisRun; }
+// "every rock ON SCREEN crumbles to puffs" (SPEC-flight.md) -- a gate's
+// schedule is built entirely up front (see buildLegSchedule), so
+// activeGates can hold many gates whose x is still far off past the right
+// edge; SCREEN_CLEAR_MARGIN scopes the clear to gates actually visible
+// (or just about to enter view), not the whole rest of the leg in one
+// shot -- the shout is a save, not a leg-skip.
+const SCREEN_CLEAR_MARGIN = GATE_ROCK_W;
 function fireShout(){
   shoutUsedThisRun = true;
   shoutFiredAt = gameT;
@@ -659,7 +666,7 @@ function fireShout(){
   timeScale = SLOWMO_SCALE; slowMoTimer = SLOWMO_DURATION;
   showBanner(CONFIG.punchline, null, 1.8);
   for(const g of activeGates){
-    if(!g.passed){
+    if(!g.passed && g.x < CW + SCREEN_CLEAR_MARGIN){
       g.passed = true; gatesClearedInLegAttempt++;
       spawnPuff(g.x, g.gapCenterY - g.gapHalf - 30, true);
       spawnPuff(g.x, g.gapCenterY + g.gapHalf + 30, true);

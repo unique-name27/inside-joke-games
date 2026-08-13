@@ -50,10 +50,12 @@ const {
   verifyConfigFile, verifyConfigSource, loadEngineWithConfig, drivePlaythrough,
 } = require('./verify-config.js');
 const { verifyGalleryFile, verifyGallerySource } = require('./verify-gallery.js');
+const { verifyFlightFile, verifyFlightSource, verifyFlightHostOnlySource } = require('./verify-flight.js');
 
 const TEST_GROUP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'test-group.config.js');
 const ROADTRIP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'roadtrip.config.js');
 const GALLERY_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'gallery-sample.config.js');
+const FLIGHT_SAMPLE_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'flight-sample.config.js');
 
 const results = []; // { ok, label, detail }
 function record(label, ok, detail){
@@ -299,6 +301,71 @@ function checkGalleryRoundTrip(){
   }
 }
 
+/* ----------------------------------------------------------------------
+   9. THE FLIGHT (template #3, see SPEC-flight.md "Verification") --
+   fully-cast + host-only-degraded playthroughs (tools/verify-flight.js's
+   own driver -- bang-bang gate piloting + the reactive final-boss dodge,
+   THE SHOUT driven deliberately, ONE TANK unlock+stall -- see that file's
+   own header) plus a fragment round-trip: `template` + all five
+   `flight.*` fields survive encode/decode, and an oversized beats/hazards
+   array clamps to the schema's ceiling (6 each) -- same methodology as
+   checkGalleryPlaythroughs/checkGalleryRoundTrip just above.
+   ---------------------------------------------------------------------- */
+function checkFlightPlaythroughs(){
+  try{
+    const result = verifyFlightFile(FLIGHT_SAMPLE_EXAMPLE_PATH, {});
+    record('examples/flight-sample.config.js (full cast)', result.ok, result.ok ? ('reached ' + result.phaseReached + ', cast=' + JSON.stringify(result.flags)) : result.errors.join('; '));
+  }catch(e){
+    record('examples/flight-sample.config.js (full cast)', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    // host-only: every optional role stripped -- THE FIRST BOSS's leg
+    // plays as an ordinary leg, THE FINAL BOSS is skipped (clear-sky
+    // landing), no savior save, no butterfingers gag (see SPEC-flight.md's
+    // cast-mapping bullet: "uncast = skip, no substitutes").
+    const fullSrc = fs.readFileSync(FLIGHT_SAMPLE_EXAMPLE_PATH, 'utf8');
+    const hostOnlySrc = fullSrc.replace(/cast: \{[\s\S]*?\n  \},/, 'cast: {},');
+    if(hostOnlySrc === fullSrc) throw new Error('cast block not found/replaced -- example file shape changed');
+    const result = verifyFlightHostOnlySource(hostOnlySrc, {});
+    record('flight-sample, host-only (every optional role uncast)', result.ok, result.ok ? ('reached ' + result.phaseReached + ', cast=' + JSON.stringify(result.flags)) : result.errors.join('; '));
+  }catch(e){
+    record('flight-sample, host-only', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+}
+function checkFlightRoundTrip(){
+  try{
+    const encoded = cfgEncodeConfigFragment({
+      template: 'flight',
+      flight: { beats: ['LEG ONE.', 'LEG TWO.', 'LEG THREE.'], hazards: ['THE WEATHER', 'THE DIRECTIONS'], planeColor: 'red', firstBossHeckle: 'CALL THAT FLYING', finalBossQuirk: 'ALWAYS LATE' },
+      host: { name: 'ROUNDTRIP' },
+    });
+    const decoded = JSON.parse(cfgDecompress(encoded));
+    const f = decoded.flight || {};
+    const ok = decoded.template === 'flight'
+      && Array.isArray(f.beats) && f.beats.length === 3
+      && Array.isArray(f.hazards) && f.hazards.length === 2
+      && f.planeColor === 'red' && f.firstBossHeckle === 'CALL THAT FLYING' && f.finalBossQuirk === 'ALWAYS LATE';
+    record('round-trip: template "flight" + all five flight fields survive encode/decode', ok,
+      'got template=' + JSON.stringify(decoded.template) + ', flight=' + JSON.stringify(f));
+  }catch(e){
+    record('round-trip: template "flight" survives encode/decode', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+  try{
+    // beats: cfgArr(6, ...), hazards: cfgArr(6, ...) -- CFG_FLIGHT_SCHEMA
+    // caps the ceiling only (the 3-beat/2-hazard minimums are wizard/
+    // generator UX, never codec-enforced -- see that schema's own comment).
+    const encoded = cfgEncodeConfigFragment({
+      flight: { beats: ['1', '2', '3', '4', '5', '6', '7', '8'], hazards: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] },
+    });
+    const decoded = JSON.parse(cfgDecompress(encoded));
+    const f = decoded.flight || {};
+    const ok = Array.isArray(f.beats) && f.beats.length === 6 && Array.isArray(f.hazards) && f.hazards.length === 6;
+    record('round-trip: oversized flight.beats/hazards clamp to 6', ok, 'got beats.length=' + (f.beats && f.beats.length) + ', hazards.length=' + (f.hazards && f.hazards.length));
+  }catch(e){
+    record('round-trip: oversized flight.beats/hazards clamp', false, 'threw: ' + (e && e.stack ? e.stack : e));
+  }
+}
+
 function main(){
   checkExamples();
   checkSceneMatrix();
@@ -308,6 +375,8 @@ function main(){
   checkRosterDefaults();
   checkGalleryPlaythroughs();
   checkGalleryRoundTrip();
+  checkFlightPlaythroughs();
+  checkFlightRoundTrip();
 
   const failed = results.filter(r => !r.ok);
   console.log('');
@@ -319,5 +388,5 @@ if(require.main === module) main();
 
 module.exports = {
   checkExamples, checkSceneMatrix, checkHardModePlaythrough, checkRoundTrip, checkRosterAssets, checkRosterDefaults,
-  checkGalleryPlaythroughs, checkGalleryRoundTrip,
+  checkGalleryPlaythroughs, checkGalleryRoundTrip, checkFlightPlaythroughs, checkFlightRoundTrip,
 };

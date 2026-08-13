@@ -1,0 +1,47 @@
+{
+  "template": "flight",
+  "email": "flight-sample@example.test",
+  "title": "The Powder Day Crew",
+  "host": "Sam",
+  "catchphrase": "Somehow we always make it down.",
+  "beats": [
+    "THE RENTAL SHOP LOST THE BOOT SIZES.",
+    "SOMEONE PACKED SHORTS INSTEAD OF SNOW PANTS.",
+    "THE CHAIRLIFT STOPPED FOR FORTY MINUTES.",
+    "NOBODY COULD FIND THE CABIN IN THE DARK.",
+    "THE HOT TUB WAS SOMEHOW STILL ICE COLD."
+  ],
+  "hazards": [
+    "The ice patch",
+    "The wrong turn",
+    "The gondola line",
+    "The vending machine"
+  ],
+  "planeColor": "blue",
+  "firstBossHeckle": "Pizza, not french fries, rookie.",
+  "finalBossQuirk": "Still mad about the wet boots by the fire.",
+  "cast": {
+    "critic": "The Ski Instructor",
+    "boss": "The Lodge Manager",
+    "savior": "The One With Snacks",
+    "butterfingers": "The One Who Dropped The GoPro",
+    "builder": "The Group's Map App"
+  },
+  "anecdotes": {
+    "critic": "Judges every turn from the lift line.",
+    "boss": "Remembers every pair of wet boots left by the fire.",
+    "savior": "Always has one more granola bar than anyone asked for.",
+    "butterfingers": "Has lost count of how many lens caps are buried in the snow.",
+    "builder": "Built this exact game after the drive home."
+  },
+  "spriteCast": {
+    "critic": "skipurple",
+    "boss": "grandma",
+    "savior": "snowman",
+    "butterfingers": "braid",
+    "builder": "bandana"
+  },
+  "hostSprite": "skigreen",
+  "offLimits": [],
+  "music": { "vibe": "chase" }
+}

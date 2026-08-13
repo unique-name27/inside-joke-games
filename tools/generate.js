@@ -49,6 +49,7 @@ const {
 } = require(path.join(REPO_ROOT, 'game', 'cfgcodec.js'));
 const { verifyConfigSource } = require('./verify-config.js');
 const { verifyGallerySource } = require('./verify-gallery.js');
+const { verifyFlightSource } = require('./verify-flight.js');
 
 /* ---------------------------------------------------------------------
    CLI args
@@ -133,6 +134,17 @@ function wrapTitleLines(raw, maxLineLen, maxLines){
   return lines.map(l => l.length > maxLineLen ? l.slice(0, maxLineLen) : l);
 }
 
+/* THE FLIGHT (template #3): trip beats keep the group's TYPED case (see
+   SPEC-flight.md's wizard bullet -- "beats keep typed case, hazards
+   uppercase like targets") -- they read as the breather's narrated prose,
+   not a shouty plaque label, so this is the one text field in this whole
+   ALL-CAPS-by-convention pipeline that deliberately does NOT uppercase.
+   Still collapses whitespace and caps length, same as every other field. */
+function wrapLineKeepCase(raw, maxLen){
+  return String(raw).trim().replace(/\s+/g, ' ').slice(0, maxLen);
+}
+const FLIGHT_PLANE_COLORS = ['yellow', 'red', 'blue', 'green'];
+
 function slugify(title){
   return String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'game';
 }
@@ -146,25 +158,32 @@ function randomSuffix(){
    needs to set) -- answers.json is trusted local/operator input, not an
    untrusted URL.
 
-   THE GALLERY (template #2): `answers.template === 'gallery'` switches
-   the whole content shape -- `answers.targets` (4-8 short labels) instead
-   of `answers.stories`, no `answers.scene` (gallery has no scene
-   skeleton), and the two optional boss lines (`answers.firstBossHeckle`/
-   `finalBossQuirk`) instead of judge.title/authority.cardTitle content
-   blocks (gallery/engine.js builds its own boss-card titles straight from
-   CAST.judge.name/CAST.authority.name -- see that file's header). Every
+   THE GALLERY (template #2) / THE FLIGHT (template #3): `answers.template`
+   switches the whole content shape -- gallery gets `answers.targets` (4-8
+   short labels), flight gets `answers.beats` (3-6 trip legs) + `answers.
+   hazards` (2-6 short labels) + `answers.planeColor`, hangout gets
+   `answers.stories`; neither gallery nor flight reads `answers.scene`
+   (neither has a scene skeleton), and both get the two optional boss
+   lines (`answers.firstBossHeckle`/`finalBossQuirk`) instead of judge.
+   title/authority.cardTitle content blocks (gallery/engine.js and flight/
+   engine.js both build their own boss-card/banner titles straight from
+   CAST.judge.name/CAST.authority.name -- see either file's header). Every
    other answer (host/catchphrase/title/cast/anecdotes/offLimits/
-   spellings/music) is read identically either way -- same shared-fields
-   principle SPEC-gallery.md's config section states. */
+   spellings/music) is read identically across all three -- same shared-
+   fields principle SPEC-gallery.md's/SPEC-flight.md's config sections
+   both state. */
 function buildOverrides(answers, slug){
   const host = requireField(answers, 'host', 'Q5: who is the host?');
   const catchphrase = requireField(answers, 'catchphrase', 'Q2: what\'s your group\'s catchphrase?');
   const title = requireField(answers, 'title', 'Q4: what should we call your game?');
   const isGallery = answers.template === 'gallery';
+  const isFlight = answers.template === 'flight';
 
   const overrides = {
     gameId: slug,
-    template: isGallery ? 'gallery' : undefined, // absent -> cfgBuildDefaultConfig's own 'hangout' default
+    // absent -> cfgBuildDefaultConfig's own 'hangout' default; a three-way
+    // pick now (THE FLIGHT is template #3, see SPEC-flight.md).
+    template: isGallery ? 'gallery' : (isFlight ? 'flight' : undefined),
     title: {
       lockupLines: wrapTitleLines(title, 14, 2),
       introPageTitle: String(title),
@@ -181,6 +200,21 @@ function buildOverrides(answers, slug){
     overrides.gallery = { targets: targetsIn.slice(0, 8).map(t => String(t).toUpperCase().trim().replace(/\s+/g,' ').slice(0, 24)) };
     if(answers.firstBossHeckle) overrides.gallery.firstBossHeckle = String(answers.firstBossHeckle).toUpperCase().trim().slice(0, 60);
     if(answers.finalBossQuirk) overrides.gallery.finalBossQuirk = String(answers.finalBossQuirk).toUpperCase().trim().slice(0, 60);
+  } else if(isFlight){
+    // THE FLIGHT (template #3, see SPEC-flight.md's config/codec/wizard
+    // section) -- beats/hazards instead of stories/targets, no `scene`
+    // (the flight has no scene skeleton either, same as the gallery).
+    const beatsIn = requireField(answers, 'beats', 'Flight Q3: 3-6 trip legs, in order, as an array of strings');
+    if(!Array.isArray(beatsIn) || beatsIn.length < 3) throw new GenerateError('answers.beats must be an array of at least 3 strings (flight.beats wants 3-6)');
+    const hazardsIn = requireField(answers, 'hazards', 'Flight Q3b: 2-6 short hazard labels, as an array of strings');
+    if(!Array.isArray(hazardsIn) || hazardsIn.length < 2) throw new GenerateError('answers.hazards must be an array of at least 2 strings (flight.hazards wants 2-6)');
+    overrides.flight = {
+      beats: beatsIn.slice(0, 6).map(b => wrapLineKeepCase(b, 90)),
+      hazards: hazardsIn.slice(0, 6).map(h => String(h).toUpperCase().trim().replace(/\s+/g, ' ').slice(0, 24)),
+      planeColor: FLIGHT_PLANE_COLORS.indexOf(answers.planeColor) !== -1 ? answers.planeColor : 'yellow',
+    };
+    if(answers.firstBossHeckle) overrides.flight.firstBossHeckle = String(answers.firstBossHeckle).toUpperCase().trim().slice(0, 60);
+    if(answers.finalBossQuirk) overrides.flight.finalBossQuirk = String(answers.finalBossQuirk).toUpperCase().trim().slice(0, 60);
   } else {
     const storiesIn = requireField(answers, 'stories', 'Q3: 2-4 real, boring stories, as an array of strings');
     if(!Array.isArray(storiesIn) || storiesIn.length === 0) throw new GenerateError('answers.stories must be a non-empty array of strings');
@@ -234,7 +268,7 @@ function buildOverrides(answers, slug){
         entry.sprite = spriteCast[introKey];
       }
       overrides.cast[cfgKey] = entry;
-      if(!isGallery){
+      if(!isGallery && !isFlight){
         // BOSS SLOTS (Hangout only -- see this function's own header): the
         // boss HP bar / entrance card reads the actual person's name, not
         // cfgBuildDefaultConfig's generic "THE CRITIC"/"THE BOSS HAS
@@ -307,6 +341,22 @@ function serializeConfig(configObj, headerComment){
   return "'use strict';\n" + headerComment + '\nconst CONFIG = ' + JSON.stringify(configObj, null, 2) + ';\n';
 }
 
+/* String.prototype.replace silently no-ops when `search` isn't found --
+   the gallery's own two-file deploy block (below) chains five of these
+   blind, so a future edit to gallery/index.html's exact markup (a
+   whitespace tweak, a re-quoted attribute) would silently ship a shell
+   that still points at the WRONG engine/config paths, with no error
+   anywhere. THE FLIGHT's own deploy block uses this instead: throws
+   immediately, naming exactly which replacement no-op'd, so a shape
+   mismatch between flight/index.html and this function fails LOUDLY at
+   generate time -- never a silently-broken shipped shell. */
+function safeReplace(str, search, replacement, label){
+  if(str.indexOf(search) === -1){
+    throw new GenerateError('template replacement "' + label + '" did not match anything -- expected to find ' + JSON.stringify(search) + ' in the source shell (has the file changed shape?)');
+  }
+  return str.split(search).join(replacement);
+}
+
 /* ---------------------------------------------------------------------
    main
    --------------------------------------------------------------------- */
@@ -342,15 +392,17 @@ function main(){
     overrides = buildOverrides(answers, slug);
     const spellings = overrides.__spellings; delete overrides.__spellings;
     const isGallery = overrides.template === 'gallery';
+    const isFlight = overrides.template === 'flight';
     // page-relative root matching this template's own shell nesting depth:
     // the Hangout writes games/<slug>/{game,intro}/ (3 levels deep -- see
     // games/test-group/config.js for the identical convention); THE
-    // GALLERY writes a single games/<slug>/index.html (2 levels deep,
-    // mirroring gallery/index.html's own page -- see below). `overrides.
-    // scene` picks up CFG_SCENE_DEFAULTS' text overlay here, same as the
-    // wizard's own assembleConfig/cfgLoadFragmentOverride; overrides
-    // (below) still wins over it for anything answers.json specifies itself.
-    const engineRoot = isGallery ? '../../' : '../../../';
+    // GALLERY and THE FLIGHT each write a single games/<slug>/index.html
+    // (2 levels deep, mirroring gallery/index.html's/flight/index.html's
+    // own page -- see below). `overrides.scene` picks up CFG_SCENE_
+    // DEFAULTS' text overlay here, same as the wizard's own assembleConfig/
+    // cfgLoadFragmentOverride; overrides (below) still wins over it for
+    // anything answers.json specifies itself.
+    const engineRoot = (isGallery || isFlight) ? '../../' : '../../../';
     const base = cfgBuildDefaultConfig(engineRoot, overrides.scene, overrides.template);
     merged = cfgDeepMerge(base, overrides);
     merged = applySpellings(merged, spellings);
@@ -393,11 +445,14 @@ function main(){
   const configSource = serializeConfig(merged, header);
 
   const isGallery = merged.template === 'gallery';
-  console.log('Verifying generated config for "' + merged.title.introPageTitle + '" (slug: ' + slug + ', template: ' + (isGallery ? 'gallery' : 'hangout') + ')...');
-  // THE GALLERY: verify-gallery.js's driver (tick/fireAt through the
-  // seeded rounds/boss/finale) in place of verify-config.js's beat-by-beat
-  // one -- see that file's own header for why gallery needs its own.
-  const verifyFn = isGallery ? verifyGallerySource : verifyConfigSource;
+  const isFlight = merged.template === 'flight';
+  const templateLabel = isGallery ? 'gallery' : (isFlight ? 'flight' : 'hangout');
+  console.log('Verifying generated config for "' + merged.title.introPageTitle + '" (slug: ' + slug + ', template: ' + templateLabel + ')...');
+  // THE GALLERY / THE FLIGHT: each template's own driver (tick/fireAt
+  // through the seeded rounds/boss/finale for the gallery; tick/flap
+  // through the seeded legs/boss gate for the flight) in place of verify-
+  // config.js's beat-by-beat one -- see either file's own header for why.
+  const verifyFn = isGallery ? verifyGallerySource : (isFlight ? verifyFlightSource : verifyConfigSource);
   let result;
   try{
     result = verifyFn(configSource, { extraForbidden: merged.forbiddenWords });
@@ -434,6 +489,28 @@ function main(){
       .replace('<script src="../shared/framework.js"></script>', '<script src="../../shared/framework.js"></script>')
       .replace('<script src="engine.js"></script>', '<script src="../../gallery/engine.js"></script>');
     fs.writeFileSync(path.join(gameDir, 'index.html'), galleryShell);
+  } else if(isFlight){
+    // THE FLIGHT writes ONE page (no separate intro), same shape as THE
+    // GALLERY above -- mirror flight/index.html's own current script tags
+    // verbatim, shifted one directory level deeper and pointed at the ONE
+    // shared flight/engine.js. Unlike the gallery block above, every
+    // replacement here is verified to have actually matched something
+    // (see safeReplace's own header) -- these five strings MUST match
+    // flight/index.html byte-for-byte or this throws instead of silently
+    // shipping a shell with the wrong paths/title.
+    try{
+      let flightShell = fs.readFileSync(path.join(REPO_ROOT, 'flight', 'index.html'), 'utf8');
+      flightShell = safeReplace(flightShell, '<title>The Flight -- Playable Demo</title>', '<title>' + merged.title.gamePageTitle + '</title>', 'title');
+      flightShell = safeReplace(flightShell, '<script src="../game/roster.js"></script>', '<script src="../../game/roster.js"></script>', 'roster.js src');
+      flightShell = safeReplace(flightShell, '<script src="../game/cfgcodec.js"></script>', '<script src="../../game/cfgcodec.js"></script>', 'cfgcodec.js src');
+      flightShell = safeReplace(flightShell, '<script src="../shared/framework.js"></script>', '<script src="../../shared/framework.js"></script>', 'framework.js src');
+      flightShell = safeReplace(flightShell, '<script src="engine.js"></script>', '<script src="../../flight/engine.js"></script>', 'engine.js src');
+      fs.writeFileSync(path.join(gameDir, 'index.html'), flightShell);
+    }catch(e){
+      console.error('REFUSING TO EMIT -- could not build the flight shell for "' + merged.title.introPageTitle + '":');
+      console.error('  ' + (e && e.message ? e.message : e));
+      process.exit(1);
+    }
   } else {
     const gameSubDir = path.join(gameDir, 'game');
     const introSubDir = path.join(gameDir, 'intro');
@@ -461,12 +538,15 @@ function main(){
 
   const fragment = cfgEncodeConfigFragment(fragmentPayload);
   const hostedUrl = baseUrl.replace(/\/$/, '') + '/' + outDir + '/' + slug + '/';
-  // THE GALLERY: one page, no separate intro -- the instant link goes
-  // straight at /gallery/#cfg=..., matching /build/'s own gallery-path
-  // preview link (see build/index.html's renderStepPreview).
+  // THE GALLERY / THE FLIGHT: one page each, no separate intro -- the
+  // instant link goes straight at /gallery/#cfg=.../ /flight/#cfg=...,
+  // matching /build/'s own single-page preview links (see build/
+  // index.html's renderStepPreview).
   const instantUrl = isGallery
     ? baseUrl.replace(/\/$/, '') + '/gallery/#cfg=' + fragment
-    : baseUrl.replace(/\/$/, '') + '/intro/#cfg=' + fragment;
+    : isFlight
+      ? baseUrl.replace(/\/$/, '') + '/flight/#cfg=' + fragment
+      : baseUrl.replace(/\/$/, '') + '/intro/#cfg=' + fragment;
 
   console.log('');
   console.log('Wrote ' + path.relative(REPO_ROOT, gameDir));
