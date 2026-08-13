@@ -65,7 +65,7 @@ function parseArgs(argv){
 }
 
 /* ---------------------------------------------------------------------
-   Q1-Q11 answers -> CONFIG overrides
+   Q1-Q12 answers -> CONFIG overrides
    --------------------------------------------------------------------- */
 const ROLE_KEY = { critic: 'judge', boss: 'authority', savior: 'savior', butterfingers: 'butterfingers', builder: 'builder' };
 const DEFAULT_SPRITE = {
@@ -173,9 +173,9 @@ function randomSuffix(){
    fields principle SPEC-gallery.md's/SPEC-flight.md's config sections
    both state. */
 function buildOverrides(answers, slug){
-  const host = requireField(answers, 'host', 'Q5: who is the host?');
-  const catchphrase = requireField(answers, 'catchphrase', 'Q2: what\'s your group\'s catchphrase?');
-  const title = requireField(answers, 'title', 'Q4: what should we call your game?');
+  const host = requireField(answers, 'host', 'Q6: who is the host?');
+  const catchphrase = requireField(answers, 'catchphrase', 'Q3: what\'s your group\'s catchphrase?');
+  const title = requireField(answers, 'title', 'Q5: what should we call your game?');
   const isGallery = answers.template === 'gallery';
   const isFlight = answers.template === 'flight';
 
@@ -195,7 +195,7 @@ function buildOverrides(answers, slug){
   };
 
   if(isGallery){
-    const targetsIn = requireField(answers, 'targets', 'Gallery Q3: 4-8 things your group can\'t stop roasting, as an array of strings');
+    const targetsIn = requireField(answers, 'targets', 'Gallery Q4: 4-8 things your group can\'t stop roasting, as an array of strings');
     if(!Array.isArray(targetsIn) || targetsIn.length < 4) throw new GenerateError('answers.targets must be an array of at least 4 strings (gallery.targets wants 4-8)');
     overrides.gallery = { targets: targetsIn.slice(0, 8).map(t => String(t).toUpperCase().trim().replace(/\s+/g,' ').slice(0, 24)) };
     if(answers.firstBossHeckle) overrides.gallery.firstBossHeckle = String(answers.firstBossHeckle).toUpperCase().trim().slice(0, 60);
@@ -204,9 +204,9 @@ function buildOverrides(answers, slug){
     // THE FLIGHT (template #3, see SPEC-flight.md's config/codec/wizard
     // section) -- beats/hazards instead of stories/targets, no `scene`
     // (the flight has no scene skeleton either, same as the gallery).
-    const beatsIn = requireField(answers, 'beats', 'Flight Q3: 3-6 trip legs, in order, as an array of strings');
+    const beatsIn = requireField(answers, 'beats', 'Flight Q4: 3-6 trip legs, in order, as an array of strings');
     if(!Array.isArray(beatsIn) || beatsIn.length < 3) throw new GenerateError('answers.beats must be an array of at least 3 strings (flight.beats wants 3-6)');
-    const hazardsIn = requireField(answers, 'hazards', 'Flight Q3b: 2-6 short hazard labels, as an array of strings');
+    const hazardsIn = requireField(answers, 'hazards', 'Flight Q4b: 2-6 short hazard labels, as an array of strings');
     if(!Array.isArray(hazardsIn) || hazardsIn.length < 2) throw new GenerateError('answers.hazards must be an array of at least 2 strings (flight.hazards wants 2-6)');
     overrides.flight = {
       beats: beatsIn.slice(0, 6).map(b => wrapLineKeepCase(b, 90)),
@@ -216,7 +216,7 @@ function buildOverrides(answers, slug){
     if(answers.firstBossHeckle) overrides.flight.firstBossHeckle = String(answers.firstBossHeckle).toUpperCase().trim().slice(0, 60);
     if(answers.finalBossQuirk) overrides.flight.finalBossQuirk = String(answers.finalBossQuirk).toUpperCase().trim().slice(0, 60);
   } else {
-    const storiesIn = requireField(answers, 'stories', 'Q3: 2-4 real, boring stories, as an array of strings');
+    const storiesIn = requireField(answers, 'stories', 'Q4: 2-4 real, boring stories, as an array of strings');
     if(!Array.isArray(storiesIn) || storiesIn.length === 0) throw new GenerateError('answers.stories must be a non-empty array of strings');
     // STORY SKELETONS: optional, defaults to 'dinner' -- see SPEC-skeletons.md
     // / game/skeletons.js. CFG_SCENE_KEYS (game/cfgcodec.js) is the single
@@ -245,7 +245,7 @@ function buildOverrides(answers, slug){
 
   // the tone gate is entirely per-group -- no baseline/universal word list
   // (see tools/verify-config.js's toneGateSource) -- so this order's own
-  // Q10 answer IS the whole forbiddenWords list. Nothing off-limits ->
+  // Q11 answer IS the whole forbiddenWords list. Nothing off-limits ->
   // forbiddenWords: [], by design.
   const offLimits = Array.isArray(answers.offLimits) ? answers.offLimits.map(String) : [];
   overrides.forbiddenWords = offLimits.map(w => w.toUpperCase());
@@ -290,13 +290,13 @@ function buildOverrides(answers, slug){
     }
   }
 
-  // Q9 spellings: [{from, to}, ...] -- applied as a literal find/replace
+  // Q10 spellings: [{from, to}, ...] -- applied as a literal find/replace
   // pass over every string in the assembled config, AFTER the merge (see
   // applySpellings below) -- covers names quoted inside dialogue lines
   // too, not just the cast entries themselves.
   overrides.__spellings = Array.isArray(answers.spellings) ? answers.spellings.filter(s => s && s.from && s.to) : [];
 
-  // Q8 music -- customSongPath only; the vibe -> loops resolution (now a
+  // Q9 music -- customSongPath only; the vibe -> loops resolution (now a
   // full 6-slot set, or a deterministic rotation with no vibe picked --
   // see cfgApplyMusicVibe) happens in main() below, once `merged` exists,
   // the same shape as the fragment codec's own load path.
@@ -314,7 +314,7 @@ function applySpellings(obj, spellings){
   let out = json;
   for(const { from, to } of spellings){
     // most in-game text is ALL CAPS by this project's established style
-    // (see examples/roadtrip.config.js's own header comment) -- Q9's
+    // (see examples/roadtrip.config.js's own header comment) -- Q10's
     // answers come in as a user would naturally type them ("Kathryn not
     // Catherine"), so an uppercased pass catches that majority;
     // title.introPageTitle/gamePageTitle are the one deliberately
@@ -382,8 +382,8 @@ function main(){
 
   let slug, overrides, merged, fragmentPayload;
   try{
-    requireField(answers, 'email', 'Q11: delivery email');
-    const titleForSlug = requireField(answers, 'title', 'Q4');
+    requireField(answers, 'email', 'Q12: delivery email');
+    const titleForSlug = requireField(answers, 'title', 'Q5');
     // --slug=<name> overrides the default random-suffixed slug -- real
     // orders always take the default (a stable, guessable folder name is
     // undesirable for someone else's game); this exists for reproducible
