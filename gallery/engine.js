@@ -1066,7 +1066,7 @@ function drawActiveTargets(ctx){
       ctx.save(); ctx.globalAlpha = alpha;
       drawPacked(ctx, GALLERY_IMG.stickWood, pos.x, pos.y+18*pos.scale, 22*pos.scale);
       const wave = Math.sin(gameT*4 + t.id)*4;
-      drawRosterSprite(ctx, f.sheet, f.col, f.row, pos.x-8*pos.scale+wave*0.3, pos.y-40*pos.scale, 5*pos.scale, false);
+      drawRosterSprite(ctx, f.sprite.sheet, f.sprite.col, f.sprite.row, pos.x-8*pos.scale+wave*0.3, pos.y-40*pos.scale, 5*pos.scale, false);
       ctx.restore();
       if(t.state==='hit' && (gameT-t.hitT)<0.9) drawAutoBubble(ctx, ['HEY!', f.name.toUpperCase()], pos.x, pos.y-46*pos.scale, 13, Math.min(1,(gameT-t.hitT)/0.15));
     }

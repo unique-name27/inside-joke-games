@@ -377,15 +377,77 @@ function cfgBuildGalleryDefaultConfig(engineRoot){
   };
 }
 
+/* THE FLIGHT (template #3, see SPEC-flight.md) -- its own neutral default
+   base, dispatched to by cfgBuildDefaultConfig below when templateKey is
+   'flight'. Modeled line-by-line on cfgBuildGalleryDefaultConfig just
+   above (separate small object, not an overlay on the hangout base --
+   flight/engine.js never reads stories/introStory/judge/authority/savior/
+   butterfingers/builder content blocks or `scene` either, same rationale
+   as the gallery's own header comment). firstBossHeckle/finalBossQuirk are
+   deliberately ABSENT (not even empty strings) -- flight/engine.js has its
+   own neutral fallback pools for exactly this case, same pattern as the
+   gallery's FIRST_BOSS_HECKLE_FALLBACKS/FINAL_BOSS_QUIRK_FALLBACKS. `beats`/
+   `hazards` get four neutral placeholders each (the wizard's own 3-beat/
+   2-hazard minimums are UX guidance, never codec-enforced -- see
+   CFG_FLIGHT_SCHEMA's own comment) so an absent-content flight game still
+   plays a complete (if generic) trip end to end. */
+function cfgBuildFlightDefaultConfig(engineRoot){
+  var root = engineRoot || '';
+  return {
+    gameId: 'shared',
+    template: 'flight',
+    title: {
+      lockupLines: ['YOUR', 'GROUP'],
+      introPageTitle: 'A Tiny Game',
+      gamePageTitle: 'A Tiny Game -- Playable Demo',
+    },
+    punchline: 'CLASSIC.',
+    host: { name: 'HOST' },
+    music: {
+      customSongPath: null,
+      loops: {
+        dinner: root + 'assets/audio/music/wacky-waiting.ogg',
+        boss: root + 'assets/audio/music/mission-plausible.ogg',
+        chase: root + 'assets/audio/music/time-driving.ogg',
+        celebration: root + 'assets/audio/music/farm-frolics.ogg',
+        sad: root + 'assets/audio/music/sad-descent.ogg',
+        gameover: root + 'assets/audio/music/game-over.ogg',
+      },
+      introFallback: root + 'assets/audio/music/night-at-the-beach.ogg', // unused (no separate intro) -- kept for schema parity with the shared music block
+    },
+    forbiddenWords: [],
+    flight: {
+      beats: ['IT STARTED FINE.', 'THEN SOMETHING WENT SIDEWAYS.', 'NOBODY WOULD ADMIT WHOSE IDEA IT WAS.', 'SOMEHOW EVERYONE MADE IT HOME.'],
+      hazards: ['THE WEATHER', 'THE DIRECTIONS', 'THE SCHEDULE', 'THE PLAN'],
+      planeColor: 'yellow',
+    },
+    cast: {
+      diner0: { name: 'THE FOURTH FRIEND', spriteCol: 1, spriteRow: 7, anecdote: 'Always up for anything.' },
+      judge: null,
+      authority: null,
+      savior: null,
+      butterfingers: null,
+      builder: null,
+    },
+    rankNames: {
+      immaculate: 'IMMACULATE',
+      comicTiming: 'COMIC TIMING',
+      worst: 'COULD USE MORE PRACTICE',
+    },
+  };
+}
+
 /* `templateKey` is the THIRD, OPTIONAL argument -- default `'hangout'`. Any
-   value other than the literal string `'gallery'` (absent, `'hangout'`,
-   or anything an already-sanitized fragment/order could never produce
-   since the enum whitelist below drops anything else first) returns
-   exactly what this function has always returned -- see cfgBuildGallery
-   DefaultConfig's own header for why 'gallery' dispatches to a wholly
-   separate object instead of an overlay on the hangout base. */
+   value other than the literal strings `'gallery'`/`'flight'` (absent,
+   `'hangout'`, or anything an already-sanitized fragment/order could never
+   produce since the enum whitelist below drops anything else first)
+   returns exactly what this function has always returned -- see
+   cfgBuildGalleryDefaultConfig's own header for why 'gallery'/'flight'
+   each dispatch to a wholly separate object instead of an overlay on the
+   hangout base. */
 function cfgBuildDefaultConfig(engineRoot, sceneKey, templateKey){
   if(templateKey === 'gallery') return cfgBuildGalleryDefaultConfig(engineRoot);
+  if(templateKey === 'flight') return cfgBuildFlightDefaultConfig(engineRoot);
   var root = engineRoot || '';
   var scene = (sceneKey && sceneKey !== 'dinner' && Object.prototype.hasOwnProperty.call(CFG_SCENE_DEFAULTS, sceneKey)) ? sceneKey : null;
   var cfg = {
@@ -629,7 +691,7 @@ function cfgApplyMusicVibe(mergedConfig, vibeKey, engineRoot, hashSeed){
    sanitizes away entirely -- cfgBuildDefaultConfig's own templateKey
    default ('hangout') is what an absent key actually resolves to, so old
    links/orders keep playing the Hangout, byte-identically, forever. */
-var CFG_TEMPLATE_KEYS = ['hangout', 'gallery'];
+var CFG_TEMPLATE_KEYS = ['hangout', 'gallery', 'flight'];
 /* gallery.targets: 4-8 short labels is the WIZARD/authoring-time guideline
    (mirrors `stories`' own "2-4" guideline just below, also not enforced
    here) -- this schema only caps the CEILING (8) and per-string length
@@ -645,9 +707,28 @@ var CFG_GALLERY_SCHEMA = {
   finalBossQuirk: cfgStr(60),
 };
 
+/* THE FLIGHT (template #3) -- beats: the 3-6 trip legs, in order (wizard/
+   authoring minimum of 3 is UX guidance, never codec-enforced -- same "cap
+   the ceiling only" split every other array field in this schema draws).
+   hazards: the 2-6 short labels painted on the gate plaques, cycling in
+   seeded order (see flight/engine.js). planeColor: a fixed enum, same
+   "pick among a whitelisted set, never a free string" shape as `scene`/
+   `musicVibe`/`template` elsewhere in this file. firstBossHeckle/
+   finalBossQuirk are optional for the same reason CFG_GALLERY_SCHEMA's own
+   are -- flight/engine.js's own neutral fallback pools cover their
+   absence. */
+var CFG_FLIGHT_SCHEMA = {
+  beats: cfgArr(6, cfgStr(90)),
+  hazards: cfgArr(6, cfgStr(24)),
+  planeColor: cfgEnum(['yellow', 'red', 'blue', 'green']),
+  firstBossHeckle: cfgStr(60),
+  finalBossQuirk: cfgStr(60),
+};
+
 var CFG_FRAGMENT_SCHEMA = {
   template: cfgEnum(CFG_TEMPLATE_KEYS),
   gallery: cfgObj(CFG_GALLERY_SCHEMA),
+  flight: cfgObj(CFG_FLIGHT_SCHEMA),
   lengthPreset: cfgEnum(['full', 'five_min']),
   // STORY SKELETONS: enum-only, same "pick a fixed built-in by key, never a
   // path/URL/free string" shape as musicVibe just below -- see
@@ -899,8 +980,10 @@ if(typeof module !== 'undefined' && module.exports){
     cfgHashString: cfgHashString,
     cfgBuildDefaultConfig: cfgBuildDefaultConfig,
     cfgBuildGalleryDefaultConfig: cfgBuildGalleryDefaultConfig,
+    cfgBuildFlightDefaultConfig: cfgBuildFlightDefaultConfig,
     CFG_TEMPLATE_KEYS: CFG_TEMPLATE_KEYS,
     CFG_GALLERY_SCHEMA: CFG_GALLERY_SCHEMA,
+    CFG_FLIGHT_SCHEMA: CFG_FLIGHT_SCHEMA,
     CFG_FRAGMENT_SCHEMA: CFG_FRAGMENT_SCHEMA,
     cfgSanitizeConfig: cfgSanitizeConfig,
     cfgDeepMerge: cfgDeepMerge,

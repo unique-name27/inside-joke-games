@@ -1,0 +1,68 @@
+Flight asset credits — The Flight template
+=============================================
+
+Every PNG in this folder is a subset of Kenney's "Tappy Plane" pack
+(www.kenney.nl), released under Creative Commons Zero (CC0 1.0):
+https://creativecommons.org/publicdomain/zero/1.0/ -- see License.txt
+(copied verbatim from the pack). CC0 means these files are free to use in
+personal, educational, and commercial projects with no attribution
+required; this credit is included anyway.
+
+Only the pieces flight/engine.js actually draws were copied over (37 of
+the pack's ~50 PNGs) -- everything else in the source pack (the Letters/
+and Numbers/ folders, the UI buttons, tapTick.png, UIbg.png, starSilver.png,
+starBronze.png, the Spritesheet/ atlas + XML, the Vector/ originals) went
+unused: the house chunky/reading text renderers (shared/framework.js)
+already draw every verbatim string this template needs (beat lines, hazard
+plaques, HUD numbers), so the pack's own letter/number/score-digit glyphs
+and its two extra star-color variants (only starGold is ever awarded) were
+never needed, and no game/HUD element uses the pack's button/background
+chrome.
+
+  background.png                     sky backdrop, tiled behind every leg
+  groundGrass.png, groundDirt.png,    the 5 terrain ground strips -- see
+    groundRock.png, groundSnow.png,   flight/engine.js's LEG_TERRAIN_TABLE
+    groundIce.png                     (the trip gets colder as it goes)
+  rock.png, rockDown.png              plain rock gate pair -- also stands
+                                       in for "dirt" legs (the pack has no
+                                       dirt-specific rock formation)
+  rockGrass.png, rockGrassDown.png    grass-leg gate pair
+  rockIce.png, rockIceDown.png        ice-leg gate pair
+  rockSnow.png, rockSnowDown.png      snow-leg gate pair
+  puffLarge.png, puffSmall.png        crash recovery / THE SHOUT's
+                                       rock-crumble effect
+  starGold.png                        the pack float that charges THE SHOUT
+  medalBronze.png, medalSilver.png,   end-card medal (stalled / landed /
+    medalGold.png                     landed clean -- see SPEC-flight.md)
+  textGetReady.png                    get-ready screen headline
+  textGameOver.png                    stall/retry card headline
+  tap.png, tapLeft.png, tapRight.png  the pack's tap-icon hint -- get-ready
+                                       screen + touch copy
+
+Plane colors (12 files -- 4 colors x 3 prop-animation frames each):
+  planeYellow1/2/3.png   the host's default plane color (config enum)
+  planeRed1/2/3.png      alternate host color; THE FIRST BOSS's plane
+                          (or the host's own fallback if they picked red --
+                          see flight/engine.js's bossPlaneColor)
+  planeBlue1/2/3.png     alternate host color; THE FINAL BOSS's plane
+  planeGreen1/2/3.png    alternate host color; THE FINAL BOSS's fallback
+                          plane color when the host picked blue
+
+Skip (per SPEC-flight.md "Assets"): the pack's UI buttons/background chrome,
+Letters/ and Numbers/ glyph sheets, starSilver.png/starBronze.png (only
+starGold is ever awarded), the Spritesheet/XML atlas, and the Vector/
+originals -- none of it is drawn by this template.
+
+Not from this pack, drawn procedurally instead (matching this project's
+existing convention for small custom props -- see gallery/engine.js's
+PLATE_ROWS/PLUSH_ROWS): the hearts HUD (no heart icon in Tappy Plane), the
+BUTTERFINGERS gag's tumbling phone (the pack has no phone/device prop), and
+the thrown objects THE FIRST BOSS lobs during their leg (simple pixel
+shapes, not a Tappy Plane asset).
+
+Audio: The Flight reuses this project's existing assets/audio/sfx/ and
+assets/audio/music/ files verbatim (see assets/audio/CREDITS.txt) -- no new
+audio assets were added for this template. Every one of the 16 files in
+assets/audio/sfx/ is used (see flight/engine.js's SFX_DEFS); The Gallery
+left close_002.ogg unused, this template gives it a job (the BUTTERFINGERS
+phone-drop gag).
