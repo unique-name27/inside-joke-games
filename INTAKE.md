@@ -186,7 +186,7 @@ hours).
   exactly how a user skips it — no "N/A" needed; an unanswered Q2
   defaults to THE DINNER PARTY).
 - Google Forms' native branching (Section-based "go to section based on
-  answer") is the natural fit for Q1 → the rest of the form: three
+  answer") is the natural fit for Q1 → the rest of the form: five
   sections, one per template, each ending with the shared questions
   (Q3 catchphrase onward) — or, simpler to build and maintain, keep the
   form linear and just show/hide Q2 and swap Q4's instructions per the
@@ -196,8 +196,9 @@ hours).
   wire up).
 - Q7 is most naturally 5 separate short-answer fields (one per role) inside
   a "Cast your group" section, rather than one big text box — makes the
-  skip-by-leaving-blank behavior obvious. The two optional Gallery/Flight
-  boss-line fields (heckle/quirk) can live in that same section.
+  skip-by-leaving-blank behavior obvious. The two optional boss-line
+  fields (heckle/quirk — every template except the Hangout) can live in
+  that same section.
 - Q11's answers map directly onto the deployed game's `forbiddenWords` list
   — there's no baseline/universal list, this order's own answer is the
   entire tone gate — see `FULFILLMENT.md`.
