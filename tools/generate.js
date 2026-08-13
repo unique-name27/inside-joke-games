@@ -342,14 +342,16 @@ function serializeConfig(configObj, headerComment){
 }
 
 /* String.prototype.replace silently no-ops when `search` isn't found --
-   the gallery's own two-file deploy block (below) chains five of these
-   blind, so a future edit to gallery/index.html's exact markup (a
+   chaining several of these blind (THE GALLERY's own two-file deploy
+   block originally did exactly this) means a future edit to
+   gallery/index.html's or flight/index.html's exact markup (a
    whitespace tweak, a re-quoted attribute) would silently ship a shell
    that still points at the WRONG engine/config paths, with no error
-   anywhere. THE FLIGHT's own deploy block uses this instead: throws
-   immediately, naming exactly which replacement no-op'd, so a shape
-   mismatch between flight/index.html and this function fails LOUDLY at
-   generate time -- never a silently-broken shipped shell. */
+   anywhere. Both the gallery's and the flight's own deploy blocks use
+   this instead: throws immediately, naming exactly which replacement
+   no-op'd, so a shape mismatch between either template's index.html and
+   this function fails LOUDLY at generate time -- never a
+   silently-broken shipped shell. */
 function safeReplace(str, search, replacement, label){
   if(str.indexOf(search) === -1){
     throw new GenerateError('template replacement "' + label + '" did not match anything -- expected to find ' + JSON.stringify(search) + ' in the source shell (has the file changed shape?)');
@@ -481,14 +483,26 @@ function main(){
     // shifted one directory level deeper (games/<slug>/ vs. gallery/
     // itself) and pointed at the ONE shared gallery/engine.js rather than
     // a per-game copy -- same "shared engine, only config.js is per-game"
-    // shape the Hangout path already uses.
-    const galleryShell = fs.readFileSync(path.join(REPO_ROOT, 'gallery', 'index.html'), 'utf8')
-      .replace('<title>The Gallery -- Playable Demo</title>', '<title>' + merged.title.gamePageTitle + '</title>')
-      .replace('<script src="../game/roster.js"></script>', '<script src="../../game/roster.js"></script>')
-      .replace('<script src="../game/cfgcodec.js"></script>', '<script src="../../game/cfgcodec.js"></script>')
-      .replace('<script src="../shared/framework.js"></script>', '<script src="../../shared/framework.js"></script>')
-      .replace('<script src="engine.js"></script>', '<script src="../../gallery/engine.js"></script>');
-    fs.writeFileSync(path.join(gameDir, 'index.html'), galleryShell);
+    // shape the Hangout path already uses. Every replacement below is
+    // verified to have actually matched something (see safeReplace's own
+    // header) -- these five strings MUST match gallery/index.html
+    // byte-for-byte or this throws instead of silently shipping a shell
+    // with the wrong paths/title (this used to be a blind `.replace()`
+    // chain with no such check -- fixed to match THE FLIGHT's own block
+    // just below, which never had the gap in the first place).
+    try{
+      let galleryShell = fs.readFileSync(path.join(REPO_ROOT, 'gallery', 'index.html'), 'utf8');
+      galleryShell = safeReplace(galleryShell, '<title>The Gallery -- Playable Demo</title>', '<title>' + merged.title.gamePageTitle + '</title>', 'title');
+      galleryShell = safeReplace(galleryShell, '<script src="../game/roster.js"></script>', '<script src="../../game/roster.js"></script>', 'roster.js src');
+      galleryShell = safeReplace(galleryShell, '<script src="../game/cfgcodec.js"></script>', '<script src="../../game/cfgcodec.js"></script>', 'cfgcodec.js src');
+      galleryShell = safeReplace(galleryShell, '<script src="../shared/framework.js"></script>', '<script src="../../shared/framework.js"></script>', 'framework.js src');
+      galleryShell = safeReplace(galleryShell, '<script src="engine.js"></script>', '<script src="../../gallery/engine.js"></script>', 'engine.js src');
+      fs.writeFileSync(path.join(gameDir, 'index.html'), galleryShell);
+    }catch(e){
+      console.error('REFUSING TO EMIT -- could not build the gallery shell for "' + merged.title.introPageTitle + '":');
+      console.error('  ' + (e && e.message ? e.message : e));
+      process.exit(1);
+    }
   } else if(isFlight){
     // THE FLIGHT writes ONE page (no separate intro), same shape as THE
     // GALLERY above -- mirror flight/index.html's own current script tags

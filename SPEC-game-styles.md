@@ -13,8 +13,8 @@ a shape, and the shape picks the game:
 | Joke shape | Template |
 |---|---|
 | A phrase somebody always says / a place you always end up | The Hangout (today's game) |
-| The things your group can't stop roasting | The Gallery |
-| A disaster trip you keep retelling | The Flight |
+| The things your group can't stop roasting | The Gallery (built) |
+| A disaster trip you keep retelling | The Flight (built) |
 | A recurring annoyance the group defends against | The Defense |
 | Us-against-the-world absurdism | The Mission |
 | Somebody's escalating spiral | The Climb |
@@ -33,7 +33,11 @@ Every template, no exceptions:
    (SpeechSynthesis) when it fires.
 3. **Their words verbatim.** Whatever content the template asks for (targets,
    obstacles, waves, trash talk) renders word-for-word as typed.
-4. **Tone gate** (per-config forbidden words + the punchline-only rule).
+4. **Tone gate** — per-group `forbiddenWords` only. There is no
+   universal/baseline word list and no punchline-only "FREE" carve-out
+   — that rule is retired repo-wide and must not be reintroduced (see
+   `SPEC-flight.md`'s config section, and `tools/verify-config.js`'s
+   `toneGateSource`, the one source of truth for this rule).
 5. **A game IS a link** — template rides the fragment as a whitelisted enum;
    free games cost nothing to host.
 6. **Self-verified** — each template ships a vm-harness driver; a config that
