@@ -123,8 +123,86 @@ function rngRange(rng, lo, hi){ return lo + rng() * (hi - lo); }
 function rngPick(rng, arr){ return arr[rngInt(rng, arr.length)]; }
 const GAME_SEED_BASE = CONFIG.gameId || 'gallery';
 const gameRng = makeRng(GAME_SEED_BASE + ':gallery:flavor');
-const firstBossHeckleLine = FIRST_BOSS_HECKLE || rngPick(gameRng, FIRST_BOSS_HECKLE_FALLBACKS);
-const finalBossQuirkLine = FINAL_BOSS_QUIRK || rngPick(gameRng, FINAL_BOSS_QUIRK_FALLBACKS);
+
+/* ======================================================================
+   PEOPLE FIRST (SPEC-people.md round 1) -- quotes-shown log every
+   tools/verify-gallery.js's own PROBE reads (no duplicated literals),
+   seeded per-person quote rotation, and THE WHOLE CREW end-card credits
+   (diner0's schema slot is unused by this template -- see
+   buildFriendPool's own comment -- so credits here are `extras` plus a
+   safety-net sweep for host/judge/authority/savior/butterfingers/builder
+   who never found a natural on-screen moment this playthrough). Absent
+   quotes/extras everywhere = every function here is a no-op and
+   QUOTES_SHOWN/CREW_CREDITS stay empty -- byte-identical to today.
+   ====================================================================== */
+let QUOTES_SHOWN = {};
+function logQuoteShown(key){ QUOTES_SHOWN[key] = true; }
+const quoteRotators = {};
+function nextQuoteFor(key, quotes){
+  if(!quotes || !quotes.length) return null;
+  if(!quoteRotators[key]) quoteRotators[key] = { idx: rngInt(makeRng(GAME_SEED_BASE + ':quotes:' + key), quotes.length) };
+  const r = quoteRotators[key];
+  const q = quotes[r.idx % quotes.length];
+  r.idx++;
+  logQuoteShown(key);
+  return q;
+}
+let CREW_CREDITS = [];
+/* THE WHOLE CREW (SPEC-people.md round 1) -- every `extras` entry
+   (unconditional, when named) plus a safety-net sweep: any quoted
+   host/judge/authority/savior/butterfingers/builder who never got a
+   natural on-screen moment this playthrough (the friend-target hurt
+   bubble, the barker's opening quote, or the boss heckle/quirk pool
+   above) still gets guaranteed >=1 quote here. diner0 has no fictional
+   role in this template (see buildFriendPool's own comment) but still
+   leads the list whenever the block has ANYTHING to show (their own
+   quote if they have one, else just their name/sprite -- "listing
+   diner0 + every extras entry", SPEC-people.md) -- otherwise left out
+   entirely, same "nobody qualifies -> no block" rule everyone else
+   follows, so an otherwise quote-less/extras-less config (every config
+   that predates this feature) never earns a credits line at all -- byte-
+   identical to today. Built once, right when the end card is entered
+   (see enterEndcard below). */
+function buildCrewCredits(){
+  const list = [];
+  function pushCrew(key, name, spriteEntry, quotes){
+    if(!name) return;
+    list.push({ name: name, sprite: rosterResolveSprite(spriteEntry, 1, 7), quote: nextQuoteFor(key, quotes) });
+  }
+  const extrasArr = CONFIG.extras || [];
+  for(let i=0;i<extrasArr.length;i++){
+    const ex = extrasArr[i];
+    if(ex && ex.name) pushCrew('extra'+i, ex.name, { sprite: ex.sprite }, fmtLines(ex.quotes || []));
+  }
+  if(CONFIG.host && CONFIG.host.quotes && CONFIG.host.quotes.length && !QUOTES_SHOWN.host){
+    pushCrew('host', CONFIG.host.name, CONFIG.host, fmtLines(CONFIG.host.quotes));
+  }
+  for(const role of ['judge','authority','savior','butterfingers','builder']){
+    if(CAST[role] && CAST[role].quotes && CAST[role].quotes.length && !QUOTES_SHOWN[role]){
+      pushCrew(role, CAST[role].name, CAST[role], fmtLines(CAST[role].quotes));
+    }
+  }
+  const diner0HasQuotes = !!(CAST.diner0 && CAST.diner0.quotes && CAST.diner0.quotes.length);
+  if(CAST.diner0 && CAST.diner0.name && (diner0HasQuotes || list.length)){
+    list.unshift({ name: CAST.diner0.name, sprite: rosterResolveSprite(CAST.diner0, 1, 7), quote: diner0HasQuotes ? nextQuoteFor('diner0', fmtLines(CAST.diner0.quotes)) : null });
+  }
+  return list;
+}
+
+/* PEOPLE FIRST -- "BOSSES FEEL REAL": when the relevant boss is cast and
+   has quotes, their own quotes REPLACE the neutral fallback pool for the
+   seeded pick below (config-typed firstBossHeckle/finalBossQuirk, if set,
+   still wins outright -- untouched). Stronger than a plain append: it
+   guarantees the boss heckles/quirks with something they actually said
+   whenever real quotes exist, not just "maybe" if the seeded pick happens
+   to land on one. Absent quotes -- byte-identical to the neutral-
+   fallback-only behavior this file has always had. */
+const FIRST_BOSS_HECKLE_POOL = (JUDGE_CAST && CAST.judge.quotes && CAST.judge.quotes.length) ? fmtLines(CAST.judge.quotes) : FIRST_BOSS_HECKLE_FALLBACKS;
+const FINAL_BOSS_QUIRK_POOL = (AUTHORITY_CAST && CAST.authority.quotes && CAST.authority.quotes.length) ? fmtLines(CAST.authority.quotes) : FINAL_BOSS_QUIRK_FALLBACKS;
+const firstBossHeckleLine = FIRST_BOSS_HECKLE || rngPick(gameRng, FIRST_BOSS_HECKLE_POOL);
+const finalBossQuirkLine = FINAL_BOSS_QUIRK || rngPick(gameRng, FINAL_BOSS_QUIRK_POOL);
+if(!FIRST_BOSS_HECKLE && JUDGE_CAST && CAST.judge.quotes && CAST.judge.quotes.length) logQuoteShown('judge');
+if(!FINAL_BOSS_QUIRK && AUTHORITY_CAST && CAST.authority.quotes && CAST.authority.quotes.length) logQuoteShown('authority');
 
 /* ======================================================================
    ASSETS -- the Shooting Gallery pack (assets/gallery/, CC0, see
@@ -397,13 +475,25 @@ const FRIEND_POOL_EXTRA = 'A FRIEND'; // the "extra friend" beyond cast -- SPEC-
 /* the friend pool is every cast member EXCEPT the two boss slots (judge/
    authority never appear as a "don't shoot" friend target -- they're the
    bosses), plus one generic extra friend so the pool is never empty on a
-   minimal (host-only) config. */
+   minimal (host-only) config. PEOPLE FIRST (SPEC-people.md round 1) --
+   "the Gallery adds extras to the friend-target pool" -- every `extras`
+   entry with a name joins too; `key`/`quotes` on each entry are what
+   applyFriendPenalty's own quote pick (see there) reads. diner0 has no
+   role in this template's fiction (it's not one of these slots and never
+   has been -- see SPEC-gallery.md), so it's deliberately absent here;
+   its quotes still get a guaranteed line via THE WHOLE CREW's own
+   safety-net sweep (see buildCrewCredits). */
 function buildFriendPool(){
   const pool = [];
   for(const slot of ['savior','butterfingers','builder']){
-    if(CAST[slot] && CAST[slot].name) pool.push({ name: CAST[slot].name, sprite: rosterResolveSprite(CAST[slot], 2, 7) });
+    if(CAST[slot] && CAST[slot].name) pool.push({ name: CAST[slot].name, sprite: rosterResolveSprite(CAST[slot], 2, 7), key: slot, quotes: fmtLines(CAST[slot].quotes || []) });
   }
-  pool.push({ name: FRIEND_POOL_EXTRA, sprite: rosterResolveSprite(null, 1, 7) });
+  const extrasArr = CONFIG.extras || [];
+  for(let i=0;i<extrasArr.length;i++){
+    const ex = extrasArr[i];
+    if(ex && ex.name) pool.push({ name: ex.name, sprite: rosterResolveSprite({ sprite: ex.sprite }, 1, 7), key: 'extra'+i, quotes: fmtLines(ex.quotes || []) });
+  }
+  pool.push({ name: FRIEND_POOL_EXTRA, sprite: rosterResolveSprite(null, 1, 7), key: null, quotes: [] });
   return pool;
 }
 const FRIEND_POOL = buildFriendPool();
@@ -491,9 +581,15 @@ let finale = null; // THE FINAL BOSS state
    rewritten per-attempt just before showing it (see showRetryCard) --
    deliberately NOT routed through maybeShowCard's one-shot guard, since a
    retry can legitimately show more than once; see that function. */
+/* PEOPLE FIRST (SPEC-people.md round 1) -- "the barker (builder) opens
+   one round with a quote of their own" -- round1 (the very first) is the
+   barker's own card, the one place every playthrough always sees. Absent
+   builder quotes, BARKER_OPENING_QUOTE is null and round1's body stays
+   exactly its today's 3 lines. */
+const BARKER_OPENING_QUOTE = (BUILDER_CAST && CAST.builder.quotes && CAST.builder.quotes.length) ? nextQuoteFor('builder', fmtLines(CAST.builder.quotes)) : null;
 const CARDS = {
   title: { key:'title', title:CONFIG.title.lockupLines.join(' '), body:['A CARNIVAL SHOOTING STALL.','THE TARGETS ARE THE THINGS THIS GROUP CAN\'T STOP ROASTING.', isTouch?'TAP TO START':'PRESS SPACE TO START'] },
-  round1: { key:'round1', title:'ROUND 1', body:[fmt('STEP RIGHT UP, {HOST}.'), 'HIT '+ROUND_DEFS.round1.quota+' TARGETS BEFORE TIME RUNS OUT.', 'WATCH FOR FRIENDLY FACES -- DON\'T SHOOT THOSE.'] },
+  round1: { key:'round1', title:'ROUND 1', body:[fmt('STEP RIGHT UP, {HOST}.'), 'HIT '+ROUND_DEFS.round1.quota+' TARGETS BEFORE TIME RUNS OUT.', 'WATCH FOR FRIENDLY FACES -- DON\'T SHOOT THOSE.'].concat(BARKER_OPENING_QUOTE ? ['"'+BARKER_OPENING_QUOTE+'" -- '+CAST.builder.name.toUpperCase()] : []) },
   round2: { key:'round2', title:'ROUND 2', body:['GETTING FASTER NOW.', 'HIT '+ROUND_DEFS.round2.quota+' TARGETS.'].concat(BUTTERFINGERS_CAST?['WATCH FOR THE STACK OF PLATES.']:[]) },
   round3: { key:'round3', title:'ROUND 3', body:['LAST ROUND. MAKE IT COUNT.', 'HIT '+ROUND_DEFS.round3.quota+' TARGETS.'] },
   elitevolley: { key:'elitevolley', title:'ELITE VOLLEY', body:['NO BOSS TONIGHT.', 'JUST TARGETS -- LOTS OF THEM.', 'HIT '+ROUND_DEFS.elitevolley.quota+' BEFORE TIME\'S UP.'] },
@@ -687,7 +783,7 @@ function fireAtRoundLike(x,y){
     const sp = butterfingersStackPos();
     if(dist(x,y,sp.x,sp.y) < 30*sp.scale){ applyButterfingersStackHit(); return; }
     const bp = butterfingersBodyPos();
-    if(dist(x,y,bp.x,bp.y) < 34*bp.scale){ applyFriendPenalty(fmt(CAST.butterfingers?CAST.butterfingers.name:'THEM')); butterfingers.state='hit'; butterfingers.hitT=gameT; return; }
+    if(dist(x,y,bp.x,bp.y) < 34*bp.scale){ applyFriendPenalty(fmt(CAST.butterfingers?CAST.butterfingers.name:'THEM'), BUTTERFINGERS_CAST?'butterfingers':null, BUTTERFINGERS_CAST?fmtLines(CAST.butterfingers.quotes||[]):null); butterfingers.state='hit'; butterfingers.hitT=gameT; return; }
   }
   for(const t of activeTargets){
     if(t.state!=='up') continue;
@@ -695,7 +791,7 @@ function fireAtRoundLike(x,y){
     const r = (t.kind==='roastable' ? TARGET_HIT_RADIUS_BASE : FRIEND_HIT_RADIUS_BASE) * pos.scale;
     if(dist(x,y,pos.x,pos.y) < r){
       if(t.kind==='roastable') applyRoastableHit(t);
-      else { applyFriendPenalty(FRIEND_POOL[t.friendIdx].name); t.state='hit'; t.hitT=gameT; }
+      else { const f = FRIEND_POOL[t.friendIdx]; applyFriendPenalty(f.name, f.key, f.quotes); t.state='hit'; t.hitT=gameT; }
       return;
     }
   }
@@ -730,12 +826,19 @@ function applyButterfingersStackHit(){
   const sp = butterfingersStackPos();
   spawnGlassShards(sp.x, sp.y, gameT);
 }
-function applyFriendPenalty(name){
+/* PEOPLE FIRST (SPEC-people.md round 1) -- `key`/`quotes` are optional
+   (FRIEND_POOL entries carry them; the two call sites above pass the
+   matching cast slot's own -- see buildFriendPool). When the hit friend
+   has quotes, the bubble's main line becomes one of THEIR quotes instead
+   of "HEY!" (the name still shows as the sub-line either way) -- absent
+   quotes, byte-identical to today's "HEY!" + name. */
+function applyFriendPenalty(name, key, quotes){
   stats.friendHits++; stats.misses++; stats.score = Math.max(0, stats.score-15);
   stats.curStreak = 0; streakClean = false; meterCharge = 0; catchphraseCharged = false;
   if(actx) playGroan(actx.currentTime);
   triggerShake(4, 0.25);
-  showBanner('HEY!', name.toUpperCase(), 1.1);
+  const quote = (key && quotes && quotes.length) ? nextQuoteFor(key, quotes) : null;
+  showBanner(quote || 'HEY!', name.toUpperCase(), 1.1);
 }
 function applyMiss(){
   stats.misses++; stats.curStreak = 0; streakClean = false; meterCharge = 0; catchphraseCharged = false;
@@ -936,6 +1039,8 @@ function computeRank(){
 function enterEndcard(){
   phase = 'endcard'; phaseElapsed = 0; phaseData = { rank: computeRank() };
   setBeatMusic('gameover');
+  // PEOPLE FIRST (SPEC-people.md round 1) -- see buildCrewCredits' own header.
+  CREW_CREDITS = buildCrewCredits();
 }
 function resetGame(){
   stats = { shotsFired:0, hits:0, misses:0, friendHits:0, bestStreak:0, curStreak:0, score:0, perRoastable:{}, butterfingersBonus:0 };
@@ -1213,6 +1318,23 @@ function drawTitleScreen(ctx){
   for(const line of CARDS.title.body){ drawReadingText(ctx, line, CW/2, y, 16, PAL.cream, 'center'); y += 28; }
   if(Math.floor(gameT*2)%2===0) drawReadingText(ctx, isTouch?'TAP TO START':'PRESS SPACE TO START', CW/2, y+16, 15, PAL.gold, 'center');
 }
+/* PEOPLE FIRST (SPEC-people.md round 1) -- THE WHOLE CREW (see
+   buildCrewCredits). No-op (returns y unchanged) when CREW_CREDITS is
+   empty -- absent quotes/extras, the end card renders byte-identical to
+   before this feature existed. */
+function drawCrewCredits(ctx, y){
+  if(!CREW_CREDITS.length) return y;
+  y += 8;
+  drawReadingText(ctx, 'THE WHOLE CREW', CW/2, y, 15, PAL.gold, 'center'); y += 22;
+  for(const c of CREW_CREDITS){
+    const line = c.quote ? (c.name + ': "' + c.quote + '"') : c.name;
+    const tw = measureReadingText(ctx, line, 12);
+    drawRosterSprite(ctx, c.sprite.sheet, c.sprite.col, c.sprite.row, CW/2 - tw/2 - 24, y-9, 1.1, false);
+    drawReadingText(ctx, line, CW/2, y, 12, PAL.cream, 'center');
+    y += 20;
+  }
+  return y + 8;
+}
 function drawEndcard(ctx){
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,CW,CH);
   drawChunkyText(ctx, CONFIG.punchline, CW/2, 56, 30, PAL.gold, PAL.outline, 'center');
@@ -1232,6 +1354,7 @@ function drawEndcard(ctx){
   }
   y += perCol*22 + 16;
   drawReadingText(ctx, phaseData.rank, CW/2, y, 22, PAL.gold, 'center'); y += 34;
+  y = drawCrewCredits(ctx, y);
   drawReadingText(ctx, 'SEND THIS ONE TO THE GROUP CHAT.', CW/2, y, 13, PAL.cream, 'center'); y += 30;
   if(Math.floor(gameT*2)%2===0) drawReadingText(ctx, isTouch?'TAP TO PLAY AGAIN':'PRESS SPACE TO PLAY AGAIN', CW/2, y, 14, PAL.gold, 'center');
 }

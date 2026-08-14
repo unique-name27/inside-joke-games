@@ -38,6 +38,7 @@ const CONFIG = {
 
   host: {
     name: 'JORDAN',
+    quotes: ['I MADE A SEATING CHART FOR FOUR PEOPLE.', 'THE APPETIZERS ARE A SURPRISE. TO ME TOO.'],
   },
 
   music: {
@@ -66,12 +67,12 @@ const CONFIG = {
   ],
 
   cast: {
-    diner0: { name: 'CASEY', spriteCol: 1, spriteRow: 7, anecdote: 'Brings a board game every time.' },
+    diner0: { name: 'CASEY', spriteCol: 1, spriteRow: 7, anecdote: 'Brings a board game every time.', quotes: ['I BROUGHT THE GAME. NOBODY ASKED.', 'RULES ARE SUGGESTIONS, MOSTLY.'] },
     judge: null,         // uncast -- no boss fight, no Beat 3, no Beat 4 (see file header)
     authority: null,     // uncast (downstream of judge -- see above)
     savior: null,        // uncast (downstream of judge -- see above)
-    butterfingers: { name: 'MORGAN', spriteCol: 3, spriteRow: 8, anecdote: 'Takes 40 photos of every plate.' },
-    builder: { name: 'RILEY', spriteCol: 2, spriteRow: 8, anecdote: 'Builds something every time we hang out.' },
+    butterfingers: { name: 'MORGAN', spriteCol: 3, spriteRow: 8, anecdote: 'Takes 40 photos of every plate.', quotes: ['LET ME GET THE LIGHTING RIGHT.', 'THIS IS FOR THE GROUP CHAT LATER.'] },
+    builder: { name: 'RILEY', spriteCol: 2, spriteRow: 8, anecdote: 'Builds something every time we hang out.', quotes: ['I ALREADY STARTED BUILDING SOMETHING.', 'IT WORKS. MOSTLY.'] },
   },
 
   butterfingers: {

@@ -40,6 +40,7 @@ const CONFIG = {
   host: {
     name: 'PRIYA',
     sprite: 'mohawk',
+    quotes: ['I READ THE RULEBOOK. COVER TO COVER.', 'GAME NIGHT IS SACRED. DO NOT BE LATE.'],
   },
 
   defense: {
@@ -78,12 +79,12 @@ const CONFIG = {
   forbiddenWords: [], // no universal baseline -- this group has nothing off-limits
 
   cast: {
-    diner0: { name: 'THE FOURTH PLAYER', sprite: 'strawhat', anecdote: 'Always down for one more round.' },
-    judge: { name: 'THE SCOREKEEPER', sprite: 'grandma', anecdote: 'Tracks points more carefully than the actual rulebook.' },
-    authority: { name: 'THE HOA PRESIDENT', sprite: 'beard', anecdote: 'Has opinions about the driveway chalk.' },
-    savior: { name: 'THE PEACEMAKER', sprite: 'overalls', anecdote: 'Steps in right before someone flips the table.' },
-    butterfingers: { name: 'THE ONE WHO KNOCKS THE BOARD', sprite: 'braid', anecdote: 'Has ended three games with one elbow.' },
-    builder: { name: "THE GROUP'S SCORE APP", sprite: 'vest', anecdote: 'Built this exact game during a rain delay.' },
+    diner0: { name: 'THE FOURTH PLAYER', sprite: 'strawhat', anecdote: 'Always down for one more round.', quotes: ["I'M DOWN FOR ONE MORE ROUND.", 'DEAL ME IN. ALWAYS.'] },
+    judge: { name: 'THE SCOREKEEPER', sprite: 'grandma', anecdote: 'Tracks points more carefully than the actual rulebook.', quotes: ['I TRACK POINTS BETTER THAN THE RULEBOOK.', 'THAT MOVE WAS ILLEGAL. I HAVE NOTES.'] },
+    authority: { name: 'THE HOA PRESIDENT', sprite: 'beard', anecdote: 'Has opinions about the driveway chalk.', quotes: ['THE DRIVEWAY CHALK IS A VIOLATION.', 'I HAVE OPINIONS. MANY OPINIONS.'] },
+    savior: { name: 'THE PEACEMAKER', sprite: 'overalls', anecdote: 'Steps in right before someone flips the table.', quotes: ['NOBODY IS FLIPPING THIS TABLE TONIGHT.', "LET'S ALL JUST TAKE A BREATH."] },
+    butterfingers: { name: 'THE ONE WHO KNOCKS THE BOARD', sprite: 'braid', anecdote: 'Has ended three games with one elbow.', quotes: ['MY ELBOW HAS ENDED THREE GAMES.', 'IT WAS AN ACCIDENT. AGAIN.'] },
+    builder: { name: "THE GROUP'S SCORE APP", sprite: 'vest', anecdote: 'Built this exact game during a rain delay.', quotes: ['I BUILT THIS DURING A RAIN DELAY.', 'THE SCOREBOARD NEVER LIES.'] },
   },
 
   rankNames: {

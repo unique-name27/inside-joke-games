@@ -73,6 +73,21 @@ function __flags(){
 function __setModeSelectIndex(i){ modeSelectIndex = i; }
 function __oneTankUnlocked(){ return oneTankUnlocked(); }
 function __oneTankBestPct(){ return oneTankBestPct(); }
+/* PEOPLE FIRST (SPEC-people.md round 1) -- see tools/verify-config.js's
+   own identical __quotesCoverage/__crewCredits comment. */
+function __quotesCoverage(){
+  function hasQ(e){ return !!(e && e.quotes && e.quotes.length); }
+  var expected = [];
+  if(hasQ(CONFIG.host)) expected.push('host');
+  ['judge','authority','savior','butterfingers','builder'].forEach(function(r){ if(hasQ(CAST[r])) expected.push(r); });
+  if(hasQ(CAST.diner0)) expected.push('diner0');
+  return { expected: expected, shown: Object.keys(QUOTES_SHOWN) };
+}
+function __crewCredits(){
+  var extrasNames = (CONFIG.extras || []).filter(function(e){ return e && e.name; }).map(function(e){ return e.name; });
+  var creditsShown = CREW_CREDITS.map(function(c){ return c.name; });
+  return { extrasNames: extrasNames, creditsShown: creditsShown };
+}
 `;
 
 /* mirrors tools/verify-gallery.js's loadGalleryWithConfig exactly, just
@@ -266,6 +281,17 @@ function verifyFlightSource(configSource, opts){
       const missingHazards = configHazards.filter(h => !trackers.labelsSeen.has(h));
       if(missingHazards.length) errors.push('hazard label(s) never seen on a gate plaque: ' + JSON.stringify(missingHazards));
 
+      // PEOPLE FIRST (SPEC-people.md round 1) -- see tools/verify-config.js's
+      // identical assertion pair for the full rationale.
+      const qc = sb.__quotesCoverage();
+      for(const key of qc.expected){
+        if(qc.shown.indexOf(key) === -1) errors.push('quotes: "' + key + '" has quotes but none ever showed on screen');
+      }
+      const cc = sb.__crewCredits();
+      for(const name of cc.extrasNames){
+        if(cc.creditsShown.indexOf(name) === -1) errors.push('credits: extras entry "' + name + '" missing from THE WHOLE CREW end-card block');
+      }
+
       // THE SHOUT -- charged (3 stars) then deliberately driven into an
       // imminent collision (see driveLeg's withhold branch); asserts it
       // auto-fired, cost no heart, and cleared the on-screen gates.
@@ -342,6 +368,13 @@ function verifyFlightHostOnlySource(configSource, opts){
       const end = sb.__probe();
       if(end.landed !== true) errors.push('host-only playthrough reached the end card but did not land');
       if(end.beatsShown.some(shown => !shown)) errors.push('not every leg was reached -- beatsShown=' + JSON.stringify(end.beatsShown));
+
+      // PEOPLE FIRST (SPEC-people.md round 1) -- host quotes (host is never
+      // stripped by the host-only regex, only `cast`) still need to surface.
+      const qc = sb.__quotesCoverage();
+      for(const key of qc.expected){
+        if(qc.shown.indexOf(key) === -1) errors.push('quotes: "' + key + '" has quotes but none ever showed on screen');
+      }
     }
   }catch(e){
     if(e instanceof SyntaxError) throw e;

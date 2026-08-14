@@ -64,6 +64,24 @@ function __finaleSlotPos(row, slot){
 function __flags(){
   return { JUDGE_CAST: JUDGE_CAST, AUTHORITY_CAST: AUTHORITY_CAST, SAVIOR_CAST: SAVIOR_CAST, BUTTERFINGERS_CAST: BUTTERFINGERS_CAST, BUILDER_CAST: BUILDER_CAST };
 }
+/* PEOPLE FIRST (SPEC-people.md round 1) -- see tools/verify-config.js's
+   own identical __quotesCoverage/__crewCredits comment; the pattern (and
+   the split between "who actually has quotes in this config" vs. "who
+   the engine's own QUOTES_SHOWN log says actually showed one") is the
+   same for every template's driver. */
+function __quotesCoverage(){
+  function hasQ(e){ return !!(e && e.quotes && e.quotes.length); }
+  var expected = [];
+  if(hasQ(CONFIG.host)) expected.push('host');
+  ['judge','authority','savior','butterfingers','builder'].forEach(function(r){ if(hasQ(CAST[r])) expected.push(r); });
+  if(hasQ(CAST.diner0)) expected.push('diner0');
+  return { expected: expected, shown: Object.keys(QUOTES_SHOWN) };
+}
+function __crewCredits(){
+  var extrasNames = (CONFIG.extras || []).filter(function(e){ return e && e.name; }).map(function(e){ return e.name; });
+  var creditsShown = CREW_CREDITS.map(function(c){ return c.name; });
+  return { extrasNames: extrasNames, creditsShown: creditsShown };
+}
 `;
 
 /* mirrors tools/verify-config.js's loadEngineWithConfig exactly, just with
@@ -192,6 +210,17 @@ function verifyGallerySource(configSource, opts){
     phaseReached = driveGalleryPlaythrough(sb);
     if(phaseReached !== 'endcard'){
       errors.push('attentive playthrough did not reach the end card (stopped at "' + phaseReached + '")');
+    } else {
+      // PEOPLE FIRST (SPEC-people.md round 1) -- see tools/verify-config.js's
+      // identical assertion pair for the full rationale.
+      const qc = sb.__quotesCoverage();
+      for(const key of qc.expected){
+        if(qc.shown.indexOf(key) === -1) errors.push('quotes: "' + key + '" has quotes but none ever showed on screen');
+      }
+      const cc = sb.__crewCredits();
+      for(const name of cc.extrasNames){
+        if(cc.creditsShown.indexOf(name) === -1) errors.push('credits: extras entry "' + name + '" missing from THE WHOLE CREW end-card block');
+      }
     }
   }catch(e){
     if(e instanceof SyntaxError) throw e;

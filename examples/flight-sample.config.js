@@ -37,6 +37,7 @@ const CONFIG = {
   host: {
     name: 'SAM',
     sprite: 'skigreen',
+    quotes: ['WE ALWAYS MAKE IT DOWN. EVENTUALLY.', 'THIS IS FINE. THE SNOW IS FINE.'],
   },
 
   flight: {
@@ -80,12 +81,18 @@ const CONFIG = {
   forbiddenWords: [], // no universal baseline -- this group has nothing off-limits
 
   cast: {
-    judge: { name: 'THE SKI INSTRUCTOR', sprite: 'skipurple', anecdote: 'Judges every turn from the lift line.' },
-    authority: { name: 'THE LODGE MANAGER', sprite: 'grandma', anecdote: 'Remembers every pair of wet boots left by the fire.' },
-    savior: { name: 'THE ONE WITH SNACKS', sprite: 'snowman', anecdote: 'Always has one more granola bar than anyone asked for.' },
-    butterfingers: { name: 'THE ONE WHO DROPPED THE GOPRO', sprite: 'braid', anecdote: 'Has lost count of how many lens caps are buried in the snow.' },
-    builder: { name: 'THE GROUP\'S MAP APP', sprite: 'bandana', anecdote: 'Built this exact game after the drive home.' },
+    judge: { name: 'THE SKI INSTRUCTOR', sprite: 'skipurple', anecdote: 'Judges every turn from the lift line.', quotes: ['BEND YOUR KNEES. YOU NEVER BEND YOUR KNEES.', 'I JUDGE EVERY TURN FROM THE LIFT LINE.'] },
+    authority: { name: 'THE LODGE MANAGER', sprite: 'grandma', anecdote: 'Remembers every pair of wet boots left by the fire.', quotes: ['THE BOOTS WERE STILL WET BY THE FIRE.', 'I REMEMBER EVERY PAIR OF WET BOOTS.'] },
+    savior: { name: 'THE ONE WITH SNACKS', sprite: 'snowman', anecdote: 'Always has one more granola bar than anyone asked for.', quotes: ['I ALWAYS PACK ONE EXTRA GRANOLA BAR.', 'SNACKS FIRST. QUESTIONS LATER.'] },
+    butterfingers: { name: 'THE ONE WHO DROPPED THE GOPRO', sprite: 'braid', anecdote: 'Has lost count of how many lens caps are buried in the snow.', quotes: ["IT'S SOMEWHERE IN THE SNOW. PROBABLY.", 'THE LENS CAP IS GONE FOREVER.'] },
+    builder: { name: 'THE GROUP\'S MAP APP', sprite: 'bandana', anecdote: 'Built this exact game after the drive home.', quotes: ['I BUILT THIS RIGHT AFTER THE DRIVE HOME.', 'REROUTING. AGAIN.'] },
   },
+
+  // PEOPLE FIRST (SPEC-people.md round 1) -- people beyond host + the five
+  // roles: the friend who skipped the slopes entirely.
+  extras: [
+    { name: 'THE FRIEND WHO STAYED IN THE LODGE', sprite: 'strawhat', quotes: ['I WATCHED FROM THE WINDOW. IT LOOKED COLD.', 'SOMEONE HAD TO GUARD THE HOT COCOA.'] },
+  ],
 
   rankNames: {
     immaculate: 'BLACK DIAMOND',

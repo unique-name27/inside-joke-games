@@ -45,6 +45,7 @@ const CONFIG = {
   host: {
     name: 'DESHAWN',
     sprite: 'overalls',
+    quotes: ['WE FOUND IT. IT HAS LAUNDRY.', 'IN-UNIT LAUNDRY IS NON-NEGOTIABLE.'],
   },
 
   mission: {
@@ -83,13 +84,19 @@ const CONFIG = {
   forbiddenWords: [], // no universal baseline -- this group has nothing off-limits
 
   cast: {
-    diner0: { name: 'THE FOURTH APPLICANT', sprite: 'strawhat', anecdote: 'Shows up to every viewing with snacks.' },
-    judge: { name: 'THE BROKER', sprite: 'grandma', anecdote: 'Charges a fee for texting back.' },
-    authority: { name: 'THE LANDLORD', sprite: 'beard', anecdote: 'Has never once fixed the radiator.' },
-    savior: { name: 'THE CO-SIGNER', sprite: 'vest', anecdote: 'Always has a backup plan and a spare key.' },
-    butterfingers: { name: 'THE ONE WHO DROPS THE KEYS', sprite: 'braid', anecdote: 'Has been locked out three times this month.' },
-    builder: { name: 'THE SPREADSHEET', sprite: 'squire', anecdote: 'Built a spreadsheet ranking every listing by laundry access.' },
+    diner0: { name: 'THE FOURTH APPLICANT', sprite: 'strawhat', anecdote: 'Shows up to every viewing with snacks.', quotes: ['I BROUGHT SNACKS TO EVERY VIEWING.', "I'M HERE FOR MORAL SUPPORT AND SNACKS."] },
+    judge: { name: 'THE BROKER', sprite: 'grandma', anecdote: 'Charges a fee for texting back.', quotes: ["THAT'S A PROCESSING FEE FOR TEXTING BACK.", 'THE LISTING PHOTOS WERE... GENEROUS.'] },
+    authority: { name: 'THE LANDLORD', sprite: 'beard', anecdote: 'Has never once fixed the radiator.', quotes: ["THE RADIATOR IS FINE. IT'S CHARACTER.", "I'LL LOOK INTO IT. EVENTUALLY."] },
+    savior: { name: 'THE CO-SIGNER', sprite: 'vest', anecdote: 'Always has a backup plan and a spare key.', quotes: ['I ALWAYS HAVE A BACKUP PLAN.', 'HERE\'S THE SPARE KEY, JUST IN CASE.'] },
+    butterfingers: { name: 'THE ONE WHO DROPS THE KEYS', sprite: 'braid', anecdote: 'Has been locked out three times this month.', quotes: ['LOCKED OUT AGAIN. THIRD TIME THIS MONTH.', 'THE KEYS ARE SOMEWHERE. PROBABLY.'] },
+    builder: { name: 'THE SPREADSHEET', sprite: 'squire', anecdote: 'Built a spreadsheet ranking every listing by laundry access.', quotes: ['I RANKED EVERY LISTING BY LAUNDRY ACCESS.', 'THE SPREADSHEET HAS COLOR CODING.'] },
   },
+
+  // PEOPLE FIRST (SPEC-people.md round 1) -- people beyond host + the five
+  // roles: the friend who already found their own place.
+  extras: [
+    { name: 'THE FRIEND WHO ALREADY HAS A PLACE', sprite: 'villager', quotes: ['I FOUND MINE IN ONE WEEKEND. SORRY.', 'GOOD LUCK OUT THERE.'] },
+  ],
 
   rankNames: {
     immaculate: 'FOUND IT FIRST TRY',

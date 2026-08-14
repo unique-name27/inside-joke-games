@@ -19,7 +19,8 @@ const CONFIG = {
   "punchline": "WE FOUND IT. IT HAS LAUNDRY.",
   "host": {
     "name": "DESHAWN",
-    "sprite": "overalls"
+    "sprite": "overalls",
+    "quotes": ["WE FOUND IT. IT HAS LAUNDRY.", "IN-UNIT LAUNDRY IS NON-NEGOTIABLE."]
   },
   "music": {
     "customSongPath": null,
@@ -52,40 +53,49 @@ const CONFIG = {
       "name": "THE FOURTH FRIEND",
       "spriteCol": 1,
       "spriteRow": 7,
-      "anecdote": "Always up for anything."
+      "anecdote": "Always up for anything.",
+      "quotes": ["I BROUGHT SNACKS TO EVERY VIEWING.", "I'M HERE FOR MORAL SUPPORT AND SNACKS."]
     },
     "judge": {
       "name": "THE BROKER",
       "anecdote": "Charges a fee for texting back.",
       "spriteCol": 4,
       "spriteRow": 8,
-      "sprite": "grandma"
+      "sprite": "grandma",
+      "quotes": ["THAT'S A PROCESSING FEE FOR TEXTING BACK.", "THE LISTING PHOTOS WERE... GENEROUS."]
     },
     "authority": {
       "name": "THE LANDLORD",
       "anecdote": "Has never once fixed the radiator.",
-      "sprite": "beard"
+      "sprite": "beard",
+      "quotes": ["THE RADIATOR IS FINE. IT'S CHARACTER.", "I'LL LOOK INTO IT. EVENTUALLY."]
     },
     "savior": {
       "name": "THE CO-SIGNER",
       "anecdote": "Always has a backup plan and a spare key.",
-      "sprite": "vest"
+      "sprite": "vest",
+      "quotes": ["I ALWAYS HAVE A BACKUP PLAN.", "HERE'S THE SPARE KEY, JUST IN CASE."]
     },
     "butterfingers": {
       "name": "THE ONE WHO DROPS THE KEYS",
       "anecdote": "Has been locked out three times this month.",
       "spriteCol": 3,
       "spriteRow": 8,
-      "sprite": "braid"
+      "sprite": "braid",
+      "quotes": ["LOCKED OUT AGAIN. THIRD TIME THIS MONTH.", "THE KEYS ARE SOMEWHERE. PROBABLY."]
     },
     "builder": {
       "name": "THE SPREADSHEET",
       "anecdote": "Built a spreadsheet ranking every listing by laundry access.",
       "spriteCol": 2,
       "spriteRow": 8,
-      "sprite": "squire"
+      "sprite": "squire",
+      "quotes": ["I RANKED EVERY LISTING BY LAUNDRY ACCESS.", "THE SPREADSHEET HAS COLOR CODING."]
     }
   },
+  "extras": [
+    { "name": "THE FRIEND WHO ALREADY HAS A PLACE", "sprite": "villager", "quotes": ["I FOUND MINE IN ONE WEEKEND. SORRY.", "GOOD LUCK OUT THERE."] }
+  ],
   "rankNames": {
     "immaculate": "IMMACULATE",
     "comicTiming": "COMIC TIMING",

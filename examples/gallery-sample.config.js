@@ -33,6 +33,7 @@ const CONFIG = {
 
   host: {
     name: 'JORDAN',
+    quotes: ['I TRAIN FOR THIS ALL WEEK.', 'MY FANTASY TEAM NAME IS UNDEFEATED. THE TEAM IS NOT.'],
   },
 
   gallery: {
@@ -64,11 +65,11 @@ const CONFIG = {
   forbiddenWords: [], // no universal baseline -- this group has nothing off-limits
 
   cast: {
-    judge: { name: 'THE COMMISSIONER', sprite: 'grandma', anecdote: 'Runs the fantasy league like it is federal law.' },
-    authority: { name: 'THE LANDLORD', sprite: 'bandana', anecdote: 'Shows up personally over a noise complaint.' },
-    savior: { name: 'THE DESIGNATED DRIVER', sprite: 'vest', anecdote: 'Always sober, always has snacks in the car.' },
-    butterfingers: { name: 'THE ONE WHO DROPS EVERYTHING', sprite: 'braid', anecdote: 'Has broken three different house rules, literally.' },
-    builder: { name: 'THE GROUP\'S TECH GUY', sprite: 'mohawk', anecdote: 'Built this exact game on a Tuesday night.' },
+    judge: { name: 'THE COMMISSIONER', sprite: 'grandma', anecdote: 'Runs the fantasy league like it is federal law.', quotes: ['THE LEAGUE BYLAWS ARE NOT SUGGESTIONS.', 'I REVIEWED THE TAPE. YOU LOST FAIR AND SQUARE.'] },
+    authority: { name: 'THE LANDLORD', sprite: 'bandana', anecdote: 'Shows up personally over a noise complaint.', quotes: ['SOMEONE FILED A COMPLAINT. IT WAS ME.', 'QUIET HOURS START AT TEN. SHARP.'] },
+    savior: { name: 'THE DESIGNATED DRIVER', sprite: 'vest', anecdote: 'Always sober, always has snacks in the car.', quotes: ['I\'M GOOD. I HAVE SNACKS IN THE CAR.', 'TEXT ME WHEN YOU\'RE READY TO GO.'] },
+    butterfingers: { name: 'THE ONE WHO DROPS EVERYTHING', sprite: 'braid', anecdote: 'Has broken three different house rules, literally.', quotes: ['IT SLIPPED. IT ALWAYS SLIPS.', 'IN MY DEFENSE, IT WAS SLIPPERY.'] },
+    builder: { name: 'THE GROUP\'S TECH GUY', sprite: 'mohawk', anecdote: 'Built this exact game on a Tuesday night.', quotes: ['I BUILT THIS ON A TUESDAY NIGHT.', 'IT\'S DEPLOYED. DON\'T ASK HOW.'] },
   },
 
   rankNames: {

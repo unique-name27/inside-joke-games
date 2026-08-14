@@ -96,6 +96,7 @@ function fmt(s){
   if(typeof s !== 'string') return s;
   return CONFIG.host ? s.split('{HOST}').join(CONFIG.host.name) : s;
 }
+function fmtLines(lines){ return lines.map(fmt); }
 
 const CAST = CONFIG.cast || {};
 const JUDGE_CAST = !!CAST.judge;        // THE FIRST BOSS
@@ -164,8 +165,95 @@ function rngShuffled(rng, arr){
 function rngPick(rng, arr){ return arr[rngInt(rng, arr.length)]; }
 const GAME_SEED_BASE = CONFIG.gameId || 'flight';
 const gameRng = makeRng(GAME_SEED_BASE + ':flight:flavor');
-const firstBossHeckleLine = FIRST_BOSS_HECKLE || rngPick(gameRng, FIRST_BOSS_HECKLE_FALLBACKS);
-const finalBossQuirkLine = FINAL_BOSS_QUIRK || rngPick(gameRng, FINAL_BOSS_QUIRK_FALLBACKS);
+
+/* ======================================================================
+   PEOPLE FIRST (SPEC-people.md round 1) -- quotes-shown log every
+   tools/verify-flight.js's own PROBE reads (no duplicated literals),
+   seeded per-person quote rotation, and THE WHOLE CREW end-card credits.
+   Byte-identical implementation to gallery/engine.js's own (duplicated
+   per engine on purpose, same convention as the seeded RNG above).
+   ====================================================================== */
+let QUOTES_SHOWN = {};
+function logQuoteShown(key){ QUOTES_SHOWN[key] = true; }
+const quoteRotators = {};
+function nextQuoteFor(key, quotes){
+  if(!quotes || !quotes.length) return null;
+  if(!quoteRotators[key]) quoteRotators[key] = { idx: rngInt(makeRng(GAME_SEED_BASE + ':quotes:' + key), quotes.length) };
+  const r = quoteRotators[key];
+  const q = quotes[r.idx % quotes.length];
+  r.idx++;
+  logQuoteShown(key);
+  return q;
+}
+let CREW_CREDITS = [];
+/* THE WHOLE CREW -- every `extras` entry (unconditional, when named) plus
+   a safety-net sweep for any quoted host/judge/authority/savior/
+   butterfingers/builder who never got a natural on-screen moment this
+   playthrough (the breather's second bubble, the celebration banner, or
+   the boss heckle/quirk pool below). diner0 has no fictional role in this
+   template (it's not one of the plane-face roles -- see drawPlayerPlane/
+   drawBossLegOverlay/drawFinalBoss, none of which read CAST.diner0) but
+   still leads the list whenever the block has ANYTHING to show, same
+   "listing diner0 + every extras entry" rule gallery/engine.js's own
+   identical comment documents -- otherwise left out entirely, so an
+   otherwise quote-less/extras-less config never earns a credits line at
+   all. Built once, right when the end card is entered (see enterEndcard/
+   endRunStalled below). */
+function buildCrewCredits(){
+  const list = [];
+  function pushCrew(key, name, spriteEntry, quotes){
+    if(!name) return;
+    list.push({ name: name, sprite: rosterResolveSprite(spriteEntry, 1, 7), quote: nextQuoteFor(key, quotes) });
+  }
+  const extrasArr = CONFIG.extras || [];
+  for(let i=0;i<extrasArr.length;i++){
+    const ex = extrasArr[i];
+    if(ex && ex.name) pushCrew('extra'+i, ex.name, { sprite: ex.sprite }, fmtLines(ex.quotes || []));
+  }
+  if(CONFIG.host && CONFIG.host.quotes && CONFIG.host.quotes.length && !QUOTES_SHOWN.host){
+    pushCrew('host', CONFIG.host.name, CONFIG.host, fmtLines(CONFIG.host.quotes));
+  }
+  for(const role of ['judge','authority','savior','butterfingers','builder']){
+    if(CAST[role] && CAST[role].quotes && CAST[role].quotes.length && !QUOTES_SHOWN[role]){
+      pushCrew(role, CAST[role].name, CAST[role], fmtLines(CAST[role].quotes));
+    }
+  }
+  const diner0HasQuotes = !!(CAST.diner0 && CAST.diner0.quotes && CAST.diner0.quotes.length);
+  if(CAST.diner0 && CAST.diner0.name && (diner0HasQuotes || list.length)){
+    list.unshift({ name: CAST.diner0.name, sprite: rosterResolveSprite(CAST.diner0, 1, 7), quote: diner0HasQuotes ? nextQuoteFor('diner0', fmtLines(CAST.diner0.quotes)) : null });
+  }
+  return list;
+}
+/* the breather's second bubble -- "one cast member's quote (seeded
+   rotation through everyone with quotes across the legs)" (SPEC-people.md).
+   Pool = the FRIEND roles (savior/butterfingers/builder/diner0) -- judge/
+   authority are covered by the boss heckle/quirk pool below instead (a
+   real boss encounter, not a breather, is their own natural spot), and
+   host rides the celebration banner (see enterCelebration). Round-robins
+   across breather occurrences (never Math.random); each speaker's own
+   quote pick is nextQuoteFor's own seeded rotation. Returns null (no
+   second bubble -- today's behavior) when nobody eligible has quotes. */
+let breatherQuoteTurn = 0;
+const BREATHER_QUOTE_SLOTS = ['savior', 'butterfingers', 'builder', 'diner0'];
+function pickBreatherQuote(){
+  const eligible = BREATHER_QUOTE_SLOTS.filter(slot => CAST[slot] && CAST[slot].quotes && CAST[slot].quotes.length);
+  if(!eligible.length) return null;
+  const slot = eligible[breatherQuoteTurn % eligible.length];
+  breatherQuoteTurn++;
+  return nextQuoteFor(slot, fmtLines(CAST[slot].quotes));
+}
+
+/* PEOPLE FIRST -- "BOSSES FEEL REAL": when the relevant boss is cast and
+   has quotes, their own quotes REPLACE the neutral fallback pool for the
+   seeded pick below (config-typed firstBossHeckle/finalBossQuirk, if set,
+   still wins outright -- untouched). Absent quotes -- byte-identical to
+   the neutral-fallback-only behavior this file has always had. */
+const FIRST_BOSS_HECKLE_POOL = (JUDGE_CAST && CAST.judge.quotes && CAST.judge.quotes.length) ? fmtLines(CAST.judge.quotes) : FIRST_BOSS_HECKLE_FALLBACKS;
+const FINAL_BOSS_QUIRK_POOL = (AUTHORITY_CAST && CAST.authority.quotes && CAST.authority.quotes.length) ? fmtLines(CAST.authority.quotes) : FINAL_BOSS_QUIRK_FALLBACKS;
+const firstBossHeckleLine = FIRST_BOSS_HECKLE || rngPick(gameRng, FIRST_BOSS_HECKLE_POOL);
+const finalBossQuirkLine = FINAL_BOSS_QUIRK || rngPick(gameRng, FINAL_BOSS_QUIRK_POOL);
+if(!FIRST_BOSS_HECKLE && JUDGE_CAST && CAST.judge.quotes && CAST.judge.quotes.length) logQuoteShown('judge');
+if(!FINAL_BOSS_QUIRK && AUTHORITY_CAST && CAST.authority.quotes && CAST.authority.quotes.length) logQuoteShown('authority');
 
 /* ======================================================================
    LEG PLAN -- terrain/duration/scroll-speed/gate-count are pure formulas
@@ -770,6 +858,8 @@ function enterBreather(fromLegIndex, toLegIndex){
     duration: 0, // computed below once tw exists
   };
   phaseData.duration = Math.max(MODE_BREATHER_TIME[currentMode], phaseData.tw.doneAt + 0.5);
+  // PEOPLE FIRST (SPEC-people.md round 1) -- see pickBreatherQuote's own header.
+  phaseData.quoteText = pickBreatherQuote();
   if(gag){ butterfingersGagShown = true; butterfingersPhone = { x: CW*0.5, y: -30, vy: 40, born: gameT }; if(actx) playPhoneDrop(actx.currentTime+0.3); }
   setBeatMusic(toLegIndex <= 1 ? 'dinner' : 'chase');
 }
@@ -784,6 +874,8 @@ function enterFinalApproachBreather(){
     tw: makeTypewriter(lines, 22, 0.35), duration: 0,
   };
   phaseData.duration = Math.max(MODE_BREATHER_TIME[currentMode], phaseData.tw.doneAt + 0.5);
+  // PEOPLE FIRST (SPEC-people.md round 1) -- see pickBreatherQuote's own header.
+  phaseData.quoteText = pickBreatherQuote();
   setBeatMusic('sad');
 }
 function updateBreather(dt){
@@ -931,7 +1023,12 @@ function enterCelebration(){
   setBeatMusic('celebration');
   if(actx){ playLanding(actx.currentTime); playMedalChime(actx.currentTime+0.4); }
   sayPunchline();
-  showBanner(CONFIG.punchline, null, 2.4);
+  // PEOPLE FIRST (SPEC-people.md round 1) -- "the host's quotes join
+  // their existing celebratory lines": the banner's sub-line becomes one
+  // of the host's own quotes when they have any (absent host quotes,
+  // `sub` stays null -- today's exact behavior).
+  const hostQuote = (CONFIG.host && CONFIG.host.quotes && CONFIG.host.quotes.length) ? nextQuoteFor('host', fmtLines(CONFIG.host.quotes)) : null;
+  showBanner(CONFIG.punchline, hostQuote, 2.4);
   spawnSparkleBurst(CW/2, 220, 20, gameT);
   markOneTankUnlocked();
   if(currentMode === 'onetank') updateOneTankBest(100);
@@ -956,12 +1053,16 @@ function endRunStalled(){
   const mr = computeMedalAndRank(false, true);
   phase = 'endcard'; phaseElapsed = 0;
   phaseData = { landed:false, stalled:true, distancePct: pct, rank: mr.rank, medal: mr.medal };
+  // PEOPLE FIRST (SPEC-people.md round 1) -- see buildCrewCredits' own header.
+  CREW_CREDITS = buildCrewCredits();
 }
 function enterEndcard(){
   const mr = computeMedalAndRank(true, false);
   phase = 'endcard'; phaseElapsed = 0;
   phaseData = { landed:true, stalled:false, distancePct:100, rank: mr.rank, medal: mr.medal };
   setBeatMusic('gameover');
+  // PEOPLE FIRST (SPEC-people.md round 1) -- see buildCrewCredits' own header.
+  CREW_CREDITS = buildCrewCredits();
 }
 function resetGame(){
   cardsShown.stallretry = false;
@@ -1207,6 +1308,11 @@ function drawBreatherBubble(ctx){
   const state = phaseData.tw.getState(phaseElapsed);
   const lines = phaseData.tw.lines.map((l,i)=>l.slice(0, state[i]));
   drawAutoBubble(ctx, lines, CW/2, 140, 15, 1);
+  // PEOPLE FIRST (SPEC-people.md round 1) -- a short second bubble, once
+  // the beat line itself is done typing, with one cast member's quote.
+  if(phaseData.quoteText && phaseData.tw.allDone(phaseElapsed)){
+    drawAutoBubble(ctx, phaseData.quoteText, CW/2, 200, 14, 1);
+  }
 }
 
 /* ---------------- title / getready / modeselect / endcard screens ---------------- */
@@ -1251,6 +1357,23 @@ function drawMedal(ctx, medal, cx, cy){
   const img = medal==='gold'?FLIGHT_IMG.medalGold : medal==='silver'?FLIGHT_IMG.medalSilver : FLIGHT_IMG.medalBronze;
   drawPacked(ctx, img, cx, cy, 80);
 }
+/* PEOPLE FIRST (SPEC-people.md round 1) -- THE WHOLE CREW (see
+   buildCrewCredits). No-op (returns y unchanged) when CREW_CREDITS is
+   empty -- absent quotes/extras, the end card renders byte-identical to
+   before this feature existed. */
+function drawCrewCredits(ctx, y){
+  if(!CREW_CREDITS.length) return y;
+  y += 8;
+  drawReadingText(ctx, 'THE WHOLE CREW', CW/2, y, 14, PAL.gold, 'center'); y += 20;
+  for(const c of CREW_CREDITS){
+    const line = c.quote ? (c.name + ': "' + c.quote + '"') : c.name;
+    const tw = measureReadingText(ctx, line, 11);
+    drawRosterSprite(ctx, c.sprite.sheet, c.sprite.col, c.sprite.row, CW/2 - tw/2 - 22, y-8, 1, false);
+    drawReadingText(ctx, line, CW/2, y, 11, PAL.cream, 'center');
+    y += 17;
+  }
+  return y + 8;
+}
 function drawEndcard(ctx){
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,CW,CH);
   drawChunkyText(ctx, CONFIG.punchline, CW/2, 30, 26, PAL.gold, PAL.outline, 'center');
@@ -1271,6 +1394,7 @@ function drawEndcard(ctx){
   }
   y += 8;
   if(BUILDER_CAST){ drawReadingText(ctx, 'BUILT BY '+fmt(CAST.builder.name).toUpperCase()+'.', CW/2, y, 12, PAL.cream, 'center'); y+=20; }
+  y = drawCrewCredits(ctx, y);
   drawReadingText(ctx, 'SEND THIS ONE TO THE GROUP CHAT.', CW/2, y, 13, PAL.cream, 'center'); y+=24;
   if(Math.floor(gameT*2)%2===0) drawReadingText(ctx, isTouch?'TAP TO PLAY AGAIN':'PRESS SPACE TO PLAY AGAIN', CW/2, y, 14, PAL.gold, 'center');
 }

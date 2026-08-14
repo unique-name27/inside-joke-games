@@ -109,6 +109,7 @@ function fmt(s){
   if(typeof s !== 'string') return s;
   return CONFIG.host ? s.split('{HOST}').join(CONFIG.host.name) : s;
 }
+function fmtLines(lines){ return lines.map(fmt); }
 
 const CAST = CONFIG.cast || {};
 // judge/authority are the BOSS FLEET here (antagonists), not player-side
@@ -187,8 +188,98 @@ function rngShuffled(rng, arr){
 }
 const GAME_SEED_BASE = CONFIG.gameId || 'mission';
 const gameRng = makeRng(GAME_SEED_BASE + ':mission:flavor');
-const firstBossHeckleLine = FIRST_BOSS_HECKLE || rngPick(gameRng, FIRST_BOSS_HECKLE_FALLBACKS);
-const finalBossQuirkLine = FINAL_BOSS_QUIRK || rngPick(gameRng, FINAL_BOSS_QUIRK_FALLBACKS);
+
+/* ======================================================================
+   PEOPLE FIRST (SPEC-people.md round 1) -- quotes-shown log every
+   tools/verify-mission.js's own PROBE reads (no duplicated literals),
+   seeded per-person quote rotation, and THE WHOLE CREW end-card credits.
+   Byte-identical implementation to gallery/flight/defense/engine.js's own
+   (duplicated per engine on purpose, same convention as the seeded RNG
+   above).
+   ====================================================================== */
+let QUOTES_SHOWN = {};
+function logQuoteShown(key){ QUOTES_SHOWN[key] = true; }
+const quoteRotators = {};
+function nextQuoteFor(key, quotes){
+  if(!quotes || !quotes.length) return null;
+  if(!quoteRotators[key]) quoteRotators[key] = { idx: rngInt(makeRng(GAME_SEED_BASE + ':quotes:' + key), quotes.length) };
+  const r = quoteRotators[key];
+  const q = quotes[r.idx % quotes.length];
+  r.idx++;
+  logQuoteShown(key);
+  return q;
+}
+let CREW_CREDITS = [];
+/* THE WHOLE CREW -- every `extras` entry (unconditional, when named --
+   also flown as up to 2 plain extra wingmen, see EXTRA_WINGMATE_ROLES/
+   drawWingmates) plus a safety-net sweep for any quoted host/judge/
+   authority/savior/butterfingers/builder who never got a natural
+   on-screen moment this playthrough (the between-stage chatter marquee,
+   the celebration banner, or the boss heckle/quirk pool below). diner0
+   IS one of the squadron's own wingmate roles here (see FORMATION_
+   OFFSETS.diner0) but still routes through the same safety-net role loop
+   below (not an unconditional listing) -- it still leads the list
+   whenever the block has ANYTHING to show ("listing diner0 + every
+   extras entry", SPEC-people.md). Built once, right when the end card is
+   entered (see enterEndcard below). */
+function buildCrewCredits(){
+  const list = [];
+  function pushCrew(key, name, spriteEntry, quotes){
+    if(!name) return;
+    list.push({ name: name, sprite: rosterResolveSprite(spriteEntry, 1, 7), quote: nextQuoteFor(key, quotes) });
+  }
+  const extrasArr = CONFIG.extras || [];
+  for(let i=0;i<extrasArr.length;i++){
+    const ex = extrasArr[i];
+    if(ex && ex.name) pushCrew('extra'+i, ex.name, { sprite: ex.sprite }, fmtLines(ex.quotes || []));
+  }
+  if(CONFIG.host && CONFIG.host.quotes && CONFIG.host.quotes.length && !QUOTES_SHOWN.host){
+    pushCrew('host', CONFIG.host.name, CONFIG.host, fmtLines(CONFIG.host.quotes));
+  }
+  for(const role of ['judge','authority','savior','butterfingers','builder']){
+    if(CAST[role] && CAST[role].quotes && CAST[role].quotes.length && !QUOTES_SHOWN[role]){
+      pushCrew(role, CAST[role].name, CAST[role], fmtLines(CAST[role].quotes));
+    }
+  }
+  const diner0HasUnshownQuotes = !!(CAST.diner0 && CAST.diner0.quotes && CAST.diner0.quotes.length && !QUOTES_SHOWN.diner0);
+  if(CAST.diner0 && CAST.diner0.name && (diner0HasUnshownQuotes || list.length)){
+    list.unshift({ name: CAST.diner0.name, sprite: rosterResolveSprite(CAST.diner0, 1, 7), quote: diner0HasUnshownQuotes ? nextQuoteFor('diner0', fmtLines(CAST.diner0.quotes)) : null });
+  }
+  return list;
+}
+/* between-stage chatter -- "one wingmate quote marqueed under the stage
+   banner (seeded rotation)" (SPEC-people.md). Pool = the squadron's own
+   FRIEND roles (savior/butterfingers/builder/diner0, this file's own
+   header) plus any flown extras (see EXTRA_WINGMATE_ROLES) -- judge/
+   authority are covered by the boss heckle/quirk pool below instead (a
+   real ambush/flagship encounter, not a chatter beat, is their own
+   natural spot), and host rides the celebration banner (see
+   enterCelebration). Round-robins across stage entries (never
+   Math.random); each speaker's own quote pick is nextQuoteFor's own
+   seeded rotation. Returns null (no chatter -- today's behavior) when
+   nobody eligible has quotes. */
+let chatterTurn = 0;
+function pickStageChatter(){
+  const slots = ['savior', 'butterfingers', 'builder', 'diner0'].concat(EXTRA_WINGMATE_ROLES);
+  const eligible = slots.filter(slot => personForWingmate(slot) && personForWingmate(slot).quotes && personForWingmate(slot).quotes.length);
+  if(!eligible.length) return null;
+  const slot = eligible[chatterTurn % eligible.length];
+  chatterTurn++;
+  const person = personForWingmate(slot);
+  return nextQuoteFor(slot, fmtLines(person.quotes));
+}
+
+/* PEOPLE FIRST -- "BOSSES FEEL REAL": when the relevant boss is cast and
+   has quotes, their own quotes REPLACE the neutral fallback pool for the
+   seeded pick below (config-typed firstBossHeckle/finalBossQuirk, if set,
+   still wins outright -- untouched). Absent quotes -- byte-identical to
+   the neutral-fallback-only behavior this file has always had. */
+const FIRST_BOSS_HECKLE_POOL = (JUDGE_CAST && CAST.judge.quotes && CAST.judge.quotes.length) ? fmtLines(CAST.judge.quotes) : FIRST_BOSS_HECKLE_FALLBACKS;
+const FINAL_BOSS_QUIRK_POOL = (AUTHORITY_CAST && CAST.authority.quotes && CAST.authority.quotes.length) ? fmtLines(CAST.authority.quotes) : FINAL_BOSS_QUIRK_FALLBACKS;
+const firstBossHeckleLine = FIRST_BOSS_HECKLE || rngPick(gameRng, FIRST_BOSS_HECKLE_POOL);
+const finalBossQuirkLine = FINAL_BOSS_QUIRK || rngPick(gameRng, FINAL_BOSS_QUIRK_POOL);
+if(!FIRST_BOSS_HECKLE && JUDGE_CAST && CAST.judge.quotes && CAST.judge.quotes.length) logQuoteShown('judge');
+if(!FINAL_BOSS_QUIRK && AUTHORITY_CAST && CAST.authority.quotes && CAST.authority.quotes.length) logQuoteShown('authority');
 
 /* ======================================================================
    ASSETS -- the Space Shooter Remastered pack (assets/mission/, CC0, see
@@ -470,7 +561,28 @@ const FORMATION_OFFSETS = {
   diner0:        { dx: 64, dy: 16 },
   butterfingers: { dx:-118, dy: 34 },
   builder:       { dx: 118, dy: 34 },
+  // PEOPLE FIRST (SPEC-people.md round 1) -- "the Mission flies up to 2
+  // extras as plain extra wingmen": two more fixed slots, further out
+  // than the 4 role wingmates above, no fire/no BUDGET_DPS credit (purely
+  // decorative formation members -- "plain", per spec) -- see
+  // EXTRA_WINGMATE_ROLES/personForWingmate/drawWingmates.
+  extra0:        { dx:-180, dy: 60 },
+  extra1:        { dx: 180, dy: 60 },
 };
+/* up to 2 `extras` entries, in order, each keyed 'extra0'/'extra1' -- see
+   FORMATION_OFFSETS' own comment. Empty when CONFIG.extras is absent/
+   empty, same as every other quotes/extras feature in this file. */
+const EXTRA_WINGMATE_ROLES = (CONFIG.extras || []).slice(0, 2).map((ex, i) => 'extra'+i).filter((role, i) => CONFIG.extras[i] && CONFIG.extras[i].name);
+/* resolves a wingmate slot (a FORMATION_OFFSETS key) to its {name,sprite,
+   quotes}-shaped person object -- 'diner0'/role names read CAST, 'extraN'
+   reads CONFIG.extras[N]. Used by pickStageChatter/drawWingmates so
+   neither has to special-case extras vs. cast roles separately. */
+function personForWingmate(slot){
+  if(slot === 'diner0') return CAST.diner0;
+  const extraMatch = /^extra(\d+)$/.exec(slot);
+  if(extraMatch) return (CONFIG.extras || [])[+extraMatch[1]];
+  return CAST[slot];
+}
 function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 function wingmatePos(role){
   const off = FORMATION_OFFSETS[role];
@@ -1032,6 +1144,11 @@ function enterStage(i, attempt){
   phaseData = { stageIndex: i, attempt, schedule, duration: schedule.duration, spawnIdx:0, meteorIdx:0, crateIdx:0, droneIdx:0, spreadIdx:0, awaitingRetry:false };
   setBeatMusic(i <= 1 ? 'dinner' : 'chase');
   showBanner('SWARM '+(i+1)+' -- '+MISSION_SWARMS[i], null, 2.2);
+  // PEOPLE FIRST (SPEC-people.md round 1) -- "between-stage squadron
+  // chatter -- one wingmate quote marqueed under the stage banner" -- see
+  // pickStageChatter's own header.
+  const chatter = pickStageChatter();
+  if(chatter) showMarquee(chatter, 2.4);
   if(actx) playStageClear(actx.currentTime);
 }
 function updateStage(dt){
@@ -1350,7 +1467,11 @@ function enterCelebration(){
   setBeatMusic('celebration');
   if(actx) playFanfare(actx.currentTime);
   sayPunchline();
-  showBanner(CONFIG.punchline, null, 2.4);
+  // PEOPLE FIRST (SPEC-people.md round 1) -- "the host's quotes join
+  // their existing celebratory lines": the banner's sub-line becomes one
+  // of the host's own quotes when they have any.
+  const hostQuote = (CONFIG.host && CONFIG.host.quotes && CONFIG.host.quotes.length) ? nextQuoteFor('host', fmtLines(CONFIG.host.quotes)) : null;
+  showBanner(CONFIG.punchline, hostQuote, 2.4);
   spawnConfetti();
 }
 function updateCelebration(dt){
@@ -1367,6 +1488,8 @@ function enterEndcard(){
   // (unlike flight/defense, whose end cards switch to `gameover`; only
   // Mission's OWN retry card uses `gameover` here).
   setBeatMusic('celebration');
+  // PEOPLE FIRST (SPEC-people.md round 1) -- see buildCrewCredits' own header.
+  CREW_CREDITS = buildCrewCredits();
 }
 function resetGame(){
   cardsShown.stallretry = false;
@@ -1480,7 +1603,7 @@ function drawPlayerShip(ctx){
   }
 }
 function drawWingmateFace(ctx, role, x, y, fallbackCol, fallbackRow){
-  const entry = role==='diner0' ? CAST.diner0 : CAST[role];
+  const entry = personForWingmate(role);
   const face = rosterResolveSprite(entry, fallbackCol, fallbackRow);
   drawEngineTrail(ctx, x, y+16, 0.7);
   drawPacked(ctx, MISSION_IMG['playerShip1_'+MISSION_SHIP_COLOR], x, y, 32);
@@ -1494,6 +1617,9 @@ function drawWingmates(ctx){
   if(SAVIOR_CAST){ const p = wingmatePos('savior'); drawWingmateFace(ctx, 'savior', p.x, p.y, 2, 7); }
   if(BUTTERFINGERS_CAST){ const p = wingmatePos('butterfingers'); drawWingmateFace(ctx, 'butterfingers', p.x, p.y, 3, 8); }
   if(BUILDER_CAST){ const p = wingmatePos('builder'); drawWingmateFace(ctx, 'builder', p.x, p.y, 2, 8); }
+  // PEOPLE FIRST (SPEC-people.md round 1) -- "the Mission flies up to 2
+  // extras as plain extra wingmen" -- see EXTRA_WINGMATE_ROLES.
+  for(const role of EXTRA_WINGMATE_ROLES){ const p = wingmatePos(role); drawWingmateFace(ctx, role, p.x, p.y, 1, 7); }
 }
 function drawBuilderDrone(ctx){
   if(!builderDrone) return;
@@ -1618,6 +1744,23 @@ function drawMedal(ctx, cx, cy){
   ctx.save(); ctx.fillStyle=PAL.gold; ctx.beginPath(); ctx.arc(cx,cy,26,0,Math.PI*2); ctx.fill();
   ctx.fillStyle=PAL.outline; ctx.lineWidth=3; ctx.stroke(); ctx.restore();
 }
+/* PEOPLE FIRST (SPEC-people.md round 1) -- THE WHOLE CREW (see
+   buildCrewCredits). No-op (returns y unchanged) when CREW_CREDITS is
+   empty -- absent quotes/extras, the end card renders byte-identical to
+   before this feature existed. */
+function drawCrewCredits(ctx, y){
+  if(!CREW_CREDITS.length) return y;
+  y += 6;
+  drawReadingText(ctx, 'THE WHOLE CREW', CW/2, y, 13, PAL.gold, 'center'); y += 17;
+  for(const c of CREW_CREDITS){
+    const line = c.quote ? (c.name + ': "' + c.quote + '"') : c.name;
+    const tw = measureReadingText(ctx, line, 11);
+    drawRosterSprite(ctx, c.sprite.sheet, c.sprite.col, c.sprite.row, CW/2 - tw/2 - 20, y-8, 1, false);
+    drawReadingText(ctx, line, CW/2, y, 11, PAL.cream, 'center');
+    y += 15;
+  }
+  return y + 6;
+}
 function drawEndcard(ctx){
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,CW,CH);
   drawChunkyText(ctx, 'MISSION: '+MISSION_LINE, CW/2, 16, 18, PAL.gold, PAL.outline, 'center');
@@ -1634,6 +1777,7 @@ function drawEndcard(ctx){
   }
   y += 6;
   if(BUILDER_CAST){ drawReadingText(ctx, 'BUILT BY '+fmt(CAST.builder.name).toUpperCase()+'.', CW/2, y, 12, PAL.cream, 'center'); y+=18; }
+  y = drawCrewCredits(ctx, y);
   drawReadingText(ctx, 'SEND THIS ONE TO THE GROUP CHAT.', CW/2, y, 13, PAL.cream, 'center'); y+=22;
   if(Math.floor(gameT*2)%2===0) drawReadingText(ctx, isTouch?'TAP TO PLAY AGAIN':'PRESS SPACE TO PLAY AGAIN', CW/2, y, 14, PAL.gold, 'center');
 }

@@ -40,6 +40,7 @@ const CONFIG = {
 
   host: {
     name: 'TAYLOR',
+    quotes: ['WE ARE NOT LOST. THE MAP IS WRONG.', 'I HAVE A PLAYLIST FOR EVERY MOOD.'],
   },
 
   music: {
@@ -66,12 +67,12 @@ const CONFIG = {
   ],
 
   cast: {
-    diner0: { name: 'THE FOURTH RIDER', spriteCol: 1, spriteRow: 7, anecdote: 'Calls shotgun every single time.' },
-    judge: { name: 'THE MAP GUY', spriteCol: 4, spriteRow: 8, anecdote: 'Argues with the GPS out loud.' },
-    authority: { name: 'DEVON', anecdote: 'Booked the whole trip and takes reviews personally.' },
-    savior: { name: 'THE SNACK RUN GUY', anecdote: 'Always back with exactly the right gas-station find.' },
+    diner0: { name: 'THE FOURTH RIDER', spriteCol: 1, spriteRow: 7, anecdote: 'Calls shotgun every single time.', quotes: ['I CALL SHOTGUN. EVERY TIME.', 'WINDOW SEAT OR NO DEAL.'] },
+    judge: { name: 'THE MAP GUY', spriteCol: 4, spriteRow: 8, anecdote: 'Argues with the GPS out loud.', quotes: ['TURN LEFT. NO, WAIT, RIGHT.', 'THE GPS IS OFFENDED BY MY DRIVING.'] },
+    authority: { name: 'DEVON', anecdote: 'Booked the whole trip and takes reviews personally.', quotes: ['I BOOKED THIS TRIP MONTHS IN ADVANCE.', 'FIVE STARS OR IT DIDN\'T HAPPEN.'] },
+    savior: { name: 'THE SNACK RUN GUY', anecdote: 'Always back with exactly the right gas-station find.', quotes: ['I ALWAYS COME BACK WITH SOMETHING GOOD.', 'GAS STATION SNACKS ARE UNDERRATED.'] },
     butterfingers: null, // uncast on purpose -- proves a non-dinner scene degrades gracefully too
-    builder: { name: 'THE PLAYLIST GUY', spriteCol: 2, spriteRow: 8, anecdote: 'Built this exact game on the drive home.' },
+    builder: { name: 'THE PLAYLIST GUY', spriteCol: 2, spriteRow: 8, anecdote: 'Built this exact game on the drive home.', quotes: ['I MADE A PLAYLIST FOR THE WHOLE DRIVE.', 'THIS SONG IS THE OFFICIAL ROAD TRIP SONG.'] },
   },
 
   judge: {

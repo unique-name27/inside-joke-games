@@ -170,6 +170,124 @@ function castSprite(slot, fallbackCol, fallbackRow){
   return rosterResolveSprite(CAST[slot], fallbackCol, fallbackRow);
 }
 
+/* ======================================================================
+   PEOPLE FIRST (SPEC-people.md, round 1) -- seeded RNG (byte-identical
+   implementation to gallery/flight/defense/mission/engine.js's own; this
+   is the Hangout's first use of a seeded rng, so it doesn't exist yet
+   anywhere else in this file) + the quotes-shown log every per-template
+   verify driver's own PROBE reads (see tools/verify-config.js), plus THE
+   WHOLE CREW end-card credits (diner0 + extras, always; a deterministic
+   safety-net sweep for any other quoted host/cast role that never found a
+   natural on-screen moment this playthrough -- see this file's own
+   breather/CRITIC_*_LINES/celebration hookups below for the "natural"
+   spots tried first). Absent quotes/extras everywhere = every function
+   here is a no-op and QUOTES_SHOWN/CREW_CREDITS stay empty -- byte-
+   identical to today's behavior. */
+function seedFromString(str){
+  const h = parseInt(cfgHashString(str), 36);
+  return (isFinite(h) && h !== 0) ? (h >>> 0) : 0x9e3779b9;
+}
+function makeRng(seedStr){
+  let s = seedFromString(seedStr);
+  return function(){
+    s |= 0; s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function rngInt(rng, n){ return Math.floor(rng() * n); }
+const QUOTES_SEED_BASE = CONFIG.gameId || 'game';
+let QUOTES_SHOWN = {};
+function logQuoteShown(key){ QUOTES_SHOWN[key] = true; }
+const quoteRotators = {};
+/* seeded rotation through `quotes` for a given stable `key` (role name,
+   'host', 'diner0', 'extraN', ...) -- the FIRST call for a key picks a
+   seeded starting index (so different games open on a different one of
+   the person's 1-3 quotes), every subsequent call for that same key
+   advances to the next quote in order. Marks the key shown. Returns null
+   (never throws/never picks) when there's nothing to pick from. */
+function nextQuoteFor(key, quotes){
+  if(!quotes || !quotes.length) return null;
+  if(!quoteRotators[key]){
+    quoteRotators[key] = { idx: rngInt(makeRng(QUOTES_SEED_BASE + ':quotes:' + key), quotes.length) };
+  }
+  const r = quoteRotators[key];
+  const q = quotes[r.idx % quotes.length];
+  r.idx++;
+  logQuoteShown(key);
+  return q;
+}
+let CREW_CREDITS = [];
+/* THE WHOLE CREW (SPEC-people.md round 1) -- every `extras` entry
+   (unconditional, when named) plus a safety-net sweep: any quoted host/
+   judge/authority/savior/butterfingers/builder who never got a natural
+   on-screen moment this playthrough (the breather, the celebration
+   text-pop, or the CRITIC_*_LINES pool above) still gets guaranteed >=1
+   quote here. diner0 leads the list whenever the block has ANYTHING to
+   show (their own quote if they have one, else just their name/sprite --
+   "listing diner0 + every extras entry", SPEC-people.md) -- but is
+   otherwise left out entirely, the same "nobody qualifies -> no block"
+   rule everyone else follows, so a diner0 with no quotes on an otherwise
+   quote-less/extras-less config (every config that predates this
+   feature) never earns a credits line of their own and the block stays
+   fully absent -- byte-identical to today. Built once, right when the
+   end card is entered (see enterPhase('endcard') below) -- CREW_CREDITS
+   is read directly by drawPhaseEndcard and by tools/verify-config.js's
+   own PROBE. */
+function buildCrewCredits(){
+  const list = [];
+  function pushCrew(key, name, spriteEntry, quotes){
+    if(!name) return;
+    list.push({ name: name, sprite: rosterResolveSprite(spriteEntry, 1, 7), quote: nextQuoteFor(key, quotes) });
+  }
+  const extrasArr = CONFIG.extras || [];
+  for(let i=0;i<extrasArr.length;i++){
+    const ex = extrasArr[i];
+    if(ex && ex.name) pushCrew('extra'+i, ex.name, { sprite: ex.sprite }, ex.quotes);
+  }
+  if(CONFIG.host && CONFIG.host.quotes && CONFIG.host.quotes.length && !QUOTES_SHOWN.host){
+    pushCrew('host', CONFIG.host.name, CONFIG.host, CONFIG.host.quotes);
+  }
+  for(const role of ['judge','authority','savior','butterfingers','builder']){
+    if(CAST[role] && CAST[role].quotes && CAST[role].quotes.length && !QUOTES_SHOWN[role]){
+      pushCrew(role, CAST[role].name, CAST[role], CAST[role].quotes);
+    }
+  }
+  const diner0HasQuotes = !!(CAST.diner0 && CAST.diner0.quotes && CAST.diner0.quotes.length);
+  if(CAST.diner0 && CAST.diner0.name && (diner0HasQuotes || list.length)){
+    list.unshift({ name: CAST.diner0.name, sprite: rosterResolveSprite(CAST.diner0, 1, 7), quote: diner0HasQuotes ? nextQuoteFor('diner0', CAST.diner0.quotes) : null });
+  }
+  return list;
+}
+/* the dinner-beat breather quote spot -- "between dinner-beat story
+   rounds, one seated diner says one of their own quotes" (SPEC-people.md).
+   Eligible speakers are the (up to) 4 seated diner slots -- diner0/judge/
+   butterfingers/builder, DINER_DEFS' own index order -- that both have
+   quotes AND are still actually seated (not yet walking/retired; true for
+   every Beat 1 breather regardless, since nobody stands up before
+   beat2_intro, but checked anyway for safety). Round-robins across
+   breather occurrences (never Math.random); each speaker's own quote pick
+   is the seeded rotation nextQuoteFor already provides. Returns null
+   (today's behavior -- no bubble) when nobody eligible has quotes. */
+let breatherQuoteTurn = 0;
+function pickBreatherQuoteSpeaker(){
+  const slots = ['diner0', 'judge', 'butterfingers', 'builder'];
+  const eligible = [];
+  for(let i=0;i<DINER_DEFS.length;i++){
+    const entry = CAST[slots[i]];
+    const d = diners[i];
+    if(entry && entry.quotes && entry.quotes.length && d && !d.walking && !d.retired){
+      eligible.push({ dinerIdx: i, slot: slots[i], quotes: fmtLines(entry.quotes) });
+    }
+  }
+  if(!eligible.length) return null;
+  const pick = eligible[breatherQuoteTurn % eligible.length];
+  breatherQuoteTurn++;
+  const quote = nextQuoteFor(pick.slot, pick.quotes);
+  return quote ? { dinerIdx: pick.dinerIdx, quote: quote } : null;
+}
+
 /* canvas/ctx/fitCanvas/isTouch/rotatePromptActive now live in
    shared/framework.js (loaded before this script) -- see its header for the
    full rationale. */
@@ -1171,8 +1289,15 @@ const ROUNDS = CONFIG.stories.slice(0, roundsCount()).map(r=>({ lines: fmtLines(
 const CRITIQUE_LINES = (JUDGE_CAST ? CONFIG.judge.critiqueLines : []).map(fmtLines);
 /* the CRITIC's throw-reaction insults, aimed at the host -- he snarks whether
    he ducks the bottle or eats it. Cycled in order. */
-const CRITIC_DUCK_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.duckLines) : [];
-const CRITIC_HIT_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.hitLines) : [];
+// PEOPLE FIRST (SPEC-people.md round 1) -- "Hangout bosses keep their
+// hand-written/config dialogue; their quotes join the taunt rotation
+// where a pool already exists" -- duckLines/hitLines are exactly that
+// pool, so the judge's own quotes are APPENDED (never replace the
+// hand-written lines) via fmtLines' own no-op-when-empty behavior;
+// absent CAST.judge.quotes = these two arrays stay byte-identical.
+const CRITIC_JUDGE_QUOTES = JUDGE_CAST ? fmtLines(CAST.judge.quotes || []) : [];
+const CRITIC_DUCK_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.duckLines).concat(CRITIC_JUDGE_QUOTES) : [];
+const CRITIC_HIT_LINES = JUDGE_CAST ? fmtLines(CONFIG.judge.hitLines).concat(CRITIC_JUDGE_QUOTES) : [];
 let criticDuckIndex = 0, criticHitIndex = 0;
 let playerBubble = null; // {text, born} -- small bubble over the host's head
 
@@ -1418,7 +1543,11 @@ function enterPhase(name){
     phaseData.promptStart = gameT;
     phaseData.tw = prevData.tw;
   } else if(name==='breather'){
-    // nothing
+    // PEOPLE FIRST (SPEC-people.md round 1) -- see pickBreatherQuoteSpeaker's
+    // own header. Absent quotes everywhere = speaker is always null here,
+    // same today's-behavior "nothing" this branch used to be a no-op for.
+    const speaker = pickBreatherQuoteSpeaker();
+    if(speaker){ phaseData.quoteDinerIdx = speaker.dinerIdx; phaseData.quoteText = speaker.quote; }
   } else if(name==='beat2_intro'){
     diners[CRITIC_INDEX].bubbleText = CONFIG.dismissiveLine;
     diners[CRITIC_INDEX].bubbleShownAt = gameT;
@@ -1531,11 +1660,18 @@ function enterPhase(name){
     });
     phaseData.lastHaAt = participants.map(()=> -999);
     phaseData.confetti = spawnConfettiField(100);
+    // PEOPLE FIRST (SPEC-people.md round 1) -- "the host's quotes join
+    // their existing celebratory lines": the LAST text-pop shows one of
+    // the host's own quotes instead of the punchline when they have any
+    // (drawPhaseCelebration reads each pop's own `text`, see below) --
+    // absent host quotes, `text` stays undefined and drawPhaseCelebration
+    // falls back to CONFIG.punchline, today's exact behavior.
+    const hostQuote = (CONFIG.host && CONFIG.host.quotes && CONFIG.host.quotes.length) ? nextQuoteFor('host', fmtLines(CONFIG.host.quotes)) : null;
     phaseData.textPops = [
       {at:0.2, x:CW*0.22, y:CH*0.26, px:28},
       {at:1.3, x:CW*0.78, y:CH*0.62, px:28},
       {at:2.4, x:CW*0.22, y:CH*0.68, px:28},
-      {at:3.4, x:CW*0.78, y:CH*0.24, px:28}
+      {at:3.4, x:CW*0.78, y:CH*0.24, px:28, text: hostQuote || undefined}
     ];
     phaseData.flashesAt = [1.0, 3.2];
     phaseData.flashesFired = [false, false];
@@ -1619,6 +1755,9 @@ function enterPhase(name){
       setLocalFlag(skey('hard_cleared'));
       hardCleared = true;
     }
+    // PEOPLE FIRST (SPEC-people.md round 1) -- THE WHOLE CREW, built once
+    // here (see buildCrewCredits' own header). Empty when nobody qualifies.
+    CREW_CREDITS = buildCrewCredits();
   } else if(name==='gameover'){
     // whole table reacts
     setBeatMusic('gameover');
@@ -1708,6 +1847,7 @@ function throwBottle(){
     // the critic can't resist rubbing it in -- insult aimed at the host, not the bottle
     const line = CRITIC_DUCK_LINES[criticDuckIndex % CRITIC_DUCK_LINES.length];
     criticDuckIndex++;
+    if(CRITIC_JUDGE_QUOTES.indexOf(line) !== -1) logQuoteShown('judge');
     boss.bubble = { text: [line], born: gameT };
     speakCritique(line);
   }
@@ -1720,6 +1860,7 @@ function checkBossHit(){
     // he takes the hit and insults the host anyway
     const line = CRITIC_HIT_LINES[criticHitIndex % CRITIC_HIT_LINES.length];
     criticHitIndex++;
+    if(CRITIC_JUDGE_QUOTES.indexOf(line) !== -1) logQuoteShown('judge');
     boss.bubble = { text: [line], born: gameT };
     speakCritique(line);
   }
@@ -3067,7 +3208,14 @@ function drawPhaseCapture(ctx){
   }
   if(roundIndex===0) drawReadingTextOutlined(ctx, 'CATCH THE LAUGHS!', CW/2, CH-36, 16, PAL.cream, '#000000', 'center');
 }
-function drawPhaseBreather(ctx){ drawBaseScene(ctx); }
+function drawPhaseBreather(ctx){
+  drawBaseScene(ctx);
+  // PEOPLE FIRST (SPEC-people.md round 1) -- see pickBreatherQuoteSpeaker.
+  if(phaseData.quoteDinerIdx!=null){
+    const d = diners[phaseData.quoteDinerIdx];
+    if(d && !d.walking && !d.retired) drawAutoBubble(ctx, phaseData.quoteText, d.x, d.y-64, 16, 1);
+  }
+}
 function drawPhaseBeat2Intro(ctx){
   drawBaseScene(ctx);
   if(phaseElapsed<1.6){
@@ -3320,7 +3468,7 @@ function drawPhaseCelebration(ctx){
       ctx.globalAlpha = banner.alpha;
       ctx.translate(pop.x, pop.y);
       ctx.scale(banner.scale, banner.scale);
-      drawChunkyText(ctx, CONFIG.punchline, 0, 0, pop.px, PAL.gold, PAL.outline, 'center');
+      drawChunkyText(ctx, pop.text || CONFIG.punchline, 0, 0, pop.px, PAL.gold, PAL.outline, 'center');
       ctx.restore();
     }
   }
@@ -3438,6 +3586,23 @@ function drawPhaseFreeze(ctx){
   drawBaseScene(ctx);
   drawChunkyText(ctx, CONFIG.punchline, CW/2, CH/2-20, 60, PAL.gold, PAL.outline, 'center');
 }
+/* PEOPLE FIRST (SPEC-people.md round 1) -- THE WHOLE CREW: diner0 +
+   extras + the safety-net sweep (see buildCrewCredits). No-op (returns y
+   unchanged) when CREW_CREDITS is empty -- absent quotes/extras, the end
+   card renders byte-identical to before this feature existed. */
+function drawCrewCredits(ctx, y){
+  if(!CREW_CREDITS.length) return y;
+  y += 10;
+  drawReadingText(ctx, 'THE WHOLE CREW', CW/2, y, 15, PAL.gold, 'center'); y += 22;
+  for(const c of CREW_CREDITS){
+    const line = c.quote ? (c.name + ': "' + c.quote + '"') : c.name;
+    const tw = measureReadingText(ctx, line, 12);
+    drawTile(ctx, rawTile(sheetImage(c.sprite.sheet), c.sprite.col, c.sprite.row), CW/2 - tw/2 - 24, y-8, 1.1, false, false);
+    drawReadingText(ctx, line, CW/2, y, 12, PAL.cream, 'center');
+    y += 20;
+  }
+  return y + 10;
+}
 function drawPhaseEndcard(ctx){
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,CW,CH);
   drawChunkyText(ctx, CONFIG.punchline, CW/2, 130, 54, PAL.gold, PAL.outline, 'center');
@@ -3471,6 +3636,7 @@ function drawPhaseEndcard(ctx){
     // already unlocked -- small corner note instead of taking over the card
     drawReadingText(ctx, 'HARD MODE UNLOCKED', CW-10, 10, 11, PAL.cream, 'right');
   }
+  y = drawCrewCredits(ctx, y);
   if(Math.floor(phaseElapsed)%2===0) drawPixelText(ctx, 'PRESS START', CW/2, y, 16, PAL.cream, 'center');
 }
 function drawPhaseLoseCard(ctx){

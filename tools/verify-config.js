@@ -119,6 +119,30 @@ function __selectHardMode(){
     confirmModeSelect();
   }
 }
+/* PEOPLE FIRST (SPEC-people.md round 1) -- __quotesCoverage reports which
+   host/cast members ACTUALLY have quotes in this config (\`expected\`) vs.
+   which ones the engine's own QUOTES_SHOWN log recorded as having shown
+   one on screen this playthrough (\`shown\`) -- the driver below just
+   diffs the two arrays, never re-typing a name/role here (see this
+   engine's own buildCrewCredits/nextQuoteFor/pickBreatherQuoteSpeaker/
+   CRITIC_*_LINES hookups for how each gets covered). __crewCredits
+   reports the extras names this config defines vs. the names THE WHOLE
+   CREW end-card block actually listed (built once at enterPhase(
+   'endcard'), see buildCrewCredits). Both are empty/trivially-satisfied
+   for any quote-less config, by construction. */
+function __quotesCoverage(){
+  function hasQ(e){ return !!(e && e.quotes && e.quotes.length); }
+  var expected = [];
+  if(hasQ(CONFIG.host)) expected.push('host');
+  ['judge','authority','savior','butterfingers','builder'].forEach(function(r){ if(hasQ(CAST[r])) expected.push(r); });
+  if(hasQ(CAST.diner0)) expected.push('diner0');
+  return { expected: expected, shown: Object.keys(QUOTES_SHOWN) };
+}
+function __crewCredits(){
+  var extrasNames = (CONFIG.extras || []).filter(function(e){ return e && e.name; }).map(function(e){ return e.name; });
+  var creditsShown = CREW_CREDITS.map(function(c){ return c.name; });
+  return { extrasNames: extrasNames, creditsShown: creditsShown };
+}
 /* PHASE C (characters are their people) -- tools/verify-skeletons.js's own
    roster-defaults check reads this: every place a cast/host sprite
    resolves to an actual {sheet,col,row}, so it can assert an unpicked
@@ -250,6 +274,18 @@ function verifyConfigSource(configSource, opts){
     phaseReached = drivePlaythrough(sb);
     if(phaseReached !== 'endcard'){
       errors.push('attentive playthrough did not reach the end card (stopped at "' + phaseReached + '")');
+    } else {
+      // PEOPLE FIRST (SPEC-people.md round 1) -- every host/cast member with
+      // quotes surfaced >=1 of them somewhere this playthrough, and every
+      // named `extras` entry made it into THE WHOLE CREW end-card block.
+      const qc = sb.__quotesCoverage();
+      for(const key of qc.expected){
+        if(qc.shown.indexOf(key) === -1) errors.push('quotes: "' + key + '" has quotes but none ever showed on screen');
+      }
+      const cc = sb.__crewCredits();
+      for(const name of cc.extrasNames){
+        if(cc.creditsShown.indexOf(name) === -1) errors.push('credits: extras entry "' + name + '" missing from THE WHOLE CREW end-card block');
+      }
     }
   }catch(e){
     if(e instanceof SyntaxError) throw e; // malformed JS -- let the caller treat this distinctly

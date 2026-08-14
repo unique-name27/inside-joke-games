@@ -19,7 +19,8 @@ const CONFIG = {
   "punchline": "THAT'S NOT HOW YOU PLAY THAT.",
   "host": {
     "name": "PRIYA",
-    "sprite": "mohawk"
+    "sprite": "mohawk",
+    "quotes": ["I READ THE RULEBOOK. COVER TO COVER.", "GAME NIGHT IS SACRED. DO NOT BE LATE."]
   },
   "music": {
     "customSongPath": null,
@@ -51,38 +52,44 @@ const CONFIG = {
       "name": "THE FOURTH FRIEND",
       "spriteCol": 1,
       "spriteRow": 7,
-      "anecdote": "Always up for anything."
+      "anecdote": "Always up for anything.",
+      "quotes": ["I'M ALWAYS UP FOR ANYTHING.", "SIGN ME UP FOR THE NEXT ROUND."]
     },
     "judge": {
       "name": "THE SCOREKEEPER",
       "anecdote": "Tracks points more carefully than the actual rulebook.",
       "spriteCol": 4,
       "spriteRow": 8,
-      "sprite": "grandma"
+      "sprite": "grandma",
+      "quotes": ["I TRACK POINTS BETTER THAN THE RULEBOOK.", "THAT MOVE WAS ILLEGAL. I HAVE NOTES."]
     },
     "authority": {
       "name": "THE HOA PRESIDENT",
       "anecdote": "Has opinions about the driveway chalk.",
-      "sprite": "beard"
+      "sprite": "beard",
+      "quotes": ["THE DRIVEWAY CHALK IS A VIOLATION.", "I HAVE OPINIONS. MANY OPINIONS."]
     },
     "savior": {
       "name": "THE PEACEMAKER",
       "anecdote": "Steps in right before someone flips the table.",
-      "sprite": "overalls"
+      "sprite": "overalls",
+      "quotes": ["NOBODY IS FLIPPING THIS TABLE TONIGHT.", "LET'S ALL JUST TAKE A BREATH."]
     },
     "butterfingers": {
       "name": "THE ONE WHO KNOCKS THE BOARD",
       "anecdote": "Has ended three games with one elbow.",
       "spriteCol": 3,
       "spriteRow": 8,
-      "sprite": "braid"
+      "sprite": "braid",
+      "quotes": ["MY ELBOW HAS ENDED THREE GAMES.", "IT WAS AN ACCIDENT. AGAIN."]
     },
     "builder": {
       "name": "THE GROUP'S SCORE APP",
       "anecdote": "Built this exact game during a rain delay.",
       "spriteCol": 2,
       "spriteRow": 8,
-      "sprite": "vest"
+      "sprite": "vest",
+      "quotes": ["I BUILT THIS DURING A RAIN DELAY.", "THE SCOREBOARD NEVER LIES."]
     }
   },
   "rankNames": {

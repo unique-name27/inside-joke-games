@@ -18,7 +18,8 @@ const CONFIG = {
   },
   "punchline": "SO TRUE.",
   "host": {
-    "name": "JORDAN"
+    "name": "JORDAN",
+    "quotes": ["I MADE A SEATING CHART FOR FOUR PEOPLE.", "THE APPETIZERS ARE A SURPRISE. TO ME TOO."]
   },
   "music": {
     "customSongPath": null,
@@ -51,7 +52,8 @@ const CONFIG = {
       "name": "THE FOURTH FRIEND",
       "spriteCol": 1,
       "spriteRow": 7,
-      "anecdote": "Always up for anything."
+      "anecdote": "Always up for anything.",
+      "quotes": ["I'M ALWAYS UP FOR ANYTHING.", "SIGN ME UP FOR THE NEXT ROUND."]
     },
     "judge": null,
     "authority": null,
@@ -60,13 +62,15 @@ const CONFIG = {
       "name": "MORGAN",
       "anecdote": "Takes 40 photos of every plate.",
       "spriteCol": 3,
-      "spriteRow": 8
+      "spriteRow": 8,
+      "quotes": ["LET ME GET THE LIGHTING RIGHT.", "THIS IS FOR THE GROUP CHAT LATER."]
     },
     "builder": {
       "name": "RILEY",
       "anecdote": "Builds something every time we hang out.",
       "spriteCol": 2,
-      "spriteRow": 8
+      "spriteRow": 8,
+      "quotes": ["I ALREADY STARTED BUILDING SOMETHING.", "IT WORKS. MOSTLY."]
     }
   },
   "dismissiveLine": "OKAY. WE GET IT.",
