@@ -715,14 +715,41 @@ function cfgObj(fields, nullable){ return { type:'object', fields: fields, nulla
 var CFG_ROSTER_KEYS = (typeof ROSTER_KEYS !== 'undefined') ? ROSTER_KEYS
   : (typeof require === 'function' ? (function(){ try{ return require('./roster.js').ROSTER_KEYS; }catch(e){ return []; } })() : []);
 
+/* PEOPLE FIRST (SPEC-people.md, round 1) -- `quotes`: 1-3 things this
+   person actually said, word for word, capped 60 chars each (the same
+   "structural ceiling only, UX minimum lives in the wizard" split every
+   other array field in this schema draws -- the wizard's own 1-3 minimum
+   is never codec-enforced). Optional everywhere -- absent = every
+   existing config/fragment's behavior, byte-identical (see each engine's
+   own quote-surfacing code, which always treats a missing/empty
+   `quotes` the same as "this person doesn't have any"). Rendered
+   uppercased, same as every other display string -- the wizard/generator
+   uppercase at compile time, engines trust the config as-is. */
 var CFG_CAST_ENTRY_FIELDS = {
   name: cfgStr(40),
   spriteCol: cfgNum(0, 15),
   spriteRow: cfgNum(0, 15),
   sprite: cfgEnum(CFG_ROSTER_KEYS),
   anecdote: cfgStr(160),
+  quotes: cfgArr(3, cfgStr(60)),
 };
 function cfgCastEntry(nullable){ return cfgObj(CFG_CAST_ENTRY_FIELDS, nullable); }
+
+/* PEOPLE FIRST -- `extras`: people beyond host + the five roles + diner0
+   (today's one "extra friend" slot) -- the wizard's People step allows up
+   to 6 people total, so up to 2 can land here once host+diner0+however
+   many roles are assigned. Deliberately its own small field set (not
+   CFG_CAST_ENTRY_FIELDS) -- an extra has no role-specific fields
+   (anecdote/spriteCol/spriteRow back-compat) to carry, just name/sprite/
+   quotes. See each engine's own "THE WHOLE CREW" end-card credits block
+   (every template) and, where the fiction supports it (Gallery's target
+   pool, Mission's extra wingmen), a second, cheap use. */
+var CFG_EXTRA_ENTRY_FIELDS = {
+  name: cfgStr(40),
+  sprite: cfgEnum(CFG_ROSTER_KEYS),
+  quotes: cfgArr(3, cfgStr(60)),
+};
+function cfgExtraEntry(){ return cfgObj(CFG_EXTRA_ENTRY_FIELDS); }
 
 /* the ONE narrow, deliberate exception to "no music from a fragment,
    ever": an ENUM pick among a FIXED set of built-in stock tracks (never
@@ -913,7 +940,12 @@ var CFG_FRAGMENT_SCHEMA = {
   // rosterResolveSprite is the one place that resolves it, for host and
   // cast alike). Absent (every pre-Phase-C config/fragment) resolves to
   // today's hardcoded host tile -- see game/engine.js's drawHost.
-  host: cfgObj({ name: cfgStr(40), spriteCol: cfgNum(0, 15), spriteRow: cfgNum(0, 15), sprite: cfgEnum(CFG_ROSTER_KEYS) }),
+  host: cfgObj({ name: cfgStr(40), spriteCol: cfgNum(0, 15), spriteRow: cfgNum(0, 15), sprite: cfgEnum(CFG_ROSTER_KEYS), quotes: cfgArr(3, cfgStr(60)) }),
+  // PEOPLE FIRST (SPEC-people.md, round 1) -- people beyond host + the
+  // five roles + diner0; see CFG_EXTRA_ENTRY_FIELDS's own comment. The
+  // one new top-level key this feature adds -- append-only, same as
+  // every other top-level field here.
+  extras: cfgArr(2, cfgExtraEntry()),
   forbiddenWords: cfgArr(10, cfgStr(30)),
   stories: cfgArr(4, cfgObj({ lines: cfgArr(2, cfgStr(80)) })),
   dismissiveLine: cfgStr(80),
