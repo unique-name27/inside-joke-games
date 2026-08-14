@@ -67,7 +67,9 @@ function parseArgs(argv){
 }
 
 /* ---------------------------------------------------------------------
-   Q1-Q12 answers -> CONFIG overrides
+   Q1-Q11 answers -> CONFIG overrides (see tools/README.md for the
+   current people[]/assign{} shape, plus the legacy host/cast/anecdotes
+   shape this still accepts unchanged -- both are handled below).
    --------------------------------------------------------------------- */
 const ROLE_KEY = { critic: 'judge', boss: 'authority', savior: 'savior', butterfingers: 'butterfingers', builder: 'builder' };
 const DEFAULT_SPRITE = {
@@ -148,6 +150,32 @@ function wrapLineKeepCase(raw, maxLen){
 const FLIGHT_PLANE_COLORS = ['yellow', 'red', 'blue', 'green'];
 const MISSION_SHIP_COLORS = ['blue', 'green', 'orange', 'red'];
 
+/* PEOPLE FIRST (SPEC-people.md round 2) -- resolves an `assign.<role>`
+   value to an index into `answers.people`: a number is used as-is (bounds-
+   checked), a string is matched against each person's own `name`, exact
+   after trimming and case-folding (a hand-written answers.json is more
+   naturally authored with names than array positions -- "assign.host:
+   index-or-exact-name", this round's own spec). Returns -1 when nothing
+   matches (absent, out of range, or no name equals the given string) --
+   callers treat that as "unassigned", same as an explicit `null`. */
+function resolvePersonIndex(ref, people){
+  if(typeof ref === 'number') return (ref >= 0 && ref < people.length) ? ref : -1;
+  if(typeof ref === 'string'){
+    const needle = ref.trim().toLowerCase();
+    if(!needle) return -1;
+    return people.findIndex(p => p && typeof p.name === 'string' && p.name.trim().toLowerCase() === needle);
+  }
+  return -1;
+}
+/* a person's 1-3 quotes -> overrides-ready form (uppercased/wrapped/capped/
+   blank-filtered, same treatment every other ALL-CAPS field in this file
+   gets), or null when they have none to contribute. */
+function personQuotesForGenerate(p){
+  if(!p || !Array.isArray(p.quotes)) return null;
+  const q = p.quotes.map(s => String(s || '').toUpperCase().trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean).slice(0, 3);
+  return q.length ? q : null;
+}
+
 function slugify(title){
   return String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'game';
 }
@@ -177,8 +205,33 @@ function randomSuffix(){
    title/cast/anecdotes/offLimits/spellings/music) is read identically
    across all four -- same shared-fields principle SPEC-gallery.md's/
    SPEC-flight.md's/SPEC-defense.md's config sections all state. */
+/* PEOPLE FIRST (SPEC-people.md round 2) -- `answers.people` (an array)
+   is the presence check for the NEW shape: `people: [{name, sprite?,
+   quotes?[], anecdote?}]` + `assign: {host: <index-or-exact-name>,
+   critic?, boss?, savior?, butterfingers?, builder?}` -- resolved via
+   resolvePersonIndex above. The OLD shape (`host`/`cast`/`anecdotes`/
+   `hostSprite`/`spriteCast`, all top-level strings/objects) keeps working
+   completely unchanged below -- neither shape's own code path reads the
+   other's fields, so an old answers.json regenerates byte-identically
+   forever. Unassigned people (not claimed by host or any of the five
+   roles) compile down exactly like build/index.html's own wizard does:
+   the first becomes `cast.diner0` (today's "extra friend" slot), up to 2
+   more become `extras[]` -- see buildOverrides' own cast-assembly block
+   below for both shapes side by side. */
 function buildOverrides(answers, slug){
-  const host = requireField(answers, 'host', 'Q6: who is the host?');
+  const isPeopleShape = Array.isArray(answers.people);
+  let host, people, assign, hostIdx;
+  if(isPeopleShape){
+    people = answers.people;
+    assign = answers.assign || {};
+    hostIdx = resolvePersonIndex(assign.host, people);
+    if(hostIdx === -1 || !people[hostIdx] || !String(people[hostIdx].name || '').trim()){
+      throw new GenerateError('answers.assign.host must resolve to a person in answers.people with a name (Q7: who\'s the main character? -- must be one of the Q6 people) -- give an array index or a name that matches exactly');
+    }
+    host = people[hostIdx].name;
+  } else {
+    host = requireField(answers, 'host', 'who is the host? (legacy answers shape -- see tools/README.md)');
+  }
   const catchphrase = requireField(answers, 'catchphrase', 'Q3: what\'s your group\'s catchphrase?');
   const title = requireField(answers, 'title', 'Q5: what should we call your game?');
   const isGallery = answers.template === 'gallery';
@@ -272,71 +325,134 @@ function buildOverrides(answers, slug){
     overrides.stories = storiesIn.slice(0, 4).map(s => ({ lines: wrapStoryLine(s) }));
   }
 
-  // PHASE C (characters are their people) -- OPTIONAL: answers.hostSprite is
-  // a game/roster.js key ("which tile is the host?"); unset/unrecognized
-  // silently no-ops (host keeps its default 'plain' roster tile, same as always --
-  // see game/roster.js's rosterResolveSprite for the exact precedence).
-  // Not part of tools/README.md's required schema -- this CLI's answers.json
-  // predates the roster and every existing answers file keeps working
-  // byte-identically without ever setting this.
-  if(answers.hostSprite && CFG_ROSTER_KEYS.indexOf(answers.hostSprite) !== -1){
-    overrides.host.sprite = answers.hostSprite;
-  }
-
   // the tone gate is entirely per-group -- no baseline/universal word list
   // (see tools/verify-config.js's toneGateSource) -- so this order's own
-  // Q11 answer IS the whole forbiddenWords list. Nothing off-limits ->
+  // Q10 answer IS the whole forbiddenWords list. Nothing off-limits ->
   // forbiddenWords: [], by design.
   const offLimits = Array.isArray(answers.offLimits) ? answers.offLimits.map(String) : [];
   overrides.forbiddenWords = offLimits.map(w => w.toUpperCase());
 
-  const cast = answers.cast || {};
-  const anecdotes = answers.anecdotes || {};
-  for(const introKey in ROLE_KEY){
-    const cfgKey = ROLE_KEY[introKey];
-    const name = cast[introKey];
-    if(name){
-      const entry = { name: String(name).toUpperCase().slice(0, 40) };
-      if(anecdotes[introKey]) entry.anecdote = String(anecdotes[introKey]).slice(0, 160);
-      if(DEFAULT_SPRITE[cfgKey]) Object.assign(entry, DEFAULT_SPRITE[cfgKey]);
-      // PHASE C -- OPTIONAL: answers.spriteCast[introKey] is a game/roster.js
-      // key; wins over the DEFAULT_SPRITE col/row above (rosterResolveSprite's
-      // precedence -- see game/roster.js), same "unset/unrecognized no-ops"
-      // convention as hostSprite just above.
-      const spriteCast = answers.spriteCast || {};
-      if(spriteCast[introKey] && CFG_ROSTER_KEYS.indexOf(spriteCast[introKey]) !== -1){
-        entry.sprite = spriteCast[introKey];
+  if(isPeopleShape){
+    // PEOPLE FIRST (SPEC-people.md round 2) -- host's own sprite/quotes,
+    // then one cast entry per role (from `assign`), then whoever's left
+    // over: the first unassigned person becomes cast.diner0 (today's
+    // "extra friend" slot), up to 2 more become extras[] -- same
+    // compile-down build/index.html's own wizard runs (see that file's
+    // buildOverridesFromState).
+    const hostPerson = people[hostIdx];
+    if(hostPerson.sprite && CFG_ROSTER_KEYS.indexOf(hostPerson.sprite) !== -1) overrides.host.sprite = hostPerson.sprite;
+    const hostQuotes = personQuotesForGenerate(hostPerson);
+    if(hostQuotes) overrides.host.quotes = hostQuotes;
+
+    const claimed = new Set([hostIdx]);
+    for(const introKey in ROLE_KEY){
+      const cfgKey = ROLE_KEY[introKey];
+      const idx = resolvePersonIndex(assign[introKey], people);
+      const p = idx !== -1 ? people[idx] : null;
+      if(p && String(p.name || '').trim()){
+        claimed.add(idx);
+        const entry = { name: String(p.name).toUpperCase().slice(0, 40) };
+        if(p.anecdote && String(p.anecdote).trim()) entry.anecdote = String(p.anecdote).slice(0, 160);
+        if(DEFAULT_SPRITE[cfgKey]) Object.assign(entry, DEFAULT_SPRITE[cfgKey]);
+        if(p.sprite && CFG_ROSTER_KEYS.indexOf(p.sprite) !== -1) entry.sprite = p.sprite;
+        const q = personQuotesForGenerate(p);
+        if(q) entry.quotes = q;
+        overrides.cast[cfgKey] = entry;
+        if(!isGallery && !isFlight && !isDefense && !isMission){
+          // BOSS SLOTS (Hangout only -- see this function's own header):
+          // see the identical comment on the old-shape branch below for
+          // why this reads the real person's name, not the generic
+          // fallback title.
+          if(cfgKey === 'judge') overrides.judge = { title: entry.name };
+          if(cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
+        }
+      } else {
+        overrides.cast[cfgKey] = null;
       }
-      overrides.cast[cfgKey] = entry;
-      if(!isGallery && !isFlight && !isDefense && !isMission){
-        // BOSS SLOTS (Hangout only -- see this function's own header): the
-        // boss HP bar / entrance card reads the actual person's name, not
-        // cfgBuildDefaultConfig's generic "THE CRITIC"/"THE BOSS HAS
-        // ARRIVED" fallback text -- entry.name is already uppercase above,
-        // matching the "'<NAME> HAS ARRIVED'" pattern (see FULFILLMENT.md's
-        // "Boss slots read as real people"). This written-to-file config.js
-        // path doesn't run through cfgSanitizeConfig (see this function's
-        // own doc comment -- answers.json is trusted operator input), so a
-        // name at the full 40-char cap plus " HAS ARRIVED" can run long
-        // here; the instant #cfg= link built from the same overrides
-        // further below does go through cfgEncodeConfigFragment ->
-        // cfgSanitizeConfig, whose cfgStr(40) on judge.title/authority.
-        // cardTitle truncates that copy safely.
-        if(cfgKey === 'judge') overrides.judge = { title: entry.name };
-        if(cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
+    }
+    const leftover = [];
+    for(let i=0;i<people.length;i++){ if(!claimed.has(i)) leftover.push(people[i]); }
+    const diner0Person = leftover[0];
+    if(diner0Person && String(diner0Person.name || '').trim()){
+      const entry = Object.assign(
+        { name: String(diner0Person.name).toUpperCase().slice(0, 40), anecdote: (diner0Person.anecdote && String(diner0Person.anecdote).trim()) ? String(diner0Person.anecdote).slice(0, 160) : 'Always up for anything.' },
+        DEFAULT_SPRITE.diner0
+      );
+      if(diner0Person.sprite && CFG_ROSTER_KEYS.indexOf(diner0Person.sprite) !== -1) entry.sprite = diner0Person.sprite;
+      const q = personQuotesForGenerate(diner0Person);
+      if(q) entry.quotes = q;
+      overrides.cast.diner0 = entry;
+    }
+    const extrasOverrides = leftover.slice(1, 3)
+      .filter(p => p && String(p.name || '').trim())
+      .map(p => {
+        const e = { name: String(p.name).toUpperCase().slice(0, 40) };
+        if(p.sprite && CFG_ROSTER_KEYS.indexOf(p.sprite) !== -1) e.sprite = p.sprite;
+        const q = personQuotesForGenerate(p);
+        if(q) e.quotes = q;
+        return e;
+      });
+    if(extrasOverrides.length) overrides.extras = extrasOverrides;
+  } else {
+    // PHASE C (characters are their people) -- OPTIONAL: answers.hostSprite is
+    // a game/roster.js key ("which tile is the host?"); unset/unrecognized
+    // silently no-ops (host keeps its default 'plain' roster tile, same as always --
+    // see game/roster.js's rosterResolveSprite for the exact precedence).
+    // Not part of tools/README.md's required schema -- this CLI's answers.json
+    // predates the roster and every existing answers file keeps working
+    // byte-identically without ever setting this.
+    if(answers.hostSprite && CFG_ROSTER_KEYS.indexOf(answers.hostSprite) !== -1){
+      overrides.host.sprite = answers.hostSprite;
+    }
+
+    const cast = answers.cast || {};
+    const anecdotes = answers.anecdotes || {};
+    for(const introKey in ROLE_KEY){
+      const cfgKey = ROLE_KEY[introKey];
+      const name = cast[introKey];
+      if(name){
+        const entry = { name: String(name).toUpperCase().slice(0, 40) };
+        if(anecdotes[introKey]) entry.anecdote = String(anecdotes[introKey]).slice(0, 160);
+        if(DEFAULT_SPRITE[cfgKey]) Object.assign(entry, DEFAULT_SPRITE[cfgKey]);
+        // PHASE C -- OPTIONAL: answers.spriteCast[introKey] is a game/roster.js
+        // key; wins over the DEFAULT_SPRITE col/row above (rosterResolveSprite's
+        // precedence -- see game/roster.js), same "unset/unrecognized no-ops"
+        // convention as hostSprite just above.
+        const spriteCast = answers.spriteCast || {};
+        if(spriteCast[introKey] && CFG_ROSTER_KEYS.indexOf(spriteCast[introKey]) !== -1){
+          entry.sprite = spriteCast[introKey];
+        }
+        overrides.cast[cfgKey] = entry;
+        if(!isGallery && !isFlight && !isDefense && !isMission){
+          // BOSS SLOTS (Hangout only -- see this function's own header): the
+          // boss HP bar / entrance card reads the actual person's name, not
+          // cfgBuildDefaultConfig's generic "THE CRITIC"/"THE BOSS HAS
+          // ARRIVED" fallback text -- entry.name is already uppercase above,
+          // matching the "'<NAME> HAS ARRIVED'" pattern (see FULFILLMENT.md's
+          // "Boss slots read as real people"). This written-to-file config.js
+          // path doesn't run through cfgSanitizeConfig (see this function's
+          // own doc comment -- answers.json is trusted operator input), so a
+          // name at the full 40-char cap plus " HAS ARRIVED" can run long
+          // here; the instant #cfg= link built from the same overrides
+          // further below does go through cfgEncodeConfigFragment ->
+          // cfgSanitizeConfig, whose cfgStr(40) on judge.title/authority.
+          // cardTitle truncates that copy safely.
+          if(cfgKey === 'judge') overrides.judge = { title: entry.name };
+          if(cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
+        }
+      } else {
+        overrides.cast[cfgKey] = null;
       }
-    } else {
-      overrides.cast[cfgKey] = null;
     }
   }
 
-  // Q10 spellings: [{from, to}, ...] -- applied as a literal find/replace
+  // Q9 spellings: [{from, to}, ...] -- applied as a literal find/replace
   // pass over every string in the assembled config, AFTER the merge (see
   // applySpellings below) -- covers names quoted inside dialogue lines
   // too, not just the cast entries themselves.
   overrides.__spellings = Array.isArray(answers.spellings) ? answers.spellings.filter(s => s && s.from && s.to) : [];
 
-  // Q9 music -- customSongPath only; the vibe -> loops resolution (now a
+  // Q8 music -- customSongPath only; the vibe -> loops resolution (now a
   // full 6-slot set, or a deterministic rotation with no vibe picked --
   // see cfgApplyMusicVibe) happens in main() below, once `merged` exists,
   // the same shape as the fragment codec's own load path.
@@ -354,7 +470,7 @@ function applySpellings(obj, spellings){
   let out = json;
   for(const { from, to } of spellings){
     // most in-game text is ALL CAPS by this project's established style
-    // (see examples/roadtrip.config.js's own header comment) -- Q10's
+    // (see examples/roadtrip.config.js's own header comment) -- Q9's
     // answers come in as a user would naturally type them ("Kathryn not
     // Catherine"), so an uppercased pass catches that majority;
     // title.introPageTitle/gamePageTitle are the one deliberately
@@ -422,7 +538,7 @@ function main(){
 
   let slug, overrides, merged, fragmentPayload;
   try{
-    requireField(answers, 'email', 'Q12: delivery email');
+    requireField(answers, 'email', 'Q11: delivery email');
     const titleForSlug = requireField(answers, 'title', 'Q5');
     // --slug=<name> overrides the default random-suffixed slug -- real
     // orders always take the default (a stable, guessable folder name is

@@ -6,17 +6,19 @@
     "I alphabetized the spice rack while we were on hold."
   ],
   "title": "The Test Group",
-  "host": "Jordan",
-  "cast": {
+  "people": [
+    { "name": "Jordan", "quotes": ["I made a seating chart for four people.", "The appetizers are a surprise. To me too."] },
+    { "name": "Morgan", "anecdote": "Takes 40 photos of every plate.", "quotes": ["Let me get the lighting right.", "This is for the group chat later."] },
+    { "name": "Riley", "anecdote": "Builds something every time we hang out.", "quotes": ["I already started building something.", "It works. Mostly."] },
+    { "name": "Casey", "anecdote": "Brings a board game every time.", "quotes": ["I brought the game. Nobody asked.", "Rules are suggestions, mostly."] }
+  ],
+  "assign": {
+    "host": "Jordan",
     "critic": null,
     "boss": null,
     "savior": null,
     "butterfingers": "Morgan",
     "builder": "Riley"
-  },
-  "anecdotes": {
-    "butterfingers": "Takes 40 photos of every plate.",
-    "builder": "Builds something every time we hang out."
   },
   "music": {
     "vibe": "warm",

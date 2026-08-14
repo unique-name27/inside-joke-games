@@ -19,7 +19,10 @@ const CONFIG = {
   "punchline": "THAT'S SO ON BRAND.",
   "host": {
     "name": "JORDAN",
-    "quotes": ["I TRAIN FOR THIS ALL WEEK.", "MY FANTASY TEAM NAME IS UNDEFEATED. THE TEAM IS NOT."]
+    "quotes": [
+      "I TRAIN FOR THIS ALL WEEK.",
+      "MY FANTASY TEAM NAME IS UNDEFEATED. THE TEAM IS NOT."
+    ]
   },
   "music": {
     "customSongPath": null,
@@ -51,8 +54,7 @@ const CONFIG = {
       "name": "THE FOURTH FRIEND",
       "spriteCol": 1,
       "spriteRow": 7,
-      "anecdote": "Always up for anything.",
-      "quotes": ["I'M ALWAYS UP FOR ANYTHING.", "SIGN ME UP FOR THE NEXT ROUND."]
+      "anecdote": "Always up for anything."
     },
     "judge": {
       "name": "THE COMMISSIONER",
@@ -60,19 +62,28 @@ const CONFIG = {
       "spriteCol": 4,
       "spriteRow": 8,
       "sprite": "grandma",
-      "quotes": ["THE LEAGUE BYLAWS ARE NOT SUGGESTIONS.", "I REVIEWED THE TAPE. YOU LOST FAIR AND SQUARE."]
+      "quotes": [
+        "THE LEAGUE BYLAWS ARE NOT SUGGESTIONS.",
+        "I REVIEWED THE TAPE. YOU LOST FAIR AND SQUARE."
+      ]
     },
     "authority": {
       "name": "THE LANDLORD",
       "anecdote": "Shows up personally over a noise complaint.",
       "sprite": "bandana",
-      "quotes": ["SOMEONE FILED A COMPLAINT. IT WAS ME.", "QUIET HOURS START AT TEN. SHARP."]
+      "quotes": [
+        "SOMEONE FILED A COMPLAINT. IT WAS ME.",
+        "QUIET HOURS START AT TEN. SHARP."
+      ]
     },
     "savior": {
       "name": "THE DESIGNATED DRIVER",
       "anecdote": "Always sober, always has snacks in the car.",
       "sprite": "vest",
-      "quotes": ["I'M GOOD. I HAVE SNACKS IN THE CAR.", "TEXT ME WHEN YOU'RE READY TO GO."]
+      "quotes": [
+        "I'M GOOD. I HAVE SNACKS IN THE CAR.",
+        "TEXT ME WHEN YOU'RE READY TO GO."
+      ]
     },
     "butterfingers": {
       "name": "THE ONE WHO DROPS EVERYTHING",
@@ -80,7 +91,10 @@ const CONFIG = {
       "spriteCol": 3,
       "spriteRow": 8,
       "sprite": "braid",
-      "quotes": ["IT SLIPPED. IT ALWAYS SLIPS.", "IN MY DEFENSE, IT WAS SLIPPERY."]
+      "quotes": [
+        "IT SLIPPED. IT ALWAYS SLIPS.",
+        "IN MY DEFENSE, IT WAS SLIPPERY."
+      ]
     },
     "builder": {
       "name": "THE GROUP'S TECH GUY",
@@ -88,7 +102,10 @@ const CONFIG = {
       "spriteCol": 2,
       "spriteRow": 8,
       "sprite": "mohawk",
-      "quotes": ["I BUILT THIS ON A TUESDAY NIGHT.", "IT'S DEPLOYED. DON'T ASK HOW."]
+      "quotes": [
+        "I BUILT THIS ON A TUESDAY NIGHT.",
+        "IT'S DEPLOYED. DON'T ASK HOW."
+      ]
     }
   },
   "rankNames": {

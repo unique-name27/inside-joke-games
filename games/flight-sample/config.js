@@ -20,7 +20,10 @@ const CONFIG = {
   "host": {
     "name": "SAM",
     "sprite": "skigreen",
-    "quotes": ["WE ALWAYS MAKE IT DOWN. EVENTUALLY.", "THIS IS FINE. THE SNOW IS FINE."]
+    "quotes": [
+      "WE ALWAYS MAKE IT DOWN. EVENTUALLY.",
+      "THIS IS FINE. THE SNOW IS FINE."
+    ]
   },
   "music": {
     "customSongPath": null,
@@ -59,7 +62,10 @@ const CONFIG = {
       "spriteCol": 1,
       "spriteRow": 7,
       "anecdote": "Always up for anything.",
-      "quotes": ["I'M ALWAYS UP FOR ANYTHING.", "SIGN ME UP FOR THE NEXT ROUND."]
+      "quotes": [
+        "I'M ALWAYS UP FOR ANYTHING.",
+        "SIGN ME UP FOR THE NEXT ROUND."
+      ]
     },
     "judge": {
       "name": "THE SKI INSTRUCTOR",
@@ -67,19 +73,28 @@ const CONFIG = {
       "spriteCol": 4,
       "spriteRow": 8,
       "sprite": "skipurple",
-      "quotes": ["BEND YOUR KNEES. YOU NEVER BEND YOUR KNEES.", "I JUDGE EVERY TURN FROM THE LIFT LINE."]
+      "quotes": [
+        "BEND YOUR KNEES. YOU NEVER BEND YOUR KNEES.",
+        "I JUDGE EVERY TURN FROM THE LIFT LINE."
+      ]
     },
     "authority": {
       "name": "THE LODGE MANAGER",
       "anecdote": "Remembers every pair of wet boots left by the fire.",
       "sprite": "grandma",
-      "quotes": ["THE BOOTS WERE STILL WET BY THE FIRE.", "I REMEMBER EVERY PAIR OF WET BOOTS."]
+      "quotes": [
+        "THE BOOTS WERE STILL WET BY THE FIRE.",
+        "I REMEMBER EVERY PAIR OF WET BOOTS."
+      ]
     },
     "savior": {
       "name": "THE ONE WITH SNACKS",
       "anecdote": "Always has one more granola bar than anyone asked for.",
       "sprite": "snowman",
-      "quotes": ["I ALWAYS PACK ONE EXTRA GRANOLA BAR.", "SNACKS FIRST. QUESTIONS LATER."]
+      "quotes": [
+        "I ALWAYS PACK ONE EXTRA GRANOLA BAR.",
+        "SNACKS FIRST. QUESTIONS LATER."
+      ]
     },
     "butterfingers": {
       "name": "THE ONE WHO DROPPED THE GOPRO",
@@ -87,7 +102,10 @@ const CONFIG = {
       "spriteCol": 3,
       "spriteRow": 8,
       "sprite": "braid",
-      "quotes": ["IT'S SOMEWHERE IN THE SNOW. PROBABLY.", "THE LENS CAP IS GONE FOREVER."]
+      "quotes": [
+        "IT'S SOMEWHERE IN THE SNOW. PROBABLY.",
+        "THE LENS CAP IS GONE FOREVER."
+      ]
     },
     "builder": {
       "name": "THE GROUP'S MAP APP",
@@ -95,15 +113,25 @@ const CONFIG = {
       "spriteCol": 2,
       "spriteRow": 8,
       "sprite": "bandana",
-      "quotes": ["I BUILT THIS RIGHT AFTER THE DRIVE HOME.", "REROUTING. AGAIN."]
+      "quotes": [
+        "I BUILT THIS RIGHT AFTER THE DRIVE HOME.",
+        "REROUTING. AGAIN."
+      ]
     }
   },
-  "extras": [
-    { "name": "THE FRIEND WHO STAYED IN THE LODGE", "sprite": "strawhat", "quotes": ["I WATCHED FROM THE WINDOW. IT LOOKED COLD.", "SOMEONE HAD TO GUARD THE HOT COCOA."] }
-  ],
   "rankNames": {
     "immaculate": "IMMACULATE",
     "comicTiming": "COMIC TIMING",
     "worst": "COULD USE MORE PRACTICE"
-  }
+  },
+  "extras": [
+    {
+      "name": "THE FRIEND WHO STAYED IN THE LODGE",
+      "sprite": "strawhat",
+      "quotes": [
+        "I WATCHED FROM THE WINDOW. IT LOOKED COLD.",
+        "SOMEONE HAD TO GUARD THE HOT COCOA."
+      ]
+    }
+  ]
 };

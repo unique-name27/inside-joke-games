@@ -2,7 +2,6 @@
   "template": "gallery",
   "email": "gallery-sample@example.test",
   "title": "The Weekend League",
-  "host": "Jordan",
   "catchphrase": "That's so on brand.",
   "targets": [
     "Fantasy draft speeches",
@@ -14,26 +13,21 @@
   ],
   "firstBossHeckle": "Your aim is as bad as your takes.",
   "finalBossQuirk": "Always adjusts their glasses before lying.",
-  "cast": {
+  "people": [
+    { "name": "Jordan", "quotes": ["I train for this all week.", "My fantasy team name is Undefeated. The team is not."] },
+    { "name": "The Commissioner", "anecdote": "Runs the fantasy league like it is federal law.", "sprite": "grandma", "quotes": ["The league bylaws are not suggestions.", "I reviewed the tape. You lost fair and square."] },
+    { "name": "The Landlord", "anecdote": "Shows up personally over a noise complaint.", "sprite": "bandana", "quotes": ["Someone filed a complaint. It was me.", "Quiet hours start at ten. Sharp."] },
+    { "name": "The Designated Driver", "anecdote": "Always sober, always has snacks in the car.", "sprite": "vest", "quotes": ["I'm good. I have snacks in the car.", "Text me when you're ready to go."] },
+    { "name": "The One Who Drops Everything", "anecdote": "Has broken three different house rules, literally.", "sprite": "braid", "quotes": ["It slipped. It always slips.", "In my defense, it was slippery."] },
+    { "name": "The Group's Tech Guy", "anecdote": "Built this exact game on a Tuesday night.", "sprite": "mohawk", "quotes": ["I built this on a Tuesday night.", "It's deployed. Don't ask how."] }
+  ],
+  "assign": {
+    "host": "Jordan",
     "critic": "The Commissioner",
     "boss": "The Landlord",
     "savior": "The Designated Driver",
     "butterfingers": "The One Who Drops Everything",
     "builder": "The Group's Tech Guy"
-  },
-  "anecdotes": {
-    "critic": "Runs the fantasy league like it is federal law.",
-    "boss": "Shows up personally over a noise complaint.",
-    "savior": "Always sober, always has snacks in the car.",
-    "butterfingers": "Has broken three different house rules, literally.",
-    "builder": "Built this exact game on a Tuesday night."
-  },
-  "spriteCast": {
-    "critic": "grandma",
-    "boss": "bandana",
-    "savior": "vest",
-    "butterfingers": "braid",
-    "builder": "mohawk"
   },
   "offLimits": [],
   "music": { "vibe": "upbeat" }

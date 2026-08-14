@@ -38,20 +38,24 @@ else — no build step, no npm install.
 
 ## 1. Read the intake response
 
-Pull the user's answers for all 12 questions (see `INTAKE.md`). Note
+Pull the user's answers for all 11 questions (see `INTAKE.md`). Note
 which template they picked (**Q1 — "What's the joke?"**: The Hangout /
 The Gallery / The Flight / The Defense / The Mission — everything
 downstream branches on this), which
 setting (Q2 — Hangout only, defaults to THE DINNER PARTY if unanswered),
-and which of the five optional roles (First Boss/Final Boss/Savior/
-Butterfingers/Builder) they actually cast (Q7) — anything left blank is
-skipped, not defaulted.
+who's in it (Q6 — 3-6 people, each with a name, a character pick, 1-3
+quotes, and an optional quirk), and who's who (Q7 — the required
+main-character/host pick, plus which of the five optional roles (First
+Boss/Final Boss/Savior/Butterfingers/Builder) they actually assigned to
+one of the Q6 people) — anything left blank in a Q7 role row is skipped,
+not defaulted, and anyone from Q6 who isn't picked as host or assigned a
+role still shows up in the game (see step 3).
 
 ## 2. Content review gate
 
-Read every free-text answer (Q4's story/targets/trip content, Q7's
-anecdotes and optional boss lines, Q3's catchphrase, Q5's title, Q11's
-off-limits list) before doing anything else, regardless of which template
+Read every free-text answer (Q4's story/targets/trip content, Q6's
+names/quotes/quirks, Q7's optional boss lines, Q3's catchphrase, Q5's
+title, Q10's off-limits list) before doing anything else, regardless of which template
 was picked. **Decline or flag** the order — don't proceed to
 config-mapping — if anything:
 
@@ -102,19 +106,21 @@ then fill in every field from the intake answers.
 | Q3 catchphrase | `punchline` |
 | Q4 stories | `stories[]` (each `{lines:[...]}`, 1-2 lines each, ALL CAPS to match the game's chunky-text style) |
 | Q5 title | `title.lockupLines` (short — see "Title font" below), `title.introPageTitle`, `title.gamePageTitle` |
-| Q6 host | `host.name`, and `cast.diner0`/etc. sprite picks as you see fit |
-| Q7 role casting | `cast.judge` / `cast.authority` / `cast.savior` / `cast.butterfingers` / `cast.builder` — `null` for any left blank in Q7. Q7's "The First Boss"/"The Final Boss" are `judge`/`authority` under the hood (historical key names — see `tools/README.md`). **Every uncast role's own content bucket (`CONFIG.judge`, `CONFIG.authority`, etc.) can be omitted from the file entirely** — nothing reads it once the role is uncast (this is exactly what `examples/test-group.config.js` demonstrates: JUDGE uncast, and `CONFIG.judge`/`authority`/`savior` simply don't exist in that file). Only write content buckets for roles Q7 actually cast. |
-| Q8 anecdotes | each cast role's `anecdote` field, and inform the flavor of that role's written lines (see below) |
-| Q9 music | `music.customSongPath` (user's uploaded file, copied into `games/<slug>/assets/` — see "Assets" below) **or** `null` + pick one `music.loops` entry to lean on (see the vibe → loop-key mapping below) |
-| Q10 spellings | apply throughout — every name that appears in any line |
-| Q11 off-limits | becomes `forbiddenWords` directly — this order's own list, no baseline/universal words at all. Nothing off-limits ships as `forbiddenWords: []` |
-| Q12 email | not part of the config — just your delivery contact |
+| Q6 people | each person's name/character-pick/1-3 quotes maps onto whichever `host`/`cast.<role>`/`cast.diner0`/`extras[]` slot Q7 puts them in (see the next two rows) — `<slot>.name`, sprite picks, and `<slot>.quotes` (uppercased, 60-char-wrapped) all come straight from here. Nobody typed into Q6 is ever dropped: the host and any role-assigned people get named content buckets, and everyone left over still lands in `cast.diner0` (the first leftover) or `extras[]` (up to 2 more) — see `tools/README.md`'s answers schema for the exact `people[]` shape `tools/generate.js` and the `/build/` wizard both compile from. |
+| Q6 quirks | each person's optional quirk becomes their `anecdote` field (whichever slot they end up in per Q7), and informs the flavor of that role's written lines (see below) |
+| Q7 host pick | `host.name` (+ `host.quotes`/sprite from that same person's Q6 answers) |
+| Q7 role assignment | `cast.judge` / `cast.authority` / `cast.savior` / `cast.butterfingers` / `cast.builder` — `null` for any left blank/skipped in Q7. Q7's "The First Boss"/"The Final Boss" are `judge`/`authority` under the hood (historical key names — see `tools/README.md`). **Every unassigned role's own content bucket (`CONFIG.judge`, `CONFIG.authority`, etc.) can be omitted from the file entirely** — nothing reads it once the role is uncast (this is exactly what `examples/test-group.config.js` demonstrates: JUDGE uncast, and `CONFIG.judge`/`authority`/`savior` simply don't exist in that file). Only write content buckets for roles Q7 actually assigned. |
+| Q8 music | `music.customSongPath` (user's uploaded file, copied into `games/<slug>/assets/` — see "Assets" below) **or** `null` + pick one `music.loops` entry to lean on (see the vibe → loop-key mapping below) |
+| Q9 spellings | apply throughout — every name that appears in any line |
+| Q10 off-limits | becomes `forbiddenWords` directly — this order's own list, no baseline/universal words at all. Nothing off-limits ships as `forbiddenWords: []` |
+| Q11 email | not part of the config — just your delivery contact |
 
 **The Gallery / The Flight / The Defense / The Mission** (Q1 = "the
 things your group can't stop roasting" / "a disaster trip you keep
 retelling" / "a recurring annoyance the group defends against" / "us
-against the world"): the shared rows above (catchphrase/title/host/
-cast/anecdotes/music/spellings/off-limits/email) map identically; there
+against the world"): the shared rows above (catchphrase/title/people/
+quirks/host pick/role assignment/music/spellings/off-limits/email) map
+identically; there
 is no `scene` or `lengthPreset` for any of them. Q4 maps to
 `gallery.targets[]` (Gallery, 4-8 short labels, uppercased),
 `flight.beats[]` + `flight.hazards[]` + `flight.planeColor` (Flight,
@@ -161,7 +167,7 @@ for the complete field list per role: `judge.critiqueLines`/`duckLines`/`hitLine
 `cardBody`, `savior.line1`/`line2`/`sincereLine`, `butterfingers.*`,
 `builder.*`). This is genuinely hand-written per order, not templated —
 that's the point of the product. Keep the tone deadpan, ALL CAPS, short
-lines, and lean on the Q8 anecdotes for flavor. The Gallery, the Flight,
+lines, and lean on the Q6 quirks (and quotes) for flavor. The Gallery, the Flight,
 the Defense, and the Mission have no equivalent step — their only
 per-order dialogue is Q7's two optional boss lines (heckle/quirk), and
 every other line (round intros, banners, end-card copy) is the
@@ -202,7 +208,7 @@ all five templates.
 **Assets.** SFX samples, the dungeon/roster tile sheets, and each
 template's own art pack are shared engine assets — never copied per
 order (see `README.md` "How games are added"). Only a user's own
-uploaded song (Hangout only today — Q9) is order-specific: place it at
+uploaded song (Hangout only today — Q8) is order-specific: place it at
 `games/<slug>/assets/theme.mp3` and point `music.customSongPath` at
 `'../assets/theme.mp3'`. `CONFIG.music.*` paths are resolved relative to
 the **page** that loads them (`games/<slug>/game/index.html` /
@@ -315,7 +321,7 @@ the harness above) — but the deployed GitHub Pages URL is the real
 product, so **do** load `https://<pages-domain>/games/<slug>/` for real
 once it's pushed, click through a full playthrough, and confirm audio/
 visuals look right before sending the link. Then deliver
-`https://<pages-domain>/games/<slug>/` to the user's Q12 email.
+`https://<pages-domain>/games/<slug>/` to the user's Q11 email.
 
 For the **instant link** (no hosting/push required, works the moment
 it's generated), which page it points at also depends on the template:
@@ -347,16 +353,19 @@ pattern for the other four templates.)
 
 1. **Intake (hypothetical)**: Q1 "The Hangout" · catchphrase "SO TRUE." ·
    stories: missed a flight by 4 minutes, alphabetized the spice rack on
-   hold · title "The Test Group" · host "Jordan" · cast: only
-   Butterfingers ("Morgan") and Builder ("Riley") — First Boss/Final
-   Boss/Savior all left blank · anecdotes: Morgan takes 40 photos of
-   every plate, Riley builds something every hangout · music: no upload,
-   vibe "Warm and celebratory" · no off-limits list · five_min (the
-   default).
+   hold · title "The Test Group" · Q6 people: Jordan (2 quotes), Morgan
+   (anecdote: takes 40 photos of every plate, 2 quotes), Riley (anecdote:
+   builds something every hangout, 2 quotes), Casey (anecdote: brings a
+   board game every time, 2 quotes) · Q7 who's who: host Jordan,
+   Butterfingers Morgan, Builder Riley — First Boss/Final Boss/Savior all
+   skipped, leaving Casey unassigned · music: no upload, vibe "Warm and
+   celebratory" · no off-limits list · five_min (the default).
 2. **Content review**: nothing concerning — proceed.
 3. **Config mapping**: this is exactly `examples/test-group.config.js` —
    `cast.judge`/`authority`/`savior` are `null`, and their content buckets
-   are simply absent from the file. `lengthPreset: 'five_min'`.
+   are simply absent from the file; unassigned Casey becomes
+   `cast.diner0` (name, anecdote, and quotes carried straight through —
+   nobody typed into Q6 gets dropped). `lengthPreset: 'five_min'`.
    `music.customSongPath: null` (no upload).
 4. **Deploy**: this repo ships the deployed copy at `games/test-group/` —
    `config.js` is literally `node tools/generate.js tools/example-answers.json`'s

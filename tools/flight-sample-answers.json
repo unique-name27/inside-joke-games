@@ -2,7 +2,6 @@
   "template": "flight",
   "email": "flight-sample@example.test",
   "title": "The Powder Day Crew",
-  "host": "Sam",
   "catchphrase": "Somehow we always make it down.",
   "beats": [
     "THE RENTAL SHOP LOST THE BOOT SIZES.",
@@ -20,28 +19,24 @@
   "planeColor": "blue",
   "firstBossHeckle": "Pizza, not french fries, rookie.",
   "finalBossQuirk": "Still mad about the wet boots by the fire.",
-  "cast": {
+  "people": [
+    { "name": "Sam", "sprite": "skigreen", "quotes": ["We always make it down. Eventually.", "This is fine. The snow is fine."] },
+    { "name": "The Ski Instructor", "anecdote": "Judges every turn from the lift line.", "sprite": "skipurple", "quotes": ["Bend your knees. You never bend your knees.", "I judge every turn from the lift line."] },
+    { "name": "The Lodge Manager", "anecdote": "Remembers every pair of wet boots left by the fire.", "sprite": "grandma", "quotes": ["The boots were still wet by the fire.", "I remember every pair of wet boots."] },
+    { "name": "The One With Snacks", "anecdote": "Always has one more granola bar than anyone asked for.", "sprite": "snowman", "quotes": ["I always pack one extra granola bar.", "Snacks first. Questions later."] },
+    { "name": "The One Who Dropped The GoPro", "anecdote": "Has lost count of how many lens caps are buried in the snow.", "sprite": "braid", "quotes": ["It's somewhere in the snow. Probably.", "The lens cap is gone forever."] },
+    { "name": "The Group's Map App", "anecdote": "Built this exact game after the drive home.", "sprite": "bandana", "quotes": ["I built this right after the drive home.", "Rerouting. Again."] },
+    { "name": "The Fourth Friend", "quotes": ["I'm always up for anything.", "Sign me up for the next round."] },
+    { "name": "The Friend Who Stayed In The Lodge", "sprite": "strawhat", "quotes": ["I watched from the window. It looked cold.", "Someone had to guard the hot cocoa."] }
+  ],
+  "assign": {
+    "host": "Sam",
     "critic": "The Ski Instructor",
     "boss": "The Lodge Manager",
     "savior": "The One With Snacks",
     "butterfingers": "The One Who Dropped The GoPro",
     "builder": "The Group's Map App"
   },
-  "anecdotes": {
-    "critic": "Judges every turn from the lift line.",
-    "boss": "Remembers every pair of wet boots left by the fire.",
-    "savior": "Always has one more granola bar than anyone asked for.",
-    "butterfingers": "Has lost count of how many lens caps are buried in the snow.",
-    "builder": "Built this exact game after the drive home."
-  },
-  "spriteCast": {
-    "critic": "skipurple",
-    "boss": "grandma",
-    "savior": "snowman",
-    "butterfingers": "braid",
-    "builder": "bandana"
-  },
-  "hostSprite": "skigreen",
   "offLimits": [],
   "music": { "vibe": "chase" }
 }

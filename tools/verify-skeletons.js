@@ -53,6 +53,8 @@ const { verifyGalleryFile, verifyGallerySource } = require('./verify-gallery.js'
 const { verifyFlightFile, verifyFlightSource, verifyFlightHostOnlySource } = require('./verify-flight.js');
 const { verifyDefenseFile, verifyDefenseSource, verifyDefenseHostOnlySource } = require('./verify-defense.js');
 const { verifyMissionFile, verifyMissionSource, verifyMissionHostOnlySource } = require('./verify-mission.js');
+const wizardModule = require('./verify-wizard.js');
+const { loadWizard, checkMigration: checkWizardMigration, checkCompileDown: checkWizardCompileDown, checkOverflowGate: checkWizardOverflowGate, checkOffLimits: checkWizardOffLimits } = wizardModule;
 
 const TEST_GROUP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'test-group.config.js');
 const ROADTRIP_EXAMPLE_PATH = path.join(REPO_ROOT, 'examples', 'roadtrip.config.js');
@@ -528,6 +530,37 @@ function checkMissionRoundTrip(){
   }
 }
 
+/* ----------------------------------------------------------------------
+   PEOPLE FIRST (SPEC-people.md round 2) -- build/index.html's own pure-
+   logic wizard checks (state model v2, migration, compile-down per
+   template, the overflow gate), promoted the same way every other
+   per-file check in this suite was: tools/verify-wizard.js owns the vm
+   sandbox + assertions, this just loads it once and reuses its `record`-
+   style results via the shared `record()`/`results` this file already
+   has (tools/verify-wizard.js run standalone prints its own PASS/FAIL
+   lines using its OWN results array -- calling its check functions here
+   instead of require()-ing a second `main` keeps everything on ONE
+   `results` array, so the final tally at the bottom of THIS file's own
+   run covers every wizard check too, not just this file's original 14
+   groups). */
+function checkWizard(){
+  let sb;
+  try{
+    sb = loadWizard();
+  }catch(e){
+    record('build/index.html wizard -- load into vm sandbox', false, 'threw: ' + (e && e.stack ? e.stack : e));
+    return;
+  }
+  checkWizardMigration(sb);
+  checkWizardCompileDown(sb);
+  checkWizardOverflowGate(sb);
+  checkWizardOffLimits(sb);
+  // merge tools/verify-wizard.js's own results into this file's tally --
+  // see this function's own header comment for why a plain call above
+  // isn't enough on its own.
+  for(const r of wizardModule.results) results.push(r);
+}
+
 function main(){
   checkExamples();
   checkSceneMatrix();
@@ -543,6 +576,7 @@ function main(){
   checkDefenseRoundTrip();
   checkMissionPlaythroughs();
   checkMissionRoundTrip();
+  checkWizard();
 
   const failed = results.filter(r => !r.ok);
   console.log('');
@@ -556,4 +590,5 @@ module.exports = {
   checkExamples, checkSceneMatrix, checkHardModePlaythrough, checkRoundTrip, checkRosterAssets, checkRosterDefaults,
   checkGalleryPlaythroughs, checkGalleryRoundTrip, checkFlightPlaythroughs, checkFlightRoundTrip,
   checkDefensePlaythroughs, checkDefenseRoundTrip, checkMissionPlaythroughs, checkMissionRoundTrip,
+  checkWizard,
 };

@@ -20,7 +20,10 @@ const CONFIG = {
   "host": {
     "name": "PRIYA",
     "sprite": "mohawk",
-    "quotes": ["I READ THE RULEBOOK. COVER TO COVER.", "GAME NIGHT IS SACRED. DO NOT BE LATE."]
+    "quotes": [
+      "I READ THE RULEBOOK. COVER TO COVER.",
+      "GAME NIGHT IS SACRED. DO NOT BE LATE."
+    ]
   },
   "music": {
     "customSongPath": null,
@@ -53,7 +56,10 @@ const CONFIG = {
       "spriteCol": 1,
       "spriteRow": 7,
       "anecdote": "Always up for anything.",
-      "quotes": ["I'M ALWAYS UP FOR ANYTHING.", "SIGN ME UP FOR THE NEXT ROUND."]
+      "quotes": [
+        "I'M ALWAYS UP FOR ANYTHING.",
+        "SIGN ME UP FOR THE NEXT ROUND."
+      ]
     },
     "judge": {
       "name": "THE SCOREKEEPER",
@@ -61,19 +67,28 @@ const CONFIG = {
       "spriteCol": 4,
       "spriteRow": 8,
       "sprite": "grandma",
-      "quotes": ["I TRACK POINTS BETTER THAN THE RULEBOOK.", "THAT MOVE WAS ILLEGAL. I HAVE NOTES."]
+      "quotes": [
+        "I TRACK POINTS BETTER THAN THE RULEBOOK.",
+        "THAT MOVE WAS ILLEGAL. I HAVE NOTES."
+      ]
     },
     "authority": {
       "name": "THE HOA PRESIDENT",
       "anecdote": "Has opinions about the driveway chalk.",
       "sprite": "beard",
-      "quotes": ["THE DRIVEWAY CHALK IS A VIOLATION.", "I HAVE OPINIONS. MANY OPINIONS."]
+      "quotes": [
+        "THE DRIVEWAY CHALK IS A VIOLATION.",
+        "I HAVE OPINIONS. MANY OPINIONS."
+      ]
     },
     "savior": {
       "name": "THE PEACEMAKER",
       "anecdote": "Steps in right before someone flips the table.",
       "sprite": "overalls",
-      "quotes": ["NOBODY IS FLIPPING THIS TABLE TONIGHT.", "LET'S ALL JUST TAKE A BREATH."]
+      "quotes": [
+        "NOBODY IS FLIPPING THIS TABLE TONIGHT.",
+        "LET'S ALL JUST TAKE A BREATH."
+      ]
     },
     "butterfingers": {
       "name": "THE ONE WHO KNOCKS THE BOARD",
@@ -81,7 +96,10 @@ const CONFIG = {
       "spriteCol": 3,
       "spriteRow": 8,
       "sprite": "braid",
-      "quotes": ["MY ELBOW HAS ENDED THREE GAMES.", "IT WAS AN ACCIDENT. AGAIN."]
+      "quotes": [
+        "MY ELBOW HAS ENDED THREE GAMES.",
+        "IT WAS AN ACCIDENT. AGAIN."
+      ]
     },
     "builder": {
       "name": "THE GROUP'S SCORE APP",
@@ -89,7 +107,10 @@ const CONFIG = {
       "spriteCol": 2,
       "spriteRow": 8,
       "sprite": "vest",
-      "quotes": ["I BUILT THIS DURING A RAIN DELAY.", "THE SCOREBOARD NEVER LIES."]
+      "quotes": [
+        "I BUILT THIS DURING A RAIN DELAY.",
+        "THE SCOREBOARD NEVER LIES."
+      ]
     }
   },
   "rankNames": {

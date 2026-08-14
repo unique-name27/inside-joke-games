@@ -213,6 +213,24 @@
 
   .review-value.has-sprites{ display:flex; align-items:center; gap:6px; overflow:visible; white-space:normal; }
   .review-sprite-icon{ flex:0 0 auto; width:20px; height:20px; border-radius:5px; border:1px solid var(--border-strong); image-rendering:pixelated; background:var(--bg); }
+
+  /* ---------- PEOPLE FIRST (SPEC-people.md round 2) -- the people step's
+     "who's who?" tap-to-pick chips (host + the five role rows). Same
+     tap-target sizing (min-height 44px hit area via padding) as every
+     other interactive control in this wizard. ---------- */
+  .person-chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 4px; }
+  .person-chip{
+    display:inline-flex; align-items:center; gap:6px; padding:8px 14px; min-height:40px;
+    border-radius:999px; background:var(--surface-2); border:1.5px solid var(--border-strong);
+    color:var(--cream); font-size:0.85rem; font-weight:600; cursor:pointer;
+  }
+  .person-chip:hover{ border-color:var(--gold); }
+  .person-chip.selected{ border-color:var(--gold); background:rgba(232,184,75,0.14); color:var(--gold); }
+  .person-chip.skip-chip{ color:var(--muted); font-weight:400; }
+  .person-chip.skip-chip.selected{ color:var(--muted-2); border-color:var(--muted-2); background:transparent; }
+  .person-chip canvas{ width:22px; height:22px; image-rendering:pixelated; border-radius:5px; flex:0 0 auto; }
+  .person-chip:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+  .people-reassure{ font-size:0.85rem; color:var(--muted); margin:18px 0 0; }
 </style>
 </head>
 <body>
@@ -293,13 +311,27 @@ const JOKE_DEFS = [
 // the Hangout path (SPEC-gallery.md: "The setting step shows only on the
 // Hangout path"); the Gallery path gets `targets`, the Flight path gets
 // `trip`, the Defense path gets `annoyance`, instead of `stories` as their
-// own content step. Every other step (group/punchline/cast/vibe/preview)
-// is shared verbatim across all four sequences.
-const HANGOUT_STEP_KEYS = ['joke', 'setting', 'group', 'punchline', 'stories', 'cast', 'vibe', 'preview'];
-const GALLERY_STEP_KEYS = ['joke', 'group', 'punchline', 'targets', 'cast', 'vibe', 'preview'];
-const FLIGHT_STEP_KEYS = ['joke', 'group', 'punchline', 'trip', 'cast', 'vibe', 'preview'];
-const DEFENSE_STEP_KEYS = ['joke', 'group', 'punchline', 'annoyance', 'cast', 'vibe', 'preview'];
-const MISSION_STEP_KEYS = ['joke', 'group', 'punchline', 'mission', 'cast', 'vibe', 'preview'];
+// own content step. Every other step (punchline/people/vibe/preview) is
+// shared verbatim across all five sequences.
+//
+// PEOPLE FIRST (SPEC-people.md round 2) -- the old `group` step (host name
+// + "anyone else in the room?") and `cast` step (five role cards) are BOTH
+// gone, replaced by the single `people` step: "who's in it?" (the person
+// list) then "who's who?" (host pick + role assignment), two sections of
+// ONE step -- see renderStepPeople. `group` is genuinely redundant now
+// (the host is just one more person, picked via state.assign.host; the old
+// "anyone else" field is now whichever person(s) end up unassigned), so it
+// doesn't move anywhere -- it's deleted outright. `people` sits where
+// `cast` used to (same position relative to the content step/vibe/preview
+// -- "replacing the old cast step position", SPEC-people.md), so removing
+// `group` is the one place total step count actually drops (8->7 Hangout,
+// 7->6 the other four) -- a necessary, documented consequence of folding
+// host-naming into the people list, not an oversight.
+const HANGOUT_STEP_KEYS = ['joke', 'setting', 'punchline', 'stories', 'people', 'vibe', 'preview'];
+const GALLERY_STEP_KEYS = ['joke', 'punchline', 'targets', 'people', 'vibe', 'preview'];
+const FLIGHT_STEP_KEYS = ['joke', 'punchline', 'trip', 'people', 'vibe', 'preview'];
+const DEFENSE_STEP_KEYS = ['joke', 'punchline', 'annoyance', 'people', 'vibe', 'preview'];
+const MISSION_STEP_KEYS = ['joke', 'punchline', 'mission', 'people', 'vibe', 'preview'];
 function stepSequence(template){
   if(template === 'gallery') return GALLERY_STEP_KEYS;
   if(template === 'flight') return FLIGHT_STEP_KEYS;
@@ -309,8 +341,8 @@ function stepSequence(template){
 }
 function stepCount(template){ return stepSequence(template).length; }
 const STEP_LABELS = {
-  joke: 'What’s the joke?', setting: 'The setting', group: 'Your group', punchline: 'The catchphrase',
-  stories: 'The stories', targets: 'The targets', trip: 'The trip', annoyance: 'The annoyance', mission: 'The mission', cast: 'The cast', vibe: 'The vibe', preview: 'Preview & share',
+  joke: 'What’s the joke?', setting: 'The setting', punchline: 'The catchphrase',
+  stories: 'The stories', targets: 'The targets', trip: 'The trip', annoyance: 'The annoyance', mission: 'The mission', people: 'Who’s in it?', vibe: 'The vibe', preview: 'Preview & share',
 };
 // gallery.targets: 4-8 short labels -- the wizard's own UI guideline
 // (mirrors the stories step's "2-4" guideline just below it, also not a
@@ -333,7 +365,8 @@ const FLIGHT_PLANE_COLORS = [
 // flight arrays above (game/cfgcodec.js's CFG_DEFENSE_SCHEMA only caps the
 // ceiling at 6). `defending` (THE THING's plaque label) has no min/max
 // pair of its own -- it's a single required 24-char field, checked
-// directly in renderStepPreview's contentOk, same as `state.host`.
+// directly in renderStepPreview's contentOk, same as the main character
+// requirement (see hostOk there).
 const DEFENSE_WAVES_MIN = 3, DEFENSE_WAVES_MAX = 6;
 // THE MISSION (template #5, see SPEC-mission.md's config/codec/wizard
 // section) -- same "UI guideline, not a codec limit" split as the gallery/
@@ -362,8 +395,9 @@ const ROLE_DEFS = [
     // the ANNOYANCE instead of the player on their first kill each wave.
     // See SPEC-defense.md's cast-mapping bullet.
     defenseDesc:'Every game needs a boss fight -- except this time they’re on your side. Pick a real person from your group -- they’re the sniper tower: longest range, biggest single hit, slowest rate (“of course they do”), heckling the ANNOYANCE, not the player, the first time they land a kill each wave.',
-    // gallery only -- the optional first-boss heckle line, shown on this
-    // card when template is gallery (see renderRoleCard). Absent/blank ->
+    // gallery only -- the optional first-boss heckle line, shown once
+    // this role has someone assigned and template is gallery (see
+    // renderStepPeople's renderRoleLineField). Absent/blank ->
     // gallery/engine.js's own neutral fallback pool (FIRST_BOSS_HECKLE_
     // FALLBACKS) covers it, same "optional, never blocking" spirit as the
     // anecdote field every role already has.
@@ -485,20 +519,6 @@ const REVIEW_ROWS = [
       const scene = SCENE_DEFS.find(s => s.key === state.scene);
       return scene ? scene.label : 'Not chosen yet';
     } },
-  { stepKey:'group', label:'Your group', summary(state){
-      if(!state.host.trim()) return 'Not filled in yet';
-      return state.host.trim() + (state.otherFriendName.trim() ? ' + ' + state.otherFriendName.trim() : '');
-    },
-    // PHASE C: tiny sprite next to the name(s) -- falls back to each
-    // slot's default tile (see DEFAULT_ROSTER_KEY) when nobody's touched
-    // the picker, same "always shows what you'll actually get" spirit as
-    // the rest of this review card.
-    sprites(state){
-      if(!state.host.trim()) return [];
-      const keys = [state.hostSprite || DEFAULT_ROSTER_KEY.host];
-      if(state.otherFriendName.trim()) keys.push(state.otherFriendSprite || DEFAULT_ROSTER_KEY.diner0);
-      return keys;
-    } },
   { stepKey:'punchline', label:'The catchphrase', summary(state){
       if(!state.catchphrase.trim() && !state.title.trim()) return 'Not filled in yet';
       return (state.catchphrase.trim() || '…') + ' · ' + (state.title.trim() || '…');
@@ -533,20 +553,23 @@ const REVIEW_ROWS = [
       if(!state.mission.trim() || filled.length < MISSION_SWARMS_MIN) return 'Not filled in yet';
       return state.mission.trim() + ' -- ' + filled.length + ' swarms: ' + filled.slice(0,3).map(sw=>sw.trim()).join(' / ') + (filled.length>3 ? '…' : '');
     } },
-  { stepKey:'cast', label:'The cast', summary(state){
-      const cast = ROLE_DEFS.filter(r => state.cast[r.key] && state.cast[r.key].cast && state.cast[r.key].name && state.cast[r.key].name.trim());
-      if(!cast.length) return 'Nobody cast -- the game adapts.';
-      return cast.map(r => r.title + ' — ' + state.cast[r.key].name.trim()).join(', ');
+  // PEOPLE FIRST (SPEC-people.md round 2) -- one row for the whole people
+  // step (both sections -- see renderStepPeople): who's in it + who ended
+  // up as host + how many of the five roles got assigned. Named helpers
+  // (personAt/assignedRoleCount) live next to buildOverridesFromState
+  // below, reused here so this row never re-derives the same logic twice.
+  { stepKey:'people', label:'The people', summary(state){
+      const named = (state.people||[]).filter(p => p && p.name && p.name.trim());
+      if(!named.length) return 'Not filled in yet';
+      const host = personAt(state, state.assign && state.assign.host);
+      const roleCount = assignedRoleCount(state);
+      return (host && host.name.trim() ? host.name.trim() + ' (host)' : 'no host picked yet') +
+        ' + ' + named.length + ' ' + (named.length===1 ? 'person' : 'people') +
+        ' -- ' + roleCount + ' ' + (roleCount===1 ? 'role' : 'roles') + ' assigned';
     },
-    // PHASE C: one tiny sprite per cast role -- authority/savior have no
-    // DEFAULT_ROSTER_KEY (no bespoke tile), so an unpicked one of those
-    // contributes nothing (null, filtered out below) rather than a
-    // misleading icon for a look that isn't actually a specific tile.
+    // PHASE C: one tiny sprite per named person, in list order.
     sprites(state){
-      return ROLE_DEFS
-        .filter(r => state.cast[r.key] && state.cast[r.key].cast && state.cast[r.key].name && state.cast[r.key].name.trim())
-        .map(r => state.cast[r.key].sprite || DEFAULT_ROSTER_KEY[r.cfgKey] || null)
-        .filter(Boolean);
+      return (state.people||[]).filter(p => p && p.name && p.name.trim()).map(p => p.sprite || DEFAULT_ROSTER_KEY.diner0).filter(Boolean);
     } },
   { stepKey:'vibe', label:'The vibe', summary(state){
       const vibe = VIBE_DEFS.find(v => v.key === state.vibe);
@@ -556,21 +579,38 @@ const REVIEW_ROWS = [
 
 const WIZARD_STORAGE_KEY = 'ijg_build_wizard_v1';
 
+/* ======================================================================
+   PEOPLE FIRST (SPEC-people.md round 2) -- state model v2. `state.people`
+   is 3-6 {name, sprite, quotes:['','',''], anecdote} cards -- ONE list,
+   not a role-keyed cast object; `state.assign` maps each of host/critic/
+   boss/savior/butterfingers/builder to an INDEX into `people` (or null =
+   unassigned/skipped) -- one person holds at most one role, host is
+   required. `state.roleLines` is the two boss-line fields (heckle for
+   critic/THE FIRST BOSS, quirk for boss/THE FINAL BOSS) -- these stay
+   keyed on the ROLE, not the person (SPEC-people.md: "per-template boss
+   line fields stay where they are"), since they're really a property of
+   "whoever ends up in that seat this game," shown once that role has
+   someone assigned. Unassigned people aren't lost -- see
+   buildOverridesFromState: the first becomes cast.diner0, up to 2 more
+   become `extras[]`.
+   ====================================================================== */
+const PEOPLE_MIN = 3, PEOPLE_MAX = 6;
+const ROLE_KEYS = ROLE_DEFS.map(r => r.key); // ['critic','boss','savior','butterfingers','builder']
+const ASSIGN_KEYS = ['host'].concat(ROLE_KEYS);
+function defaultPerson(){ return { name:'', sprite:null, quotes:['','',''], anecdote:'' }; }
+function defaultAssign(){
+  const a = {};
+  for(const k of ASSIGN_KEYS) a[k] = null;
+  return a;
+}
 function defaultWizardState(){
-  const cast = {};
-  for(const r of ROLE_DEFS){
-    cast[r.key] = { cast:false, name:'', anecdote:'', sprite:null };
-    if(r.galleryField) cast[r.key][r.galleryField.key] = '';
-    if(r.flightField) cast[r.key][r.flightField.key] = '';
-    if(r.defenseField) cast[r.key][r.defenseField.key] = '';
-    if(r.missionField) cast[r.key][r.missionField.key] = '';
-  }
   return {
     step: 0,
     template: 'hangout', // THE GALLERY (template #2) / THE FLIGHT (template #3) / THE DEFENSE (template #4) -- carried by the draft; old (pre-Gallery) saved drafts normalize to this, see normalizeWizardState
     scene: 'dinner',
-    host: '', otherFriendName: '',
-    hostSprite: null, otherFriendSprite: null, // PHASE C: null == "use the default tile"
+    people: [ defaultPerson(), defaultPerson(), defaultPerson() ], // PEOPLE_MIN cards to start
+    assign: defaultAssign(),
+    roleLines: { critic: '', boss: '' }, // the heckle/quirk boss lines -- see this block's own header
     catchphrase: '', title: '', offLimits: '',
     stories: [ {l1:'',l2:''}, {l1:'',l2:''} ],
     targets: ['', '', '', ''], // gallery only -- see GALLERY_TARGETS_MIN
@@ -582,21 +622,147 @@ function defaultWizardState(){
     mission: '', // mission only -- the mission-objective banner line
     swarms: ['', ''], // mission only -- see MISSION_SWARMS_MIN
     shipColor: 'blue', // mission only -- see MISSION_SHIP_COLORS
-    cast: cast,
     vibe: null,
   };
+}
+
+/* person the given assign-value (a `people` index, or null) resolves to,
+   or null. Used everywhere a role/host lookup needs "give me the actual
+   person object, or nothing" without re-checking bounds inline. */
+function personAt(state, idx){
+  if(idx === null || idx === undefined) return null;
+  const people = state.people || [];
+  return (idx >= 0 && idx < people.length) ? people[idx] : null;
+}
+function assignedRoleCount(state){
+  let n = 0;
+  for(const key of ROLE_KEYS){
+    const p = personAt(state, state.assign && state.assign[key]);
+    if(p && p.name && p.name.trim()) n++;
+  }
+  return n;
+}
+/* every `people` index NOT claimed by host or any of the five roles, in
+   list order -- exactly the pool buildOverridesFromState's diner0/extras
+   split (and the overflow gate in renderStepPeople) both read from. */
+function unassignedPeople(state){
+  const people = state.people || [];
+  const assign = state.assign || {};
+  const claimed = new Set();
+  for(const key of ASSIGN_KEYS){ if(typeof assign[key] === 'number') claimed.add(assign[key]); }
+  const out = [];
+  for(let i=0;i<people.length;i++){ if(!claimed.has(i)) out.push(people[i]); }
+  return out;
+}
+
+/* ---- normalization helpers (also reused by the vm test harness) ---- */
+function normalizePerson(p){
+  const src = (p && typeof p === 'object') ? p : {};
+  const q = Array.isArray(src.quotes) ? src.quotes : [];
+  return {
+    name: typeof src.name === 'string' ? src.name.slice(0, 40) : '',
+    sprite: (src.sprite && ROSTER_BY_KEY[src.sprite]) ? src.sprite : null,
+    quotes: [0,1,2].map(i => typeof q[i] === 'string' ? q[i].slice(0, 60) : ''),
+    anecdote: typeof src.anecdote === 'string' ? src.anecdote.slice(0, 160) : '',
+  };
+}
+function normalizePeopleArray(rawPeople){
+  let arr = Array.isArray(rawPeople) && rawPeople.length ? rawPeople.map(normalizePerson) : [];
+  arr = arr.slice(0, PEOPLE_MAX);
+  while(arr.length < PEOPLE_MIN) arr.push(defaultPerson());
+  return arr;
+}
+function normalizeAssign(rawAssign, peopleCount){
+  const out = defaultAssign();
+  const raw = (rawAssign && typeof rawAssign === 'object') ? rawAssign : {};
+  const used = new Set();
+  for(const key of ASSIGN_KEYS){
+    const v = raw[key];
+    if(typeof v === 'number' && v >= 0 && v < peopleCount && !used.has(v)){ out[key] = v; used.add(v); }
+  }
+  return out;
+}
+function normalizeRoleLines(rawRoleLines){
+  const raw = (rawRoleLines && typeof rawRoleLines === 'object') ? rawRoleLines : {};
+  return {
+    critic: typeof raw.critic === 'string' ? raw.critic.slice(0, 60) : '',
+    boss: typeof raw.boss === 'string' ? raw.boss.slice(0, 60) : '',
+  };
+}
+
+/* PEOPLE FIRST (SPEC-people.md round 2) migration -- an old draft (role-
+   keyed `cast` + `host`/`otherFriendName` strings, whether or not it also
+   has a `template` key -- a pre-Gallery draft is just the oldest version
+   of this same old shape) converts LOSSLESSLY to people+assign: the typed
+   host string becomes person 0 (assign.host=0); each `cast:true` role
+   becomes its own person, carrying that role's name/sprite/anecdote, plus
+   its heckle/quirk line into `roleLines` if it had one; `otherFriendName`
+   (today's "anyone else in the room?") becomes one more person, left
+   unassigned (this is exactly what buildOverridesFromState already turns
+   an unassigned person INTO -- cast.diner0 -- so a migrated draft's
+   compiled config comes out byte-identical to what the old shape used to
+   produce). Never crashes, never drops a typed name -- every string field
+   is guarded the same defensive way normalizePerson/normalizeAssign are.
+   Detected by ABSENCE of `people`/`assign` (the v2 shape's own two keys)
+   rather than presence of `template` -- so this same function handles
+   both "pre-Gallery" and "post-Gallery, pre-round-2" saved drafts with
+   one code path, and a v2 (or already-migrated) draft never re-runs it. */
+function migrateToPeopleShape(saved){
+  const people = [];
+  const assign = defaultAssign();
+  const roleLines = { critic: '', boss: '' };
+  const hostName = typeof saved.host === 'string' ? saved.host : '';
+  const hostSprite = (saved.hostSprite && ROSTER_BY_KEY[saved.hostSprite]) ? saved.hostSprite : null;
+  people.push({ name: hostName, sprite: hostSprite, quotes: ['','',''], anecdote: '' });
+  assign.host = 0;
+  const oldCast = (saved.cast && typeof saved.cast === 'object') ? saved.cast : {};
+  for(const r of ROLE_DEFS){
+    const c = oldCast[r.key];
+    if(c && c.cast && c.name && String(c.name).trim()){
+      const idx = people.length;
+      people.push({
+        name: String(c.name),
+        sprite: (c.sprite && ROSTER_BY_KEY[c.sprite]) ? c.sprite : null,
+        quotes: ['','',''],
+        anecdote: typeof c.anecdote === 'string' ? c.anecdote : '',
+      });
+      assign[r.key] = idx;
+      // every ROLE_DEFS entry's galleryField/flightField/defenseField/
+      // missionField share the SAME key per role ('heckle' for critic,
+      // 'quirk' for boss -- see that array's own header) regardless of
+      // which template was active when this draft was saved, so reading
+      // c.heckle/c.quirk directly (rather than picking a field variant)
+      // is correct for every old draft, whichever template it was on.
+      if(r.key === 'critic' && typeof c.heckle === 'string') roleLines.critic = c.heckle;
+      if(r.key === 'boss' && typeof c.quirk === 'string') roleLines.boss = c.quirk;
+    }
+  }
+  const otherName = typeof saved.otherFriendName === 'string' ? saved.otherFriendName.trim() : '';
+  if(otherName){
+    const otherSprite = (saved.otherFriendSprite && ROSTER_BY_KEY[saved.otherFriendSprite]) ? saved.otherFriendSprite : null;
+    people.push({ name: otherName, sprite: otherSprite, quotes: ['','',''], anecdote: '' });
+  }
+  while(people.length < PEOPLE_MIN) people.push(defaultPerson());
+  return Object.assign({}, saved, { people: people, assign: assign, roleLines: roleLines });
 }
 
 /* shallow-merges a possibly-partial/stale saved state onto a fresh
    default so a schema change never crashes a returning visitor with old
    localStorage data -- same "never trust old persisted shape blindly"
    spirit as cfgDeepMerge, kept intentionally simpler since this is
-   trusted same-origin data, not an untrusted link. */
+   trusted same-origin data, not an untrusted link. Migrates an old
+   (role-keyed-cast) draft to the v2 people+assign shape FIRST (see
+   migrateToPeopleShape) -- every line after that point only ever sees a
+   v2-shaped draft, migrated or already-v2 alike; a migrated OR v2 draft
+   both round-trip as v2 from here on (SPEC-people.md: "Post-migration
+   drafts round-trip v2 only"). */
 function normalizeWizardState(saved){
   const base = defaultWizardState();
   if(!saved || typeof saved !== 'object') return base;
+  const isOldShape = typeof saved.people === 'undefined' || typeof saved.assign === 'undefined';
   const isPreGalleryDraft = typeof saved.template === 'undefined';
-  const out = Object.assign({}, base, saved);
+  const working = isOldShape ? migrateToPeopleShape(saved) : saved;
+  const out = Object.assign({}, base, working);
   // THE GALLERY (template #2) / THE FLIGHT (template #3) / THE DEFENSE
   // (template #4) -- an old (pre-Gallery) saved draft has no `template`
   // key at all; Object.assign above already left base's 'hangout' in place
@@ -604,14 +770,17 @@ function normalizeWizardState(saved){
   // 'hangout', same "fail closed to the safe default" convention as
   // scene/sprite picks just below.
   if(['hangout', 'gallery', 'flight', 'defense', 'mission'].indexOf(out.template) === -1) out.template = 'hangout';
-  // a pre-Gallery draft's saved `step` was an index into the OLD 7-step
-  // Hangout sequence (no joke step existed yet) -- reinterpreting that same
-  // number against today's 8-step HANGOUT_STEP_KEYS would silently land a
-  // returning visitor on the WRONG step (off by one, from "setting" onward).
-  // Their answers are all still intact (Object.assign above preserved
-  // every field) -- only the step position resets to 0, a mild "start the
-  // click-through again" rather than a subtly wrong landing step.
-  if(isPreGalleryDraft) out.step = 0;
+  // a pre-Gallery draft's saved `step` was an index into an even OLDER,
+  // shorter Hangout sequence -- reinterpreting that same number against
+  // today's sequence would silently land a returning visitor on the WRONG
+  // step. Their answers are all still intact (migrated/preserved above) --
+  // only the step position resets to 0, a mild "start the click-through
+  // again" rather than a subtly wrong landing step. A migrated (but not
+  // pre-Gallery) draft's step position is ALSO no longer meaningful (the
+  // step layout itself changed shape this round -- group+cast collapsed
+  // into one people step, see HANGOUT_STEP_KEYS' own header), so any
+  // migration -- pre-Gallery or not -- resets to step 0.
+  if(isPreGalleryDraft || isOldShape) out.step = 0;
   if(!Array.isArray(out.stories) || out.stories.length < 2) out.stories = base.stories;
   out.stories = out.stories.slice(0, 4).map(s => ({ l1: (s && typeof s.l1==='string') ? s.l1 : '', l2: (s && typeof s.l2==='string') ? s.l2 : '' }));
   if(!Array.isArray(out.targets) || out.targets.length < GALLERY_TARGETS_MIN) out.targets = base.targets;
@@ -646,17 +815,9 @@ function normalizeWizardState(saved){
   out.swarms = out.swarms.slice(0, MISSION_SWARMS_MAX).map(s => (typeof s==='string') ? s.slice(0,24) : '');
   while(out.swarms.length < MISSION_SWARMS_MIN) out.swarms.push('');
   if(!MISSION_SHIP_COLORS.some(c => c.key === out.shipColor)) out.shipColor = 'blue';
-  out.cast = Object.assign({}, base.cast, saved.cast || {});
-  for(const r of ROLE_DEFS){
-    out.cast[r.key] = Object.assign({}, base.cast[r.key], (saved.cast && saved.cast[r.key]) || {});
-    if(!ROSTER_BY_KEY[out.cast[r.key].sprite]) out.cast[r.key].sprite = null;
-    if(r.galleryField && typeof out.cast[r.key][r.galleryField.key] !== 'string') out.cast[r.key][r.galleryField.key] = '';
-    if(r.flightField && typeof out.cast[r.key][r.flightField.key] !== 'string') out.cast[r.key][r.flightField.key] = '';
-    if(r.defenseField && typeof out.cast[r.key][r.defenseField.key] !== 'string') out.cast[r.key][r.defenseField.key] = '';
-    if(r.missionField && typeof out.cast[r.key][r.missionField.key] !== 'string') out.cast[r.key][r.missionField.key] = '';
-  }
-  if(!ROSTER_BY_KEY[out.hostSprite]) out.hostSprite = null;
-  if(!ROSTER_BY_KEY[out.otherFriendSprite]) out.otherFriendSprite = null;
+  out.people = normalizePeopleArray(working.people);
+  out.assign = normalizeAssign(working.assign, out.people.length);
+  out.roleLines = normalizeRoleLines(working.roleLines);
   if(!SCENE_DEFS.some(s => s.key === out.scene)) out.scene = base.scene;
   if(typeof out.step !== 'number' || out.step < 0 || out.step >= stepCount(out.template)) out.step = 0;
   return out;
@@ -707,7 +868,7 @@ function checkForbidden(text, offLimitsWords){
 }
 function checkStateForbidden(state){
   const words = parseOffLimits(state.offLimits);
-  const fields = [state.host, state.otherFriendName, state.catchphrase, state.title];
+  const fields = [state.catchphrase, state.title];
   if(state.template === 'gallery'){
     for(const t of state.targets) fields.push(t);
   } else if(state.template === 'flight'){
@@ -722,16 +883,17 @@ function checkStateForbidden(state){
   } else {
     for(const s of state.stories){ fields.push(s.l1); fields.push(s.l2); }
   }
-  for(const r of ROLE_DEFS){
-    const c = state.cast[r.key];
-    if(c.cast){
-      fields.push(c.name); fields.push(c.anecdote);
-      if(state.template === 'gallery' && r.galleryField) fields.push(c[r.galleryField.key]);
-      if(state.template === 'flight' && r.flightField) fields.push(c[r.flightField.key]);
-      if(state.template === 'defense' && r.defenseField) fields.push(c[r.defenseField.key]);
-      if(state.template === 'mission' && r.missionField) fields.push(c[r.missionField.key]);
-    }
+  // PEOPLE FIRST (SPEC-people.md round 2) -- "the off-limits check extends
+  // over people names + quotes": every person's name/anecdote/quotes,
+  // whether or not they ended up assigned a role (an unassigned person
+  // still ships -- as cast.diner0 or an extras[] entry -- so their text
+  // needs the same gate as anyone else's).
+  for(const p of (state.people || [])){
+    fields.push(p.name); fields.push(p.anecdote);
+    for(const q of p.quotes) fields.push(q);
   }
+  fields.push(state.roleLines && state.roleLines.critic);
+  fields.push(state.roleLines && state.roleLines.boss);
   const all = [];
   for(const f of fields) all.push(...checkForbidden(f, words));
   return Array.from(new Set(all));
@@ -773,8 +935,19 @@ function wrapLineKeepCase(raw, maxLen){
    engine.js's CARDS.boss/CARDS.finale, flight/engine.js's
    enterFinalBoss, and defense/engine.js's roleName/enterTurnGood), none
    of them ever read CONFIG.judge/CONFIG.authority. */
+/* PEOPLE FIRST (SPEC-people.md round 2) -- a person's 1-3 quotes ->
+   overrides-ready form (wrapped/capped/blank-filtered), or null when they
+   have none to contribute. Shared by every branch below (host/diner0/
+   extras/role entries) so the exact same wrap-and-cap rule applies
+   everywhere a person's quotes end up in the compiled config. */
+function personQuoteOverrides(p){
+  if(!p || !Array.isArray(p.quotes)) return null;
+  const q = p.quotes.map(s => wrapLine(s, 60)).filter(Boolean).slice(0, 3);
+  return q.length ? q : null;
+}
 function buildOverridesFromState(state){
-  const host = wrapLine(state.host || 'HOST', 40);
+  const hostPerson = personAt(state, state.assign && state.assign.host);
+  const host = wrapLine((hostPerson && hostPerson.name) || 'HOST', 40);
   const title = String(state.title || 'My Game').trim();
   const isGallery = state.template === 'gallery';
   const isFlight = state.template === 'flight';
@@ -802,10 +975,47 @@ function buildOverridesFromState(state){
     // per-group tone gate -- see checkForbidden/parseOffLimits above; an
     // empty off-limits field is a valid, common answer (forbiddenWords: []).
     forbiddenWords: parseOffLimits(state.offLimits),
-    cast: {
-      diner0: Object.assign({ name: wrapLine(state.otherFriendName || 'THE FOURTH FRIEND', 40), anecdote: 'Always up for anything.' }, DEFAULT_SPRITE.diner0),
-    },
+    cast: {},
   };
+  // PEOPLE FIRST (SPEC-people.md round 2) -- host's own sprite/quotes;
+  // an explicit pick wins outright (game/roster.js's rosterResolveSprite
+  // -- sprite enum beats spriteCol/Row), same precedent every sprite pick
+  // below follows too.
+  if(hostPerson){
+    if(hostPerson.sprite && ROSTER_BY_KEY[hostPerson.sprite]) overrides.host.sprite = hostPerson.sprite;
+    const hq = personQuoteOverrides(hostPerson);
+    if(hq) overrides.host.quotes = hq;
+  }
+  // people+assign -> host/cast.<cfgKey> (above/below) + cast.diner0 +
+  // extras[] (SPEC-people.md's compile-down): the first person nobody
+  // assigned a role becomes diner0 (today's "extra friend" slot, unchanged
+  // shape -- just filled from whoever's left over instead of a dedicated
+  // "anyone else?" field); up to 2 more become `extras[]`. People beyond
+  // that cap still exist in `state.people` (the wizard's own overflow gate
+  // in renderStepPreview blocks sharing until the group is trimmed to fit
+  // or more roles are assigned -- see that function), so this slice is
+  // never silently lossy in practice.
+  const leftover = unassignedPeople(state);
+  const diner0Person = leftover[0] || null;
+  const extrasPeople = leftover.slice(1, 3);
+  overrides.cast.diner0 = (diner0Person && diner0Person.name && diner0Person.name.trim())
+    ? Object.assign(
+        { name: wrapLine(diner0Person.name, 40), anecdote: (diner0Person.anecdote && diner0Person.anecdote.trim()) ? diner0Person.anecdote.trim().slice(0, 160) : 'Always up for anything.' },
+        DEFAULT_SPRITE.diner0,
+        (diner0Person.sprite && ROSTER_BY_KEY[diner0Person.sprite]) ? { sprite: diner0Person.sprite } : {},
+        (function(){ const q = personQuoteOverrides(diner0Person); return q ? { quotes: q } : {}; })()
+      )
+    : Object.assign({ name: 'THE FOURTH FRIEND', anecdote: 'Always up for anything.' }, DEFAULT_SPRITE.diner0);
+  const extrasOverrides = extrasPeople
+    .filter(p => p && p.name && p.name.trim())
+    .map(p => {
+      const e = { name: wrapLine(p.name, 40) };
+      if(p.sprite && ROSTER_BY_KEY[p.sprite]) e.sprite = p.sprite;
+      const q = personQuoteOverrides(p);
+      if(q) e.quotes = q;
+      return e;
+    });
+  if(extrasOverrides.length) overrides.extras = extrasOverrides;
   if(isGallery){
     overrides.gallery = {
       targets: state.targets.filter(t => t && t.trim()).slice(0, GALLERY_TARGETS_MAX).map(t => wrapLine(t, 24)),
@@ -859,20 +1069,26 @@ function buildOverridesFromState(state){
       .slice(0, 4)
       .map(s => ({ lines: [s.l1, s.l2].map(l => wrapLine(l, 40)).filter(Boolean) }));
   }
-  // PHASE C: an explicit pick wins outright (game/roster.js's
-  // rosterResolveSprite -- sprite enum beats spriteCol/Row); skipping the
-  // picker leaves spriteCol/Row as the only signal, i.e. today's tile, so
-  // "never touched the strip" changes nothing.
-  if(state.hostSprite && ROSTER_BY_KEY[state.hostSprite]) overrides.host.sprite = state.hostSprite;
-  if(state.otherFriendSprite && ROSTER_BY_KEY[state.otherFriendSprite]) overrides.cast.diner0.sprite = state.otherFriendSprite;
+  // PEOPLE FIRST (SPEC-people.md round 2) -- one entry per role, read off
+  // whichever person (if any) state.assign points that role at; the two
+  // boss-line fields (heckle/quirk) read state.roleLines, keyed on the
+  // ROLE not the person (see that field's own header comment) -- only
+  // written when the role actually has someone assigned AND they typed a
+  // line; blank/skipped falls back to that engine's own neutral fallback
+  // pool same as before (round 1, SPEC-people.md, additionally prefers
+  // the assigned person's own quotes over that neutral pool when they
+  // have any -- see e.g. gallery/engine.js's FIRST_BOSS_HECKLE_POOL).
   for(const r of ROLE_DEFS){
-    const c = state.cast[r.key];
-    if(c && c.cast && c.name && c.name.trim()){
-      const entry = { name: wrapLine(c.name, 40) };
-      if(c.anecdote && c.anecdote.trim()) entry.anecdote = String(c.anecdote).trim().slice(0, 160);
+    const p = personAt(state, state.assign && state.assign[r.key]);
+    if(p && p.name && p.name.trim()){
+      const entry = { name: wrapLine(p.name, 40) };
+      if(p.anecdote && p.anecdote.trim()) entry.anecdote = String(p.anecdote).trim().slice(0, 160);
       if(DEFAULT_SPRITE[r.cfgKey]) Object.assign(entry, DEFAULT_SPRITE[r.cfgKey]);
-      if(c.sprite && ROSTER_BY_KEY[c.sprite]) entry.sprite = c.sprite;
+      if(p.sprite && ROSTER_BY_KEY[p.sprite]) entry.sprite = p.sprite;
+      const pq = personQuoteOverrides(p);
+      if(pq) entry.quotes = pq;
       overrides.cast[r.cfgKey] = entry;
+      const roleLine = r.key === 'critic' ? (state.roleLines && state.roleLines.critic) : r.key === 'boss' ? (state.roleLines && state.roleLines.boss) : null;
       if(!isGallery && !isFlight && !isDefense && !isMission){
         // BOSS SLOTS: the boss HP bar / entrance card should read the
         // actual person's name, not the generic "THE CRITIC"/"THE BOSS HAS
@@ -885,35 +1101,35 @@ function buildOverridesFromState(state){
         // long name pushes " HAS ARRIVED" past the limit.
         if(r.cfgKey === 'judge') overrides.judge = { title: entry.name };
         if(r.cfgKey === 'authority') overrides.authority = { cardTitle: entry.name + ' HAS ARRIVED' };
-      } else if(isGallery && r.galleryField && c[r.galleryField.key] && c[r.galleryField.key].trim()){
+      } else if(isGallery && r.galleryField && roleLine && roleLine.trim()){
         // THE GALLERY: the two optional boss lines live in gallery.
         // firstBossHeckle/finalBossQuirk (CFG_GALLERY_SCHEMA), not a
         // per-role content block -- blank/skipped falls back to gallery/
         // engine.js's own neutral fallback pools (see that file's header).
         overrides.gallery = overrides.gallery || {};
-        overrides.gallery[r.galleryField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(c[r.galleryField.key], r.galleryField.maxLen);
-      } else if(isFlight && r.flightField && c[r.flightField.key] && c[r.flightField.key].trim()){
+        overrides.gallery[r.galleryField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(roleLine, r.galleryField.maxLen);
+      } else if(isFlight && r.flightField && roleLine && roleLine.trim()){
         // THE FLIGHT: same shape as the gallery branch just above, but
         // flight.firstBossHeckle/finalBossQuirk (CFG_FLIGHT_SCHEMA) --
         // blank/skipped falls back to flight/engine.js's own neutral
         // fallback pools (see that file's header).
         overrides.flight = overrides.flight || {};
-        overrides.flight[r.flightField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(c[r.flightField.key], r.flightField.maxLen);
-      } else if(isDefense && r.defenseField && c[r.defenseField.key] && c[r.defenseField.key].trim()){
+        overrides.flight[r.flightField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(roleLine, r.flightField.maxLen);
+      } else if(isDefense && r.defenseField && roleLine && roleLine.trim()){
         // THE DEFENSE: same shape as the gallery/flight branches above, but
         // defense.firstBossHeckle/finalBossQuirk (CFG_DEFENSE_SCHEMA) --
         // blank/skipped falls back to defense/engine.js's own neutral
         // fallback pools (see that file's header).
         overrides.defense = overrides.defense || {};
-        overrides.defense[r.defenseField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(c[r.defenseField.key], r.defenseField.maxLen);
-      } else if(isMission && r.missionField && c[r.missionField.key] && c[r.missionField.key].trim()){
+        overrides.defense[r.defenseField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(roleLine, r.defenseField.maxLen);
+      } else if(isMission && r.missionField && roleLine && roleLine.trim()){
         // THE MISSION: same shape as the gallery/flight/defense branches
         // above, but mission.firstBossHeckle/finalBossQuirk
         // (CFG_MISSION_SCHEMA) -- blank/skipped falls back to
         // mission/engine.js's own neutral fallback pools (see that file's
         // header).
         overrides.mission = overrides.mission || {};
-        overrides.mission[r.missionField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(c[r.missionField.key], r.missionField.maxLen);
+        overrides.mission[r.missionField.key === 'heckle' ? 'firstBossHeckle' : 'finalBossQuirk'] = wrapLine(roleLine, r.missionField.maxLen);
       }
     } else {
       overrides.cast[r.cfgKey] = null;
@@ -1192,40 +1408,6 @@ function initWizard(){
         if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); card.click(); }
       });
       stepsContainer.appendChild(card);
-    }
-  }
-
-  function renderStepHost(){
-    const el = document.createElement('div');
-    el.innerHTML =
-      '<h2>Your group</h2>' +
-      '<p class="step-sub">Who the player plays as, and anyone else you want in the room.</p>' +
-      '<div class="field"><label for="fHost">Main character’s name <span class="opt">(the one the player plays as)</span></label>' +
-      '<input type="text" id="fHost" maxlength="40" placeholder="e.g. Jordan"></div>';
-    stepsContainer.appendChild(el);
-    const hostInput = el.querySelector('#fHost');
-    hostInput.value = state.host;
-    hostInput.addEventListener('input', ()=>{ state.host = hostInput.value; persist(); checkLive(hostInput); });
-    // PHASE C: main character's sprite pick -- default preselected
-    // ('plain', the roster's own default host tile), skipping it changes nothing.
-    renderSpriteStrip(el, 'Which one is them?', state.hostSprite, DEFAULT_ROSTER_KEY.host, (key)=>{
-      state.hostSprite = key; persist();
-    });
-
-    const otherEl = document.createElement('div');
-    otherEl.innerHTML =
-      '<div class="field"><label for="fOther">Anyone else you want in the room who doesn’t fit a role below? <span class="opt">(optional)</span></label>' +
-      '<input type="text" id="fOther" maxlength="40" placeholder="e.g. Casey"></div>';
-    stepsContainer.appendChild(otherEl);
-    const otherInput = otherEl.querySelector('#fOther');
-    otherInput.value = state.otherFriendName;
-    otherInput.addEventListener('input', ()=>{ state.otherFriendName = otherInput.value; persist(); checkLive(otherInput); });
-    renderSpriteStrip(otherEl, 'Which one is them?', state.otherFriendSprite, DEFAULT_ROSTER_KEY.diner0, (key)=>{
-      state.otherFriendSprite = key; persist();
-    });
-    function checkLive(input){
-      const v = checkForbidden(input.value, parseOffLimits(state.offLimits));
-      fieldWarning(input.parentElement, v[0] || null);
     }
   }
 
@@ -1582,95 +1764,247 @@ function initWizard(){
     }
   }
 
-  function renderRoleCard(role){
-    const c = state.cast[role.key];
+  /* ======================================================================
+     PEOPLE FIRST (SPEC-people.md round 2) -- THE PEOPLE step: section 1
+     ("who's in it?", the person list) then section 2 ("who's who?", host +
+     role assignment), one wizard step, replacing the old group+cast steps
+     (see HANGOUT_STEP_KEYS' own header). Section 1 renders once per
+     renderStep() call (its own text inputs keep normal focus/typing);
+     section 2 is rebuilt in place (refreshSection2, defined inside
+     renderStepPeople) every time an assignment OR a person's name changes,
+     since a name edit can change what a chip label reads and an assignment
+     change can move who's even eligible for another slot -- section 2 has
+     no text inputs of its own to lose focus on (except the two boss-line
+     fields, which only re-render when their own role's assignment changes,
+     not on every keystroke elsewhere).
+     ====================================================================== */
+  function personLabel(p, idx){ return (p && p.name && p.name.trim()) ? p.name.trim() : ('Person ' + (idx+1)); }
+
+  function renderPersonCard(idx, onNameChange){
+    const p = state.people[idx];
     const card = document.createElement('div');
-    card.className = 'card role-card';
-    const iconWrap = document.createElement('div');
-    iconWrap.className = 'role-icon';
-    const canvas = document.createElement('canvas');
-    drawRoleIcon(canvas, role.key);
-    iconWrap.appendChild(canvas);
-    const body = document.createElement('div');
-    body.className = 'role-body';
-    const nameId = 'role-name-' + role.key, anecId = 'role-anec-' + role.key, skipId = 'role-skip-' + role.key;
-    const isGallery = state.template === 'gallery';
-    const isFlight = state.template === 'flight';
-    const isDefense = state.template === 'defense';
-    const isMission = state.template === 'mission';
-    const descText = (isGallery && role.galleryDesc) ? role.galleryDesc : (isFlight && role.flightDesc) ? role.flightDesc : (isDefense && role.defenseDesc) ? role.defenseDesc : (isMission && role.missionDesc) ? role.missionDesc : role.desc;
-    const gf = isGallery ? role.galleryField : (isFlight ? role.flightField : (isDefense ? role.defenseField : (isMission ? role.missionField : null)));
-    const gfId = gf ? 'role-gf-' + role.key : null;
-    body.innerHTML =
-      '<div class="role-title-row"><h2>'+role.title+'</h2>' +
-      '<label class="skip-toggle" for="'+skipId+'"><input type="checkbox" class="skip-cb" id="'+skipId+'"> Skip this role</label></div>' +
-      '<p class="role-desc">'+descText+'</p>' +
-      '<div class="role-fields">' +
-      '<div class="field"><label for="'+nameId+'">Name</label><input type="text" class="role-name" id="'+nameId+'" maxlength="40" placeholder="e.g. their actual name or nickname"></div>' +
-      '<div class="field"><label for="'+anecId+'">One quick memory or quirk <span class="opt">(optional -- flavor, not literal dialogue)</span></label>' +
-      '<textarea class="role-anec" id="'+anecId+'" rows="2" maxlength="160" placeholder="e.g. Has an opinion about everything, whether or not anyone asked."></textarea></div>' +
-      (gf ? '<div class="field"><label for="'+gfId+'">'+gf.label+'</label><input type="text" class="role-gf" id="'+gfId+'" maxlength="'+gf.maxLen+'" placeholder="'+gf.placeholder+'"></div>' : '') +
-      '</div>';
-    card.appendChild(iconWrap);
-    card.appendChild(body);
-    const skipCb = body.querySelector('.skip-cb');
-    const fields = body.querySelector('.role-fields');
-    const nameInput = body.querySelector('.role-name');
-    const anecInput = body.querySelector('.role-anec');
-    const gfInput = body.querySelector('.role-gf');
-    // PHASE C: "which one is them?" -- optional, skipping it changes nothing
-    // (see buildOverridesFromState). DEFAULT_ROSTER_KEY[role.cfgKey] is
-    // undefined for savior/authority (no bespoke tile to preselect -- see
-    // that map's own comment), so their strip starts with nothing selected.
-    renderSpriteStrip(fields, 'Which one is them?', c.sprite, DEFAULT_ROSTER_KEY[role.cfgKey], (key)=>{
-      c.sprite = key; persist();
+    card.className = 'card story-card';
+    const nameId = 'p-name-' + idx;
+    card.innerHTML =
+      (state.people.length > PEOPLE_MIN ? '<button type="button" class="story-remove" data-idx="'+idx+'" aria-label="Remove person '+(idx+1)+'">Remove</button>' : '') +
+      '<div class="field"><label for="'+nameId+'">Person '+(idx+1)+'’s name</label><input type="text" id="'+nameId+'" class="p-name" maxlength="40" placeholder="e.g. Jordan, or Mom, or Coach Riley"></div>';
+    const nameInput = card.querySelector('.p-name');
+    nameInput.value = p.name;
+    const nameWrap = document.createElement('div'); nameInput.after(nameWrap);
+    nameInput.addEventListener('input', ()=>{
+      p.name = nameInput.value; persist();
+      fieldWarning(nameWrap, checkForbidden(nameInput.value, parseOffLimits(state.offLimits))[0]||null);
+      onNameChange();
     });
-    skipCb.checked = !c.cast;
-    nameInput.value = c.name; anecInput.value = c.anecdote;
-    // THE GALLERY (template #2) / THE FLIGHT (template #3) -- the optional
-    // boss-line field (heckle/quirk) only exists in the markup at all when
-    // template is gallery or flight AND this role defines one for that
-    // template (see ROLE_DEFS); gfInput is null on the Hangout path or for
-    // roles with no such field, so every access below is guarded.
-    if(gfInput){
-      gfInput.value = c[gf.key] || '';
-      const gfWrap = document.createElement('div'); gfInput.parentElement.appendChild(gfWrap);
-      makeCharCounter(gfInput, gf.maxLen, gfWrap);
-      gfInput.addEventListener('input', ()=>{
-        c[gf.key] = gfInput.value; persist();
-        fieldWarning(gfInput.parentElement, checkForbidden(gfInput.value, parseOffLimits(state.offLimits))[0]||null);
+    renderSpriteStrip(card, 'Which one is them?', p.sprite, null, (key)=>{ p.sprite = key; persist(); });
+    const quoteHead = document.createElement('p');
+    quoteHead.className = 'sprite-field-label';
+    quoteHead.style.cssText = 'margin-top:16px;';
+    quoteHead.textContent = '1-3 things they actually say (word for word)';
+    card.appendChild(quoteHead);
+    for(let qi=0; qi<3; qi++){
+      const qField = document.createElement('div');
+      qField.className = 'field';
+      qField.style.cssText = 'margin-bottom:10px;';
+      const qId = 'p-quote-' + idx + '-' + qi;
+      qField.innerHTML = '<label for="'+qId+'" class="opt" style="display:block;margin-bottom:4px;">Quote '+(qi+1)+(qi>0?' (optional)':'')+'</label>' +
+        '<input type="text" id="'+qId+'" class="p-quote" maxlength="60" placeholder="e.g. I’m not lost. The map is wrong.">';
+      const qInput = qField.querySelector('.p-quote');
+      qInput.value = p.quotes[qi] || '';
+      const qWrap = document.createElement('div'); qField.appendChild(qWrap);
+      makeCharCounter(qInput, 60, qWrap);
+      qInput.addEventListener('input', ()=>{
+        p.quotes[qi] = qInput.value; persist();
+        fieldWarning(qWrap, checkForbidden(qInput.value, parseOffLimits(state.offLimits))[0]||null);
+      });
+      card.appendChild(qField);
+    }
+    const anecField = document.createElement('div');
+    anecField.className = 'field';
+    anecField.style.cssText = 'margin-top:6px;';
+    const anecId = 'p-anec-' + idx;
+    anecField.innerHTML = '<label for="'+anecId+'">One quick memory or quirk <span class="opt">(optional -- flavor, not literal dialogue)</span></label>' +
+      '<textarea id="'+anecId+'" class="p-anec" rows="2" maxlength="160" placeholder="e.g. Has an opinion about everything, whether or not anyone asked."></textarea>';
+    card.appendChild(anecField);
+    const anecInput = anecField.querySelector('.p-anec');
+    anecInput.value = p.anecdote;
+    anecInput.addEventListener('input', ()=>{ p.anecdote = anecInput.value; persist(); });
+    const removeBtn = card.querySelector('.story-remove');
+    if(removeBtn){
+      removeBtn.addEventListener('click', ()=>{
+        removePersonAt(idx);
+        persist(); renderStep(); window.scrollTo(0,0);
       });
     }
-    fields.classList.toggle('skipped', skipCb.checked);
-    skipCb.addEventListener('change', ()=>{
-      c.cast = !skipCb.checked;
-      fields.classList.toggle('skipped', skipCb.checked);
-      persist();
-    });
-    nameInput.addEventListener('input', ()=>{
-      c.name = nameInput.value;
-      // typing a real name auto-casts the role -- "Skip this role" remains the
-      // explicit opt-out (still works after this, and doesn't clear the name);
-      // clearing the name back out does NOT auto-skip, on purpose.
-      if(nameInput.value.trim() && !c.cast){
-        c.cast = true;
-        skipCb.checked = false;
-        fields.classList.remove('skipped');
-      }
-      persist();
-      fieldWarning(fields, checkForbidden(nameInput.value, parseOffLimits(state.offLimits))[0]||null);
-    });
-    anecInput.addEventListener('input', ()=>{ c.anecdote = anecInput.value; persist(); });
     return card;
   }
 
-  function renderStepCast(){
+  /* removing a person has to keep state.assign internally consistent:
+     clear any slot that pointed at `idx`, and shift every index greater
+     than `idx` down by one (they're about to occupy one fewer slot in the
+     array once the splice below runs). */
+  function removePersonAt(idx){
+    state.people.splice(idx, 1);
+    for(const key of ASSIGN_KEYS){
+      const v = state.assign[key];
+      if(v === idx) state.assign[key] = null;
+      else if(typeof v === 'number' && v > idx) state.assign[key] = v - 1;
+    }
+  }
+
+  function renderStepPeople(){
     const el = document.createElement('div');
     el.innerHTML =
-      '<h2>The cast</h2>' +
-      '<p class="step-sub">Every boss is somebody you actually know. Real people only -- skip any slot that doesn’t fit, and the game rewrites itself.</p>';
+      '<h2>Who’s in it?</h2>' +
+      '<p class="step-sub">Your group, your family, your team -- 3 to 6 people. Mom who’s always cooking, Dad with the complaints, ' +
+      'the sister who won’t get off her phone -- that’s a cast. For each one: their name, which sprite looks like them, and 1-3 things they actually say, word for word.</p>';
     stepsContainer.appendChild(el);
-    for(const role of ROLE_DEFS) stepsContainer.appendChild(renderRoleCard(role));
+
+    const peopleList = document.createElement('div');
+    peopleList.id = 'peopleList';
+    stepsContainer.appendChild(peopleList);
+    function renderPeopleList(){
+      peopleList.innerHTML = '';
+      for(let i=0;i<state.people.length;i++) peopleList.appendChild(renderPersonCard(i, refreshSection2));
+    }
+    renderPeopleList();
+
+    if(state.people.length < PEOPLE_MAX){
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button'; addBtn.className = 'btn btn-secondary btn-sm';
+      addBtn.textContent = '+ Add person';
+      addBtn.addEventListener('click', ()=>{
+        state.people.push(defaultPerson()); persist(); renderStep(); window.scrollTo(0,0);
+      });
+      stepsContainer.appendChild(addBtn);
+    }
+
+    const section2 = document.createElement('div');
+    section2.id = 'whosWho';
+    stepsContainer.appendChild(section2);
+
+    function chipButton(label, spriteKey, selected, extraClass, onClick){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'person-chip' + (selected ? ' selected' : '') + (extraClass ? ' '+extraClass : '');
+      btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      if(spriteKey){
+        const canvas = document.createElement('canvas');
+        drawRosterSwatch(canvas, spriteKey);
+        btn.appendChild(canvas);
+      }
+      const span = document.createElement('span');
+      span.textContent = label;
+      btn.appendChild(span);
+      btn.addEventListener('click', onClick);
+      return btn;
+    }
+
+    /* every named person who is either unassigned right now, or already
+       holds THIS slot (so the current pick still shows up as an option,
+       toggleable back off) -- never anyone holding a DIFFERENT slot
+       ("one person can hold at most one role", SPEC-people.md). */
+    function candidatesFor(slotKey){
+      const out = [];
+      for(let i=0;i<state.people.length;i++){
+        const p = state.people[i];
+        if(!p.name || !p.name.trim()) continue;
+        const holder = ASSIGN_KEYS.find(k => state.assign[k] === i);
+        if(holder && holder !== slotKey) continue;
+        out.push(i);
+      }
+      return out;
+    }
+    function renderChipsForSlot(container, slotKey, allowSkip){
+      container.innerHTML = '';
+      const current = state.assign[slotKey];
+      for(const idx of candidatesFor(slotKey)){
+        const p = state.people[idx];
+        container.appendChild(chipButton(personLabel(p, idx), p.sprite || DEFAULT_ROSTER_KEY.diner0, current === idx, null, ()=>{
+          // one person, one role -- clear this person from every OTHER
+          // slot before claiming this one (SPEC-people.md).
+          for(const k of ASSIGN_KEYS){ if(k !== slotKey && state.assign[k] === idx) state.assign[k] = null; }
+          state.assign[slotKey] = idx;
+          persist(); refreshSection2();
+        }));
+      }
+      if(allowSkip){
+        container.appendChild(chipButton('Skip', null, current === null, 'skip-chip', ()=>{
+          state.assign[slotKey] = null; persist(); refreshSection2();
+        }));
+      }
+    }
+
+    function renderRoleLineField(wrap, role, gf){
+      wrap.innerHTML = '';
+      const p = personAt(state, state.assign[role.key]);
+      if(!p || !p.name || !p.name.trim()) return; // only shown once the role actually has someone in it
+      const suggested = (p.quotes || []).map(q => q && q.trim()).filter(Boolean)[0];
+      const field = document.createElement('div');
+      field.className = 'field';
+      const id = 'role-line-' + role.key;
+      field.innerHTML = '<label for="'+id+'">'+gf.label+'</label><input type="text" id="'+id+'" maxlength="'+gf.maxLen+'" placeholder="'+(suggested ? suggested.replace(/"/g,'&quot;') : gf.placeholder)+'">';
+      wrap.appendChild(field);
+      const input = field.querySelector('input');
+      input.value = state.roleLines[role.key] || '';
+      const cwrap = document.createElement('div'); field.appendChild(cwrap);
+      makeCharCounter(input, gf.maxLen, cwrap);
+      input.addEventListener('input', ()=>{
+        state.roleLines[role.key] = input.value; persist();
+        fieldWarning(cwrap, checkForbidden(input.value, parseOffLimits(state.offLimits))[0]||null);
+      });
+    }
+
+    function refreshSection2(){
+      section2.innerHTML = '';
+      const head = document.createElement('div');
+      head.innerHTML = '<h2 style="margin-top:8px;">Who’s who?</h2><p class="step-sub">Tap the main character, then place as many of these five as fit -- Skip whatever doesn’t.</p>';
+      section2.appendChild(head);
+
+      const hostField = document.createElement('div');
+      hostField.className = 'field';
+      hostField.innerHTML = '<label>Who’s the main character? <span class="opt">(required -- the one the player plays as)</span></label>';
+      const hostRow = document.createElement('div'); hostRow.className = 'person-chip-row';
+      hostField.appendChild(hostRow);
+      section2.appendChild(hostField);
+      renderChipsForSlot(hostRow, 'host', false);
+
+      const isGallery = state.template === 'gallery';
+      const isFlight = state.template === 'flight';
+      const isDefense = state.template === 'defense';
+      const isMission = state.template === 'mission';
+      for(const role of ROLE_DEFS){
+        const card = document.createElement('div');
+        card.className = 'card role-card';
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'role-icon';
+        const canvas = document.createElement('canvas');
+        drawRoleIcon(canvas, role.key);
+        iconWrap.appendChild(canvas);
+        const body = document.createElement('div');
+        body.className = 'role-body';
+        const descText = (isGallery && role.galleryDesc) ? role.galleryDesc : (isFlight && role.flightDesc) ? role.flightDesc : (isDefense && role.defenseDesc) ? role.defenseDesc : (isMission && role.missionDesc) ? role.missionDesc : role.desc;
+        body.innerHTML = '<h2>'+role.title+'</h2><p class="role-desc">'+descText+'</p>';
+        card.appendChild(iconWrap);
+        card.appendChild(body);
+        const chipRow = document.createElement('div'); chipRow.className = 'person-chip-row';
+        body.appendChild(chipRow);
+        renderChipsForSlot(chipRow, role.key, true);
+        const gf = isGallery ? role.galleryField : (isFlight ? role.flightField : (isDefense ? role.defenseField : (isMission ? role.missionField : null)));
+        if(gf){
+          const gfWrap = document.createElement('div');
+          body.appendChild(gfWrap);
+          renderRoleLineField(gfWrap, role, gf);
+        }
+        section2.appendChild(card);
+      }
+
+      const note = document.createElement('p');
+      note.className = 'people-reassure';
+      note.textContent = "Everyone else is still in the game -- friends, targets-you-don't-shoot, wingmates, and the end-card credits.";
+      section2.appendChild(note);
+    }
+    refreshSection2();
   }
 
   function renderStepVibe(){
@@ -1814,19 +2148,41 @@ function initWizard(){
           : isMission
             ? state.mission.trim().length > 0 && state.swarms.filter(sw => sw && sw.trim()).length >= MISSION_SWARMS_MIN
             : state.stories.filter(s => (s.l1 && s.l1.trim()) || (s.l2 && s.l2.trim())).length >= 1;
-    if(!state.host.trim() || !state.catchphrase.trim() || !state.title.trim() || !contentOk){
+    // PEOPLE FIRST (SPEC-people.md round 2) -- the main character is now
+    // WHOEVER state.assign.host points at, not a free-typed field.
+    const hostPerson = personAt(state, state.assign && state.assign.host);
+    const hostOk = !!(hostPerson && hostPerson.name && hostPerson.name.trim());
+    if(!hostOk || !state.catchphrase.trim() || !state.title.trim() || !contentOk){
       const missing = document.createElement('div');
       missing.className = 'warning-banner show';
       missing.textContent = isGallery
-        ? 'Main character name, catchphrase, title, and at least ' + GALLERY_TARGETS_MIN + ' targets are all required -- go back and fill those in.'
+        ? 'A main character (pick who, in Who’s in it?), catchphrase, title, and at least ' + GALLERY_TARGETS_MIN + ' targets are all required -- go back and fill those in.'
         : isFlight
-          ? 'Main character name, catchphrase, title, at least ' + FLIGHT_BEATS_MIN + ' trip legs, and at least ' + FLIGHT_HAZARDS_MIN + ' hazards are all required -- go back and fill those in.'
+          ? 'A main character (pick who, in Who’s in it?), catchphrase, title, at least ' + FLIGHT_BEATS_MIN + ' trip legs, and at least ' + FLIGHT_HAZARDS_MIN + ' hazards are all required -- go back and fill those in.'
           : isDefense
-            ? 'Main character name, catchphrase, title, what you defend, and at least ' + DEFENSE_WAVES_MIN + ' waves are all required -- go back and fill those in.'
+            ? 'A main character (pick who, in Who’s in it?), catchphrase, title, what you defend, and at least ' + DEFENSE_WAVES_MIN + ' waves are all required -- go back and fill those in.'
             : isMission
-              ? 'Main character name, catchphrase, title, the mission, and at least ' + MISSION_SWARMS_MIN + ' swarms are all required -- go back and fill those in.'
-              : 'Main character name, catchphrase, title, and at least one story are all required -- go back and fill those in.';
+              ? 'A main character (pick who, in Who’s in it?), catchphrase, title, the mission, and at least ' + MISSION_SWARMS_MIN + ' swarms are all required -- go back and fill those in.'
+              : 'A main character (pick who, in Who’s in it?), catchphrase, title, and at least one story are all required -- go back and fill those in.';
       stepsContainer.appendChild(missing);
+      return;
+    }
+
+    // PEOPLE FIRST (SPEC-people.md round 2) -- the overflow gate: only 3
+    // unassigned people ever make it into the compiled game (the first as
+    // cast.diner0, up to 2 more as extras[] -- see buildOverridesFromState).
+    // A 4th+ unassigned person wouldn't silently vanish without a word --
+    // block sharing outright and say exactly who won't fit, same "never
+    // silently drop a typed name" rule the rest of this wizard follows.
+    const overflowPeople = unassignedPeople(state).slice(3).filter(p => p && p.name && p.name.trim());
+    if(overflowPeople.length){
+      const overflowMsg = document.createElement('div');
+      overflowMsg.className = 'warning-banner show';
+      overflowMsg.textContent = overflowPeople.map(p => p.name.trim()).join(', ') +
+        (overflowPeople.length === 1 ? " won't" : " won't all") +
+        ' fit -- only 3 people beyond the cast (the extra friend + 2 more) make it into the game unassigned. ' +
+        'Go back to Who’s in it? and give one of them a role, or remove someone, before sharing.';
+      stepsContainer.appendChild(overflowMsg);
       return;
     }
 
@@ -1915,9 +2271,9 @@ function initWizard(){
   // (state.template) picks which keys apply and in what order (see that
   // function's own header comment).
   const STEP_RENDERERS = {
-    joke: renderStepJoke, setting: renderStepSetting, group: renderStepHost, punchline: renderStepPunchline,
+    joke: renderStepJoke, setting: renderStepSetting, punchline: renderStepPunchline,
     stories: renderStepStories, targets: renderStepTargets, trip: renderStepTrip, annoyance: renderStepAnnoyance, mission: renderStepMission,
-    cast: renderStepCast, vibe: renderStepVibe, preview: renderStepPreview,
+    people: renderStepPeople, vibe: renderStepVibe, preview: renderStepPreview,
   };
 
   function renderStep(){

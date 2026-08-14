@@ -2,7 +2,6 @@
   "template": "mission",
   "email": "mission-sample@example.test",
   "title": "The Apartment Hunters",
-  "host": "Deshawn",
   "catchphrase": "We found it. It has laundry.",
   "mission": "Find a place with in-unit laundry",
   "swarms": [
@@ -15,28 +14,24 @@
   "shipColor": "orange",
   "firstBossHeckle": "It won't last at this price.",
   "finalBossQuirk": "Still mad about that one email.",
-  "cast": {
+  "people": [
+    { "name": "Deshawn", "sprite": "overalls", "quotes": ["We found it. It has laundry.", "In-unit laundry is non-negotiable."] },
+    { "name": "The Broker", "anecdote": "Charges a fee for texting back.", "sprite": "grandma", "quotes": ["That's a processing fee for texting back.", "The listing photos were... generous."] },
+    { "name": "The Landlord", "anecdote": "Has never once fixed the radiator.", "sprite": "beard", "quotes": ["The radiator is fine. It's character.", "I'll look into it. Eventually."] },
+    { "name": "The Co-Signer", "anecdote": "Always has a backup plan and a spare key.", "sprite": "vest", "quotes": ["I always have a backup plan.", "Here's the spare key, just in case."] },
+    { "name": "The One Who Drops The Keys", "anecdote": "Has been locked out three times this month.", "sprite": "braid", "quotes": ["Locked out again. Third time this month.", "The keys are somewhere. Probably."] },
+    { "name": "The Spreadsheet", "anecdote": "Built a spreadsheet ranking every listing by laundry access.", "sprite": "squire", "quotes": ["I ranked every listing by laundry access.", "The spreadsheet has color coding."] },
+    { "name": "The Fourth Friend", "quotes": ["I brought snacks to every viewing.", "I'm here for moral support and snacks."] },
+    { "name": "The Friend Who Already Has A Place", "sprite": "villager", "quotes": ["I found mine in one weekend. Sorry.", "Good luck out there."] }
+  ],
+  "assign": {
+    "host": "Deshawn",
     "critic": "The Broker",
     "boss": "The Landlord",
     "savior": "The Co-Signer",
     "butterfingers": "The One Who Drops The Keys",
     "builder": "The Spreadsheet"
   },
-  "anecdotes": {
-    "critic": "Charges a fee for texting back.",
-    "boss": "Has never once fixed the radiator.",
-    "savior": "Always has a backup plan and a spare key.",
-    "butterfingers": "Has been locked out three times this month.",
-    "builder": "Built a spreadsheet ranking every listing by laundry access."
-  },
-  "spriteCast": {
-    "critic": "grandma",
-    "boss": "beard",
-    "savior": "vest",
-    "butterfingers": "braid",
-    "builder": "squire"
-  },
-  "hostSprite": "overalls",
   "offLimits": [],
   "music": { "vibe": "chase" }
 }

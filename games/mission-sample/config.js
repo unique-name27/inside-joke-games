@@ -20,7 +20,10 @@ const CONFIG = {
   "host": {
     "name": "DESHAWN",
     "sprite": "overalls",
-    "quotes": ["WE FOUND IT. IT HAS LAUNDRY.", "IN-UNIT LAUNDRY IS NON-NEGOTIABLE."]
+    "quotes": [
+      "WE FOUND IT. IT HAS LAUNDRY.",
+      "IN-UNIT LAUNDRY IS NON-NEGOTIABLE."
+    ]
   },
   "music": {
     "customSongPath": null,
@@ -54,7 +57,10 @@ const CONFIG = {
       "spriteCol": 1,
       "spriteRow": 7,
       "anecdote": "Always up for anything.",
-      "quotes": ["I BROUGHT SNACKS TO EVERY VIEWING.", "I'M HERE FOR MORAL SUPPORT AND SNACKS."]
+      "quotes": [
+        "I BROUGHT SNACKS TO EVERY VIEWING.",
+        "I'M HERE FOR MORAL SUPPORT AND SNACKS."
+      ]
     },
     "judge": {
       "name": "THE BROKER",
@@ -62,19 +68,28 @@ const CONFIG = {
       "spriteCol": 4,
       "spriteRow": 8,
       "sprite": "grandma",
-      "quotes": ["THAT'S A PROCESSING FEE FOR TEXTING BACK.", "THE LISTING PHOTOS WERE... GENEROUS."]
+      "quotes": [
+        "THAT'S A PROCESSING FEE FOR TEXTING BACK.",
+        "THE LISTING PHOTOS WERE... GENEROUS."
+      ]
     },
     "authority": {
       "name": "THE LANDLORD",
       "anecdote": "Has never once fixed the radiator.",
       "sprite": "beard",
-      "quotes": ["THE RADIATOR IS FINE. IT'S CHARACTER.", "I'LL LOOK INTO IT. EVENTUALLY."]
+      "quotes": [
+        "THE RADIATOR IS FINE. IT'S CHARACTER.",
+        "I'LL LOOK INTO IT. EVENTUALLY."
+      ]
     },
     "savior": {
       "name": "THE CO-SIGNER",
       "anecdote": "Always has a backup plan and a spare key.",
       "sprite": "vest",
-      "quotes": ["I ALWAYS HAVE A BACKUP PLAN.", "HERE'S THE SPARE KEY, JUST IN CASE."]
+      "quotes": [
+        "I ALWAYS HAVE A BACKUP PLAN.",
+        "HERE'S THE SPARE KEY, JUST IN CASE."
+      ]
     },
     "butterfingers": {
       "name": "THE ONE WHO DROPS THE KEYS",
@@ -82,7 +97,10 @@ const CONFIG = {
       "spriteCol": 3,
       "spriteRow": 8,
       "sprite": "braid",
-      "quotes": ["LOCKED OUT AGAIN. THIRD TIME THIS MONTH.", "THE KEYS ARE SOMEWHERE. PROBABLY."]
+      "quotes": [
+        "LOCKED OUT AGAIN. THIRD TIME THIS MONTH.",
+        "THE KEYS ARE SOMEWHERE. PROBABLY."
+      ]
     },
     "builder": {
       "name": "THE SPREADSHEET",
@@ -90,15 +108,25 @@ const CONFIG = {
       "spriteCol": 2,
       "spriteRow": 8,
       "sprite": "squire",
-      "quotes": ["I RANKED EVERY LISTING BY LAUNDRY ACCESS.", "THE SPREADSHEET HAS COLOR CODING."]
+      "quotes": [
+        "I RANKED EVERY LISTING BY LAUNDRY ACCESS.",
+        "THE SPREADSHEET HAS COLOR CODING."
+      ]
     }
   },
-  "extras": [
-    { "name": "THE FRIEND WHO ALREADY HAS A PLACE", "sprite": "villager", "quotes": ["I FOUND MINE IN ONE WEEKEND. SORRY.", "GOOD LUCK OUT THERE."] }
-  ],
   "rankNames": {
     "immaculate": "IMMACULATE",
     "comicTiming": "COMIC TIMING",
     "worst": "COULD USE MORE PRACTICE"
-  }
+  },
+  "extras": [
+    {
+      "name": "THE FRIEND WHO ALREADY HAS A PLACE",
+      "sprite": "villager",
+      "quotes": [
+        "I FOUND MINE IN ONE WEEKEND. SORRY.",
+        "GOOD LUCK OUT THERE."
+      ]
+    }
+  ]
 };
