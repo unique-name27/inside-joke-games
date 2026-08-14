@@ -26,9 +26,12 @@ a shape, and the shape picks the game:
 
 Every template, no exceptions:
 
-1. **Their people are in it.** The cast system (host + THE FIRST BOSS +
-   THE FINAL BOSS + savior/butterfingers/builder where they fit) maps into
-   every template. Bosses are always real people, named on screen.
+1. **Their people are in it — and they say their own lines.** The cast
+   system (host + THE FIRST BOSS + THE FINAL BOSS + savior/butterfingers/
+   builder where they fit) maps into every template; since PEOPLE FIRST
+   (SPEC-people.md) every person also carries verbatim quotes that
+   surface in-game, and nobody a user adds is ever dropped (extras +
+   crew credits). Bosses are always real people, named on screen.
 2. **The catchphrase is the win move** — and it's spoken aloud
    (SpeechSynthesis) when it fires.
 3. **Their words verbatim.** Whatever content the template asks for (targets,

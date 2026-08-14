@@ -56,7 +56,10 @@ role still shows up in the game (see step 3).
 Read every free-text answer (Q4's story/targets/trip content, Q6's
 names/quotes/quirks, Q7's optional boss lines, Q3's catchphrase, Q5's
 title, Q10's off-limits list) before doing anything else, regardless of which template
-was picked. **Decline or flag** the order — don't proceed to
+was picked. Q6's quotes deserve the closest read of all — they're the
+most personal text in an order (real people's real words, shown in their
+mouths on screen), and a quote that reads as mockery of the person
+saying it is exactly the punching-down case below. **Decline or flag** the order — don't proceed to
 config-mapping — if anything:
 
 - targets a person who didn't consent to being written about (this product

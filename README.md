@@ -1,9 +1,9 @@
 # Inside Joke Games
 
 A tiny personalized-game studio: pick the shape of your group's inside
-joke, tell us your group's real (boring) stories, and get back a
-playable, shareable comedy game built around your own people and your
-own words.
+joke, add your people (3–6 of them — a friend group, a family, a team —
+each with the things they actually say), and get back a playable,
+shareable comedy game where your own people speak their own lines.
 
 This repo is the **template engine and builder** — a small catalog of
 game *styles* (see "What's the joke?" below), each entirely driven by a
@@ -12,8 +12,8 @@ ships a game of its own out of the box: every bare template page has no
 file config and redirects to `/build/` unless a `#cfg=` link is present.
 Every actual game lives either as a deployed `games/<slug>/` folder or as
 an instant `#cfg=` link — see `games/test-group/`, `games/gallery-sample/`,
-and `games/flight-sample/` for real, checked-in examples, one per
-template.
+`games/flight-sample/`, `games/defense-sample/`, and
+`games/mission-sample/` for real, checked-in examples, one per template.
 
 **▶ Build a game: `/build/`** — once deployed, that's
 `https://<this-repo's-pages-domain>/build/`. Locally, see "How to run"
@@ -122,6 +122,9 @@ the invariants every template — built or future — has to hold.
 - **`SPEC-gallery.md`** — THE GALLERY's full behavioral spec.
 - **`SPEC-flight.md`** — THE FLIGHT's full behavioral spec.
 - **`SPEC-defense.md`** — THE DEFENSE's full behavioral spec.
+- **`SPEC-mission.md`** — THE MISSION's full behavioral spec.
+- **`SPEC-people.md`** — PEOPLE FIRST: the people-first wizard, the
+  per-person `quotes`, and the `extras`/crew-credits guarantee.
 - **`SPEC-skeletons.md`** — the story skeletons (Hangout-only settings)
   spec.
 - **`SPEC-their-game.md`** — the founding directive this whole
@@ -242,16 +245,24 @@ prints one alongside every hosted URL, and the self-serve builder at
 first step (always step 1, whichever template you end up on), then a
 per-template step sequence:
 
-- **THE HANGOUT** (8 steps): joke, setting, group, punchline, stories,
-  cast, vibe, preview & share.
-- **THE GALLERY** (7 steps): joke, group, punchline, targets, cast,
+- **THE HANGOUT** (7 steps): joke, setting, punchline, stories,
+  people, vibe, preview & share.
+- **THE GALLERY** (6 steps): joke, punchline, targets, people,
   vibe, preview & share.
-- **THE FLIGHT** (7 steps): joke, group, punchline, trip, cast, vibe,
+- **THE FLIGHT** (6 steps): joke, punchline, trip, people, vibe,
   preview & share.
-- **THE DEFENSE** (7 steps): joke, group, punchline, annoyance, cast,
+- **THE DEFENSE** (6 steps): joke, punchline, annoyance, people,
   vibe, preview & share.
-- **THE MISSION** (7 steps): joke, group, punchline, mission, cast,
+- **THE MISSION** (6 steps): joke, punchline, mission, people,
   vibe, preview & share.
+
+The **people** step is the same on every path (PEOPLE FIRST, see
+`SPEC-people.md`): "who's in it?" — 3–6 people, each a name, a roster
+tile pick, 1–3 verbatim quotes, and an optional quirk — then "who's
+who?": the host pick plus the five optional role assignments, chosen
+FROM the people list (never typed into a role). Everyone unassigned
+still lands in the game (the extra-friend seat, the `extras` list, and
+the end card's crew credits).
 
 Every sequence assembles a config in the browser, validates it through
 the same whitelist a real link is checked against, and hands back a
@@ -298,16 +309,23 @@ the full design):
 
 See `SPEC-game.md`'s **"Template & roles"** section for the Hangout's
 full schema and the exact graceful-degradation map (`SPEC-gallery.md`/
-`SPEC-flight.md`/`SPEC-defense.md` for the others'). Short version, true
-across all five templates: every game has a required **HOST** (the
-player) and up to five optional roles — **THE FIRST BOSS** (`judge`),
-**THE FINAL BOSS** (`authority`), **THE SAVIOR**, **BUTTERFINGERS**,
-**THE BUILDER** — each either cast (a name + a few lines of dialogue /
-a flavor anecdote) or left out entirely, in which case that role's beat
-(and anything narratively downstream of it) is skipped, and the story
-still reaches a complete, satisfying ending. `template` itself is a
-top-level `CONFIG` field (a whitelisted enum, absent → `'hangout'`) —
-see `game/cfgcodec.js`'s `CFG_TEMPLATE_KEYS`. That's the whole product:
+`SPEC-flight.md`/`SPEC-defense.md`/`SPEC-mission.md` for the others').
+Short version, true across all five templates: every game has a required
+**HOST** (the player) and up to five optional roles — **THE FIRST BOSS**
+(`judge`), **THE FINAL BOSS** (`authority`), **THE SAVIOR**,
+**BUTTERFINGERS**, **THE BUILDER** — each either cast (a name + a few
+lines of dialogue / a flavor anecdote) or left out entirely, in which
+case that role's beat (and anything narratively downstream of it) is
+skipped, and the story still reaches a complete, satisfying ending.
+Since PEOPLE FIRST (`SPEC-people.md`): the host and every cast entry
+also carry optional `quotes` (up to 3 × 60 chars — things the person
+actually says, surfaced in-game by every engine and guaranteed at least
+one on-screen moment each), and a top-level `extras` list (up to 2 more
+people beyond host + roles + the extra-friend seat: name, roster tile,
+quotes) feeds the end card's "THE WHOLE CREW" credits — nobody a user
+types in is ever dropped. `template` itself is a top-level `CONFIG`
+field (a whitelisted enum, absent → `'hangout'`) — see
+`game/cfgcodec.js`'s `CFG_TEMPLATE_KEYS`. That's the whole product:
 `games/test-group/`, and the host-only degradation checks in every
 template's own verify suite, are the proof.
 
@@ -481,6 +499,8 @@ Hangout-only today) music file.
 - `SPEC-flight.md` — THE FLIGHT's full behavioral spec.
 - `SPEC-defense.md` — THE DEFENSE's full behavioral spec.
 - `SPEC-mission.md` — THE MISSION's full behavioral spec.
+- `SPEC-people.md` — PEOPLE FIRST: the people-first wizard, per-person
+  quotes, and the extras/crew-credits guarantee.
 - `SPEC-skeletons.md` — the story skeletons (Hangout-only settings)
   spec: the paint-and-text rule, the fixed-geometry invariant, and every
   string authored for the four built-in skeletons.
